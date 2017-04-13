@@ -1,3 +1,10 @@
+# Copyright 2016 The OpenSSL Project Authors. All Rights Reserved.
+#
+# Licensed under the OpenSSL license (the "License").  You may not use
+# this file except in compliance with the License.  You can obtain a copy
+# in the file LICENSE in the source distribution or at
+# https://www.openssl.org/source/license.html
+
 package OpenSSL::Test::Utils;
 
 use strict;
@@ -34,7 +41,7 @@ This module provides utility functions for the testing framework.
 
 =cut
 
-use OpenSSL::Test qw/:DEFAULT top_file/;
+use OpenSSL::Test qw/:DEFAULT bldtop_file/;
 
 =over 4
 
@@ -75,9 +82,9 @@ my $configdata_loaded = 0;
 
 sub load_configdata {
     # We eval it so it doesn't run at compile time of this file.
-    # The latter would have top_dir() complain that setup() hasn't
+    # The latter would have bldtop_file() complain that setup() hasn't
     # been run yet.
-    my $configdata = top_file("configdata.pm");
+    my $configdata = bldtop_file("configdata.pm");
     eval { require $configdata;
 	   %available_protocols = %configdata::available_protocols;
 	   %disabled = %configdata::disabled;
@@ -131,7 +138,7 @@ sub alldisabled {
     return allof(@ret);
 }
 
-#!!! Kept for backward compatibility
+# !!! Kept for backward compatibility
 # args:
 #  single string
 sub disabled {
@@ -153,7 +160,7 @@ sub config {
 
 # IPv4 / IPv6 checker
 my $have_IPv4 = -1;
-my $have_IPv6 = 1;
+my $have_IPv6 = -1;
 my $IP_factory;
 sub check_IP {
     my $listenaddress = shift;

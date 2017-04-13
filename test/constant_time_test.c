@@ -1,59 +1,26 @@
-/*-
- * Utilities for constant-time cryptography.
+/*
+ * Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
  *
- * Author: Emilia Kasper (emilia@openssl.org)
- * Based on previous work by Bodo Moeller, Emilia Kasper, Adam Langley
- * (Google).
- * ====================================================================
- * Copyright (c) 2014 The OpenSSL Project.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.]
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
  */
 
 #include "internal/constant_time_locl.h"
 #include "e_os.h"
 
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "internal/numbers.h"
 
 static const unsigned int CONSTTIME_TRUE = (unsigned)(~0);
 static const unsigned int CONSTTIME_FALSE = 0;
 static const unsigned char CONSTTIME_TRUE_8 = 0xff;
 static const unsigned char CONSTTIME_FALSE_8 = 0;
+static const size_t CONSTTIME_TRUE_S = ~((size_t)0);
+static const size_t CONSTTIME_FALSE_S = 0;
 
 static int test_binary_op(unsigned int (*op) (unsigned int a, unsigned int b),
                           const char *op_name, unsigned int a, unsigned int b,
@@ -90,6 +57,25 @@ static int test_binary_op_8(unsigned
     return 0;
 }
 
+static int test_binary_op_s(size_t (*op) (size_t a, size_t b),
+                            const char *op_name, size_t a, size_t b,
+                            int is_true)
+{
+    size_t c = op(a, b);
+    if (is_true && c != CONSTTIME_TRUE_S) {
+        fprintf(stderr, "Test failed for %s(%"OSSLzu", %"OSSLzu
+        "): expected %"OSSLzu" (TRUE), got %"OSSLzu"\n",
+        op_name, a, b, CONSTTIME_TRUE_S, c);
+        return 1;
+    } else if (!is_true && c != CONSTTIME_FALSE_S) {
+        fprintf(stderr, "Test failed for  %s(%"OSSLzu", %"OSSLzu
+        "): expected %" OSSLzu " (FALSE), got %"OSSLzu"\n",
+        op_name, a, b, CONSTTIME_FALSE_S, c);
+        return 1;
+    }
+    return 0;
+}
+
 static int test_is_zero(unsigned int a)
 {
     unsigned int c = constant_time_is_zero(a);
@@ -120,6 +106,22 @@ static int test_is_zero_8(unsigned int a)
     return 0;
 }
 
+static int test_is_zero_s(size_t a)
+{
+    size_t c = constant_time_is_zero_s(a);
+    if (a == 0 && c != CONSTTIME_TRUE_S) {
+        fprintf(stderr, "Test failed for constant_time_is_zero_s(%"OSSLzu"): "
+                "expected %"OSSLzu" (TRUE), got %"OSSLzu"\n",
+                a, CONSTTIME_TRUE_S, c);
+        return 1;
+    } else if (a != 0 && c != CONSTTIME_FALSE) {
+        fprintf(stderr, "Test failed for constant_time_is_zero_s(%"OSSLzu"): "
+                "expected %"OSSLzu" (FALSE), got %"OSSLzu"\n",
+                a, CONSTTIME_FALSE_S, c);
+        return 1;
+    }
+    return 0;
+}
 static int test_select(unsigned int a, unsigned int b)
 {
     unsigned int selected = constant_time_select(CONSTTIME_TRUE, a, b);
@@ -177,6 +179,28 @@ static int test_select_int(int a, int b)
     return 0;
 }
 
+
+static int test_select_s(size_t a, size_t b)
+{
+    size_t selected = constant_time_select_s(CONSTTIME_TRUE_S, a, b);
+    if (selected != a) {
+        fprintf(stderr, "Test failed for constant_time_select_s(%"OSSLzu
+                ", %"OSSLzu",%"OSSLzu"): expected %"OSSLzu
+                "(first value), got %"OSSLzu"\n",
+                CONSTTIME_TRUE_S, a, b, a, selected);
+        return 1;
+    }
+    selected = constant_time_select_s(CONSTTIME_FALSE_S, a, b);
+    if (selected != b) {
+        fprintf(stderr, "Test failed for constant_time_select_s(%"OSSLzu
+                ", %"OSSLzu",%"OSSLzu"): expected %"OSSLzu
+                "(second value), got %"OSSLzu"\n",
+                CONSTTIME_FALSE_S, a, b, b, selected);
+        return 1;
+    }
+    return 0;
+}
+
 static int test_eq_int(int a, int b)
 {
     unsigned int equal = constant_time_eq_int(a, b);
@@ -209,6 +233,23 @@ static int test_eq_int_8(int a, int b)
     return 0;
 }
 
+static int test_eq_s(size_t a, size_t b)
+{
+    size_t equal = constant_time_eq_s(a, b);
+    if (a == b && equal != CONSTTIME_TRUE_S) {
+        fprintf(stderr, "Test failed for constant_time_eq_int(%"OSSLzu
+                ", %"OSSLzu"): expected %"OSSLzu"(TRUE), got %"OSSLzu"\n",
+                a, b, CONSTTIME_TRUE_S, equal);
+        return 1;
+    } else if (a != b && equal != CONSTTIME_FALSE_S) {
+        fprintf(stderr, "Test failed for constant_time_eq_int(%"OSSLzu", %"
+                OSSLzu"): expected %"OSSLzu"(FALSE), got %"OSSLzu"\n",
+                a, b, CONSTTIME_FALSE_S, equal);
+        return 1;
+    }
+    return 0;
+}
+
 static unsigned int test_values[] =
     { 0, 1, 1024, 12345, 32000, UINT_MAX / 2 - 1,
     UINT_MAX / 2, UINT_MAX / 2 + 1, UINT_MAX - 1,
@@ -223,34 +264,55 @@ static int signed_test_values[] = { 0, 1, -1, 1024, -1024, 12345, -12345,
     INT_MIN + 1
 };
 
+static size_t test_values_s[] =
+    { 0, 1, 1024, 12345, 32000, SIZE_MAX / 2 - 1,
+    SIZE_MAX / 2, SIZE_MAX / 2 + 1, SIZE_MAX - 1,
+    SIZE_MAX
+};
+
 int main(int argc, char *argv[])
 {
     unsigned int a, b, i, j;
     int c, d;
     unsigned char e, f;
+    size_t g, h;
     int num_failed = 0, num_all = 0;
     fprintf(stdout, "Testing constant time operations...\n");
 
+    if (OSSL_NELEM(test_values) != OSSL_NELEM(test_values_s)) {
+        fprintf(stdout, "Unexpected number of tests\n");
+        return EXIT_FAILURE;
+    }
+
     for (i = 0; i < OSSL_NELEM(test_values); ++i) {
         a = test_values[i];
+        g = test_values_s[i];
         num_failed += test_is_zero(a);
         num_failed += test_is_zero_8(a);
-        num_all += 2;
+        num_failed += test_is_zero_s(g);
+        num_all += 3;
         for (j = 0; j < OSSL_NELEM(test_values); ++j) {
             b = test_values[j];
+            h = test_values[j];
             num_failed += test_binary_op(&constant_time_lt,
                                          "constant_time_lt", a, b, a < b);
             num_failed += test_binary_op_8(&constant_time_lt_8,
                                            "constant_time_lt_8", a, b, a < b);
+            num_failed += test_binary_op_s(&constant_time_lt_s,
+                                           "constant_time_lt_s", g, h, g < h);
             num_failed += test_binary_op(&constant_time_lt,
-                                         "constant_time_lt_8", b, a, b < a);
+                                         "constant_time_lt", b, a, b < a);
             num_failed += test_binary_op_8(&constant_time_lt_8,
                                            "constant_time_lt_8", b, a, b < a);
+            num_failed += test_binary_op_s(&constant_time_lt_s,
+                                           "constant_time_lt_s", h, g, h < g);
             num_failed += test_binary_op(&constant_time_ge,
                                          "constant_time_ge", a, b, a >= b);
             num_failed += test_binary_op_8(&constant_time_ge_8,
                                            "constant_time_ge_8", a, b,
                                            a >= b);
+            num_failed += test_binary_op_s(&constant_time_ge_s,
+                                           "constant_time_ge_s", g, h, g >= h);
             num_failed +=
                 test_binary_op(&constant_time_ge, "constant_time_ge", b, a,
                                b >= a);
@@ -258,19 +320,30 @@ int main(int argc, char *argv[])
                 test_binary_op_8(&constant_time_ge_8, "constant_time_ge_8", b,
                                  a, b >= a);
             num_failed +=
+                test_binary_op_s(&constant_time_ge_s, "constant_time_ge_s", h, g,
+                                 h >= g);
+            num_failed +=
                 test_binary_op(&constant_time_eq, "constant_time_eq", a, b,
                                a == b);
             num_failed +=
                 test_binary_op_8(&constant_time_eq_8, "constant_time_eq_8", a,
                                  b, a == b);
             num_failed +=
+                test_binary_op_s(&constant_time_eq_s, "constant_time_eq_s", g, h,
+                                 g == h);
+            num_failed +=
                 test_binary_op(&constant_time_eq, "constant_time_eq", b, a,
                                b == a);
             num_failed +=
                 test_binary_op_8(&constant_time_eq_8, "constant_time_eq_8", b,
                                  a, b == a);
+            num_failed +=
+                test_binary_op_s(&constant_time_eq_s, "constant_time_eq_s", h, g,
+                                 h == g);
             num_failed += test_select(a, b);
-            num_all += 13;
+            num_failed += test_select_s(g, h);
+            num_failed += test_eq_s(g, h);
+            num_all += 21;
         }
     }
 

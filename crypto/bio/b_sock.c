@@ -1,58 +1,10 @@
-/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
- * All rights reserved.
+/*
+ * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
  *
- * This package is an SSL implementation written
- * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
- *
- * This library is free for commercial and non-commercial use as long as
- * the following conditions are aheared to.  The following conditions
- * apply to all code found in this distribution, be it the RC4, RSA,
- * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
- * included with this distribution is covered by the same copyright terms
- * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- *
- * Copyright remains Eric Young's, and as such any Copyright notices in
- * the code are not to be removed.
- * If this package is used in a product, Eric Young should be given attribution
- * as the author of the parts of the library used.
- * This can be in the form of a textual message at program startup or
- * in documentation (online or textual) provided with the package.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.]
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
  */
 
 #include <stdio.h>
@@ -64,7 +16,6 @@
 NETDB_DEFINE_CONTEXT
 #endif
 #ifndef OPENSSL_NO_SOCK
-# include <openssl/dso.h>
 # define SOCKET_PROTOCOL IPPROTO_TCP
 # ifdef SO_MAXCONN
 #  define MAX_LISTEN  SO_MAXCONN
@@ -73,19 +24,8 @@ NETDB_DEFINE_CONTEXT
 # else
 #  define MAX_LISTEN  32
 # endif
-# if defined(OPENSSL_SYS_WINDOWS) || (defined(OPENSSL_SYS_NETWARE) && !defined(NETWARE_BSDSOCK))
+# if defined(OPENSSL_SYS_WINDOWS)
 static int wsa_init_done = 0;
-# endif
-
-/*
- * WSAAPI specifier is required to make indirect calls to run-time
- * linked WinSock 2 functions used in this module, to be specific
- * [get|free]addrinfo and getnameinfo. This is because WinSock uses
- * uses non-C calling convention, __stdcall vs. __cdecl, on x86
- * Windows. On non-WinSock platforms WSAAPI needs to be void.
- */
-# ifndef WSAAPI
-#  define WSAAPI
 # endif
 
 # if OPENSSL_API_COMPAT < 0x10100000L
@@ -153,7 +93,7 @@ int BIO_get_port(const char *str, unsigned short *port_ptr)
 int BIO_sock_error(int sock)
 {
     int j = 0, i;
-    socklen_t size = 0;
+    socklen_t size = sizeof(j);
 
     /*
      * Note: under Windows the third parameter is of type (char *) whereas
@@ -163,7 +103,7 @@ int BIO_sock_error(int sock)
      */
     i = getsockopt(sock, SOL_SOCKET, SO_ERROR, (void *)&j, &size);
     if (i < 0)
-        return (1);
+        return (get_last_socket_error());
     else
         return (j);
 }
@@ -195,7 +135,7 @@ int BIO_sock_init(void)
         memset(&wsa_state, 0, sizeof(wsa_state));
         /*
          * Not making wsa_state available to the rest of the code is formally
-         * wrong. But the structures we use are [beleived to be] invariable
+         * wrong. But the structures we use are [believed to be] invariable
          * among Winsock DLLs, while API availability is [expected to be]
          * probed at run-time with DSO_global_lookup.
          */
@@ -214,34 +154,12 @@ int BIO_sock_init(void)
         return (-1);
 # endif
 
-# if defined(OPENSSL_SYS_NETWARE) && !defined(NETWARE_BSDSOCK)
-    WORD wVerReq;
-    WSADATA wsaData;
-    int err;
-
-    if (!wsa_init_done) {
-        wsa_init_done = 1;
-        wVerReq = MAKEWORD(2, 0);
-        err = WSAStartup(wVerReq, &wsaData);
-        if (err != 0) {
-            SYSerr(SYS_F_WSASTARTUP, err);
-            BIOerr(BIO_F_BIO_SOCK_INIT, BIO_R_WSASTARTUP);
-            return (-1);
-        }
-    }
-# endif
-
     return (1);
 }
 
-void BIO_sock_cleanup(void)
+void bio_sock_cleanup_int(void)
 {
 # ifdef OPENSSL_SYS_WINDOWS
-    if (wsa_init_done) {
-        wsa_init_done = 0;
-        WSACleanup();
-    }
-# elif defined(OPENSSL_SYS_NETWARE) && !defined(NETWARE_BSDSOCK)
     if (wsa_init_done) {
         wsa_init_done = 0;
         WSACleanup();
@@ -328,16 +246,10 @@ int BIO_get_accept_socket(char *host, int bind_mode)
 
 int BIO_accept(int sock, char **ip_port)
 {
-    BIO_ADDR *res = BIO_ADDR_new();
+    BIO_ADDR res;
     int ret = -1;
 
-    if (res == NULL) {
-        BIOerr(BIO_F_BIO_ACCEPT, ERR_R_MALLOC_FAILURE);
-        return ret;
-    }
-
-    ret = BIO_accept_ex(sock, res, 0);
-
+    ret = BIO_accept_ex(sock, &res, 0);
     if (ret == (int)INVALID_SOCKET) {
         if (BIO_sock_should_retry(ret)) {
             ret = -2;
@@ -349,18 +261,27 @@ int BIO_accept(int sock, char **ip_port)
     }
 
     if (ip_port != NULL) {
-        char *host = BIO_ADDR_hostname_string(res, 1);
-        char *port = BIO_ADDR_service_string(res, 1);
-        *ip_port = OPENSSL_zalloc(strlen(host) + strlen(port) + 2);
-        strcpy(*ip_port, host);
-        strcat(*ip_port, ":");
-        strcat(*ip_port, port);
+        char *host = BIO_ADDR_hostname_string(&res, 1);
+        char *port = BIO_ADDR_service_string(&res, 1);
+        if (host != NULL && port != NULL)
+            *ip_port = OPENSSL_zalloc(strlen(host) + strlen(port) + 2);
+        else
+            *ip_port = NULL;
+
+        if (*ip_port == NULL) {
+            BIOerr(BIO_F_BIO_ACCEPT, ERR_R_MALLOC_FAILURE);
+            BIO_closesocket(ret);
+            ret = (int)INVALID_SOCKET;
+        } else {
+            strcpy(*ip_port, host);
+            strcat(*ip_port, ":");
+            strcat(*ip_port, port);
+        }
         OPENSSL_free(host);
         OPENSSL_free(port);
     }
 
  end:
-    BIO_ADDR_free(res);
     return ret;
 }
 # endif
@@ -391,8 +312,40 @@ int BIO_socket_nbio(int s, int mode)
 
     l = mode;
 # ifdef FIONBIO
+    l = mode;
+
     ret = BIO_socket_ioctl(s, FIONBIO, &l);
+# elif defined(F_GETFL) && defined(F_SETFL) && (defined(O_NONBLOCK) || defined(FNDELAY))
+    /* make sure this call always pushes an error level; BIO_socket_ioctl() does so, so we do too. */
+
+    l = fcntl(s, F_GETFL, 0);
+    if (l == -1) {
+        SYSerr(SYS_F_FCNTL, get_last_rtl_error());
+        ret = -1;
+    } else {
+#  if defined(O_NONBLOCK)
+        l &= ~O_NONBLOCK;
+#  else
+        l &= ~FNDELAY; /* BSD4.x */
+#  endif
+        if (mode) {
+#  if defined(O_NONBLOCK)
+            l |= O_NONBLOCK;
+#  else
+            l |= FNDELAY; /* BSD4.x */
+#  endif
+        }
+        ret = fcntl(s, F_SETFL, l);
+
+        if (ret < 0) {
+            SYSerr(SYS_F_FCNTL, get_last_rtl_error());
+        }
+    }
+# else
+    /* make sure this call always pushes an error level; BIO_socket_ioctl() does so, so we do too. */
+    BIOerr(BIO_F_BIO_SOCKET_NBIO, ERR_R_PASSED_INVALID_ARGUMENT);
 # endif
+
     return (ret == 0);
 }
 
@@ -412,7 +365,7 @@ int BIO_sock_info(int sock,
                 BIOerr(BIO_F_BIO_SOCK_INFO, BIO_R_GETSOCKNAME_ERROR);
                 return 0;
             }
-            if (addr_len > sizeof(*info->addr)) {
+            if ((size_t)addr_len > sizeof(*info->addr)) {
                 BIOerr(BIO_F_BIO_SOCK_INFO, BIO_R_GETSOCKNAME_TRUNCATED_ADDRESS);
                 return 0;
             }

@@ -1,4 +1,11 @@
-#! /usr/bin/perl
+#! /usr/bin/env perl
+# Copyright 2015-2016 The OpenSSL Project Authors. All Rights Reserved.
+#
+# Licensed under the OpenSSL license (the "License").  You may not use
+# this file except in compliance with the License.  You can obtain a copy
+# in the file LICENSE in the source distribution or at
+# https://www.openssl.org/source/license.html
+
 
 use strict;
 use warnings;
@@ -7,33 +14,34 @@ use File::Spec::Functions qw/catfile/;
 use File::Copy;
 use File::Compare qw/compare_text/;
 use File::Basename;
-use OpenSSL::Test qw/:DEFAULT top_file/;
+use OpenSSL::Test qw/:DEFAULT srctop_file/;
 
 setup("test_enc");
 
 # We do it this way, because setup() may have moved us around,
 # so the directory portion of $0 might not be correct any more.
 # However, the name hasn't changed.
-my $testsrc = top_file("test","recipes",basename($0));
+my $testsrc = srctop_file("test","recipes",basename($0));
 
 my $test = catfile(".", "p");
 
 my $cmd = "openssl";
 
+my $ciphersstatus = undef;
 my @ciphers =
     map { s/^\s+//; s/\s+$//; split /\s+/ }
-    run(app([$cmd, "list", "-cipher-commands"]), capture => 1);
+    run(app([$cmd, "list", "-cipher-commands"]),
+        capture => 1, statusvar => \$ciphersstatus);
 
-plan tests => 1 + (scalar @ciphers)*2;
-
-my $init = ok(copy($testsrc,$test));
-
-if (!$init) {
-    diag("Trying to copy $testsrc to $test : $!");
-}
+plan tests => 2 + (scalar @ciphers)*2;
 
  SKIP: {
-     skip "Not initialized, skipping...", 11 unless $init;
+     skip "Problems getting ciphers...", 1 + scalar(@ciphers)
+         unless ok($ciphersstatus, "Running 'openssl list -cipher-commands'");
+     unless (ok(copy($testsrc, $test), "Copying $testsrc to $test")) {
+         diag($!);
+         skip "Not initialized, skipping...", scalar(@ciphers);
+     }
 
      foreach my $c (@ciphers) {
 	 my %variant = ("$c" => [],

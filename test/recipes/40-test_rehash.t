@@ -1,4 +1,11 @@
-#! /usr/bin/perl
+#! /usr/bin/env perl
+# Copyright 2015-2016 The OpenSSL Project Authors. All Rights Reserved.
+#
+# Licensed under the OpenSSL license (the "License").  You may not use
+# this file except in compliance with the License.  You can obtain a copy
+# in the file LICENSE in the source distribution or at
+# https://www.openssl.org/source/license.html
+
 
 use strict;
 use warnings;
@@ -6,7 +13,8 @@ use warnings;
 use File::Spec::Functions;
 use File::Copy;
 use File::Basename;
-use OpenSSL::Test qw/:DEFAULT top_file/;
+use if $^O ne "VMS", 'File::Glob' => qw/glob/;
+use OpenSSL::Test qw/:DEFAULT srctop_file/;
 
 setup("test_rehash");
 
@@ -39,7 +47,7 @@ indir "rehash.$$" => sub {
     chmod 0500, curdir();
   SKIP: {
       if (!ok(!open(FOO, ">unwritable.txt"),
-              "Testing that we aren't running as a priviledged user, such as root")) {
+              "Testing that we aren't running as a privileged user, such as root")) {
           close FOO;
           skip "It's pointless to run the next test as root", 1;
       }
@@ -50,16 +58,39 @@ indir "rehash.$$" => sub {
 }, create => 1, cleanup => 1;
 
 sub prepare {
-    my @sourcefiles =
-        sort map { glob(top_file('certs', 'demo', "*.$_")) } ('pem',
-                                                              'crt',
-                                                              'cer',
-                                                              'crl');
+    my @pemsourcefiles = sort glob(srctop_file('test', "*.pem"));
     my @destfiles = ();
-    foreach (@sourcefiles) {
-        copy($_, curdir());
-        push @destfiles, catfile(curdir(), basename($_));
+
+    die "There are no source files\n" if scalar @pemsourcefiles == 0;
+
+    my $cnt = 0;
+    foreach (@pemsourcefiles) {
+        my $basename = basename($_, ".pem");
+        my $writing = 0;
+
+        open PEM, $_ or die "Can't read $_: $!\n";
+        while (my $line = <PEM>) {
+            if ($line =~ m{^-----BEGIN (?:CERTIFICATE|X509 CRL)-----}) {
+                die "New start in a PEM blob?\n" if $writing;
+                $cnt++;
+                my $destfile =
+                    catfile(curdir(),
+                            $basename . sprintf("-%02d", $cnt) . ".pem");
+                push @destfiles, $destfile;
+                open OUT, '>', $destfile
+                    or die "Can't write $destfile\n";
+                $writing = 1;
+            }
+            print OUT $line if $writing;
+            if ($line =~ m|^-----END |) {
+                close OUT if $writing;
+                $writing = 0;
+            }
+        }
+        die "No end marker in $basename\n" if $writing;
     }
+    die "No test PEM files produced\n" if $cnt == 0;
+
     foreach (@_) {
         die "Internal error, argument is not CODE"
             unless (ref($_) eq 'CODE');

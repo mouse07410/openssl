@@ -1,5 +1,12 @@
 /*
  * {- join("\n * ", @autowarntext) -}
+ *
+ * Copyright 2016 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
  */
 
 #ifdef  __cplusplus
@@ -21,39 +28,17 @@ extern "C" {
 	$OUT .= "#endif\n";
       }
     }
-    if (@{$config{openssl_experimental_defines}}) {
-      foreach (@{$config{openssl_experimental_defines}}) {
-	(my $ex = $_) =~ s/_NO_/_EXPERIMENTAL_/;
-	$OUT .= "# ifndef $ex\n";
-	$OUT .= "#  ifndef $_\n";
-	$OUT .= "#   define $_\n";
-	$OUT .= "#  endif\n";
-	$OUT .= "# endif\n";
-      }
-    }
     foreach (@{$config{openssl_api_defines}}) {
         (my $macro, my $value) = $_ =~ /^(.*?)=(.*?)$/;
-        $OUT .= "# define OPENSSL_MIN_API $value\n";
+        $OUT .= "#define OPENSSL_MIN_API $value\n";
     }
     if (@{$config{openssl_algorithm_defines}}) {
       foreach (@{$config{openssl_algorithm_defines}}) {
-	$OUT .= "# ifndef $_\n";
-	$OUT .= "#  define $_\n";
-	$OUT .= "# endif\n";
+	$OUT .= "#ifndef $_\n";
+	$OUT .= "# define $_\n";
+	$OUT .= "#endif\n";
       }
     }
-    if ($OUT) {
-        $OUT = <<"EOF";
-#ifndef OPENSSL_DOING_MAKEDEPEND
-
-$OUT
-#endif /* OPENSSL_DOING_MAKEDEPEND */
-EOF
-    }
-    "";
--}
-
-{-
     if (@{$config{openssl_thread_defines}}) {
       foreach (@{$config{openssl_thread_defines}}) {
 	$OUT .= "#ifndef $_\n";
@@ -72,6 +57,12 @@ EOF
 -}
 
 /*
+ * Sometimes OPENSSSL_NO_xxx ends up with an empty file and some compilers
+ * don't like that.  This will hopefully silence them.
+ */
+#define NON_EMPTY_TRANSLATION_UNIT static void *dummy = &dummy;
+
+/*
  * Applications should use -DOPENSSL_API_COMPAT=<version> to suppress the
  * declarations of functions deprecated in or before <version>. Otherwise, they
  * still won't see them if the library has been built to disable deprecated
@@ -83,6 +74,16 @@ EOF
 # define DECLARE_DEPRECATED(f)    f __attribute__ ((deprecated));
 #else
 # define DECLARE_DEPRECATED(f)   f;
+#endif
+
+#ifndef OPENSSL_FILE
+# ifdef OPENSSL_NO_FILENAMES
+#  define OPENSSL_FILE ""
+#  define OPENSSL_LINE 0
+# else
+#  define OPENSSL_FILE __FILE__
+#  define OPENSSL_LINE __LINE__
+# endif
 #endif
 
 #ifndef OPENSSL_MIN_API
@@ -116,13 +117,6 @@ EOF
 
 /* Generate 80386 code? */
 {- $config{processor} eq "386" ? "#define" : "#undef" -} I386_ONLY
-
-#if !defined(VMS) && !defined(__VMS) /* VMS uses logical names instead */
-# if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)
-#  define ENGINESDIR {- quotify1($config{enginesdir}) -}
-#  define OPENSSLDIR {- quotify1($config{openssldir}) -}
-# endif
-#endif
 
 #undef OPENSSL_UNISTD
 #define OPENSSL_UNISTD {- $target{unistd} -}

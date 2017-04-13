@@ -1,57 +1,12 @@
-# Written by Matt Caswell for the OpenSSL project.
-# ====================================================================
-# Copyright (c) 1998-2015 The OpenSSL Project.  All rights reserved.
+# Copyright 2016 The OpenSSL Project Authors. All Rights Reserved.
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in
-#    the documentation and/or other materials provided with the
-#    distribution.
-#
-# 3. All advertising materials mentioning features or use of this
-#    software must display the following acknowledgment:
-#    "This product includes software developed by the OpenSSL Project
-#    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
-#
-# 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
-#    endorse or promote products derived from this software without
-#    prior written permission. For written permission, please contact
-#    openssl-core@openssl.org.
-#
-# 5. Products derived from this software may not be called "OpenSSL"
-#    nor may "OpenSSL" appear in their names without prior written
-#    permission of the OpenSSL Project.
-#
-# 6. Redistributions of any form whatsoever must retain the following
-#    acknowledgment:
-#    "This product includes software developed by the OpenSSL Project
-#    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
-#
-# THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
-# EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
-# ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-# OF THE POSSIBILITY OF SUCH DAMAGE.
-# ====================================================================
-#
-# This product includes cryptographic software written by Eric Young
-# (eay@cryptsoft.com).  This product includes software written by Tim
-# Hudson (tjh@cryptsoft.com).
+# Licensed under the OpenSSL license (the "License").  You may not use
+# this file except in compliance with the License.  You can obtain a copy
+# in the file LICENSE in the source distribution or at
+# https://www.openssl.org/source/license.html
 
 use strict;
+use POSIX ":sys_wait_h";
 
 package TLSProxy::Proxy;
 
@@ -61,12 +16,19 @@ use IO::Select;
 use TLSProxy::Record;
 use TLSProxy::Message;
 use TLSProxy::ClientHello;
+use TLSProxy::HelloRetryRequest;
 use TLSProxy::ServerHello;
+use TLSProxy::EncryptedExtensions;
+use TLSProxy::Certificate;
+use TLSProxy::CertificateVerify;
 use TLSProxy::ServerKeyExchange;
 use TLSProxy::NewSessionTicket;
 
 my $have_IPv6 = 0;
 my $IP_factory;
+
+my $is_tls13 = 0;
+my $ciphersuite = undef;
 
 sub new
 {
@@ -86,21 +48,29 @@ sub new
         serverflags => "",
         clientflags => "",
         serverconnects => 1,
+        serverpid => 0,
+        reneg => 0,
+        sessionfile => undef,
 
         #Public read
         execute => $execute,
         cert => $cert,
         debug => $debug,
         cipherc => "",
-        ciphers => "AES128-SHA",
+        ciphers => "AES128-SHA:TLS13-AES-128-GCM-SHA256",
         flight => 0,
         record_list => [],
         message_list => [],
     };
 
+    # IO::Socket::IP is on the core module list, IO::Socket::INET6 isn't.
+    # However, IO::Socket::INET6 is older and is said to be more widely
+    # deployed for the moment, and may have less bugs, so we try the latter
+    # first, then fall back on the code modules.  Worst case scenario, we
+    # fall back to IO::Socket::INET, only supports IPv4.
     eval {
-        require IO::Socket::IP;
-        my $s = IO::Socket::IP->new(
+        require IO::Socket::INET6;
+        my $s = IO::Socket::INET6->new(
             LocalAddr => "::1",
             LocalPort => 0,
             Listen=>1,
@@ -109,13 +79,12 @@ sub new
         $s->close();
     };
     if ($@ eq "") {
-        # IO::Socket::IP supports IPv6 and is in the core modules list
-        $IP_factory = sub { IO::Socket::IP->new(@_); };
+        $IP_factory = sub { IO::Socket::INET6->new(@_); };
         $have_IPv6 = 1;
     } else {
         eval {
-            require IO::Socket::INET6;
-            my $s = IO::Socket::INET6->new(
+            require IO::Socket::IP;
+            my $s = IO::Socket::IP->new(
                 LocalAddr => "::1",
                 LocalPort => 0,
                 Listen=>1,
@@ -124,14 +93,9 @@ sub new
             $s->close();
         };
         if ($@ eq "") {
-            # IO::Socket::INET6 supports IPv6 but isn't on the core modules list
-            # However, it's a bit older and said to be more widely deployed
-            # at the time of writing this comment.
-            $IP_factory = sub { IO::Socket::INET6->new(@_); };
+            $IP_factory = sub { IO::Socket::IP->new(@_); };
             $have_IPv6 = 1;
         } else {
-            # IO::Socket::INET doesn't support IPv6 but is a fallback in case
-            # we have no other.
             $IP_factory = sub { IO::Socket::INET->new(@_); };
         }
     }
@@ -139,21 +103,33 @@ sub new
     return bless $self, $class;
 }
 
-sub clear
+sub clearClient
 {
     my $self = shift;
 
     $self->{cipherc} = "";
-    $self->{ciphers} = "AES128-SHA";
     $self->{flight} = 0;
     $self->{record_list} = [];
     $self->{message_list} = [];
-    $self->{serverflags} = "";
     $self->{clientflags} = "";
-    $self->{serverconnects} = 1;
+    $self->{sessionfile} = undef;
+    $is_tls13 = 0;
+    $ciphersuite = undef;
 
     TLSProxy::Message->clear();
     TLSProxy::Record->clear();
+}
+
+sub clear
+{
+    my $self = shift;
+
+    $self->clearClient;
+    $self->{ciphers} = "AES128-SHA:TLS13-AES-128-GCM-SHA256";
+    $self->{serverflags} = "";
+    $self->{serverconnects} = 1;
+    $self->{serverpid} = 0;
+    $self->{reneg} = 0;
 }
 
 sub restart
@@ -179,13 +155,16 @@ sub start
 
     $pid = fork();
     if ($pid == 0) {
-        open(STDOUT, ">", File::Spec->devnull())
-            or die "Failed to redirect stdout: $!";
-        open(STDERR, ">&STDOUT");
+        if (!$self->debug) {
+            open(STDOUT, ">", File::Spec->devnull())
+                or die "Failed to redirect stdout: $!";
+            open(STDERR, ">&STDOUT");
+        }
         my $execcmd = $self->execute
-            ." s_server -rev -engine ossltest -accept "
+            ." s_server -no_comp -rev -engine ossltest -accept "
             .($self->server_port)
-            ." -cert ".$self->cert." -naccept ".$self->serverconnects;
+            ." -cert ".$self->cert." -cert2 ".$self->cert
+            ." -naccept ".$self->serverconnects;
         if ($self->ciphers ne "") {
             $execcmd .= " -cipher ".$self->ciphers;
         }
@@ -194,8 +173,9 @@ sub start
         }
         exec($execcmd);
     }
+    $self->serverpid($pid);
 
-    $self->clientstart;
+    return $self->clientstart;
 }
 
 sub clientstart
@@ -222,16 +202,25 @@ sub clientstart
     if ($proxy_sock) {
         print "Proxy started on port ".$self->proxy_port."\n";
     } else {
-        die "Failed creating proxy socket (".$proxaddr.",".$self->proxy_port."): $!\n";
+        warn "Failed creating proxy socket (".$proxaddr.",".$self->proxy_port."): $!\n";
+        return 0;
     }
 
     if ($self->execute) {
         my $pid = fork();
         if ($pid == 0) {
-            open(STDOUT, ">", File::Spec->devnull())
-                or die "Failed to redirect stdout: $!";
-            open(STDERR, ">&STDOUT");
-            my $execcmd = "echo test | ".$self->execute
+            if (!$self->debug) {
+                open(STDOUT, ">", File::Spec->devnull())
+                    or die "Failed to redirect stdout: $!";
+                open(STDERR, ">&STDOUT");
+            }
+            my $echostr;
+            if ($self->reneg()) {
+                $echostr = "R";
+            } else {
+                $echostr = "test";
+            }
+            my $execcmd = "echo ".$echostr." | ".$self->execute
                  ." s_client -engine ossltest -connect "
                  .($self->proxy_addr).":".($self->proxy_port);
             if ($self->cipherc ne "") {
@@ -240,13 +229,19 @@ sub clientstart
             if ($self->clientflags ne "") {
                 $execcmd .= " ".$self->clientflags;
             }
+            if (defined $self->sessionfile) {
+                $execcmd .= " -ign_eof";
+            }
             exec($execcmd);
         }
     }
 
     # Wait for incoming connection from client
-    my $client_sock = $proxy_sock->accept()
-        or die "Failed accepting incoming connection: $!\n";
+    my $client_sock;
+    if(!($client_sock = $proxy_sock->accept())) {
+        warn "Failed accepting incoming connection: $!\n";
+        return 0;
+    }
 
     print "Connection opened\n";
 
@@ -258,20 +253,27 @@ sub clientstart
     do {
         my $servaddr = $self->server_addr;
         $servaddr =~ s/[\[\]]//g; # Remove [ and ]
-        $server_sock = $IP_factory->(
-            PeerAddr => $servaddr,
-            PeerPort => $self->server_port,
-            MultiHomed => 1,
-            Proto => 'tcp'
-        );
+        eval {
+            $server_sock = $IP_factory->(
+                PeerAddr => $servaddr,
+                PeerPort => $self->server_port,
+                MultiHomed => 1,
+                Proto => 'tcp'
+            );
+        };
 
         $retry--;
-        if (!$server_sock) {
+        #Some buggy IP factories can return a defined server_sock that hasn't
+        #actually connected, so we check peerport too
+        if ($@ || !defined($server_sock) || !defined($server_sock->peerport)) {
+            $server_sock->close() if defined($server_sock);
+            undef $server_sock;
             if ($retry) {
                 #Sleep for a short while
                 select(undef, undef, undef, 0.1);
             } else {
-                die "Failed to start up server (".$servaddr.",".$self->server_port."): $!\n";
+                warn "Failed to start up server (".$servaddr.",".$self->server_port."): $!\n";
+                return 0;
             }
         }
     } while (!$server_sock);
@@ -282,22 +284,30 @@ sub clientstart
 
     #Wait for either the server socket or the client socket to become readable
     my @ready;
-    while(!(TLSProxy::Message->end) && (@ready = $sel->can_read)) {
+    my $ctr = 0;
+    while(     (!(TLSProxy::Message->end)
+                || (defined $self->sessionfile()
+                    && (-s $self->sessionfile()) == 0))
+            && $ctr < 10
+            && (@ready = $sel->can_read(1))) {
         foreach my $hand (@ready) {
             if ($hand == $server_sock) {
                 $server_sock->sysread($indata, 16384) or goto END;
                 $indata = $self->process_packet(1, $indata);
                 $client_sock->syswrite($indata);
+                $ctr = 0;
             } elsif ($hand == $client_sock) {
                 $client_sock->sysread($indata, 16384) or goto END;
                 $indata = $self->process_packet(0, $indata);
                 $server_sock->syswrite($indata);
+                $ctr = 0;
             } else {
-                print "Err\n";
-                goto END;
+                $ctr++
             }
         }
     }
+
+    die "No progress made" if $ctr >= 10;
 
     END:
     print "Connection closed\n";
@@ -314,6 +324,15 @@ sub clientstart
     if(!$self->debug) {
         select($oldstdout);
     }
+    $self->serverconnects($self->serverconnects - 1);
+    if ($self->serverconnects == 0) {
+        die "serverpid is zero\n" if $self->serverpid == 0;
+        print "Waiting for server process to close: "
+              .$self->serverpid."\n";
+        waitpid( $self->serverpid, 0);
+        die "exit code $? from server process\n" if $? != 0;
+    }
+    return 1;
 }
 
 sub process_packet
@@ -353,7 +372,7 @@ sub process_packet
         if ($record->flight != $self->flight) {
             next;
         }
-        $packet .= $record->reconstruct_record();
+        $packet .= $record->reconstruct_record($server);
     }
 
     $self->{flight} = $self->{flight} + 1;
@@ -410,7 +429,7 @@ sub proxy_addr
 {
     my $self = shift;
     if (@_) {
-      $self->{proxy_addr} = shift;
+        $self->{proxy_addr} = shift;
     }
     return $self->{proxy_addr};
 }
@@ -418,7 +437,7 @@ sub proxy_port
 {
     my $self = shift;
     if (@_) {
-      $self->{proxy_port} = shift;
+        $self->{proxy_port} = shift;
     }
     return $self->{proxy_port};
 }
@@ -426,7 +445,7 @@ sub server_addr
 {
     my $self = shift;
     if (@_) {
-      $self->{server_addr} = shift;
+        $self->{server_addr} = shift;
     }
     return $self->{server_addr};
 }
@@ -434,7 +453,7 @@ sub server_port
 {
     my $self = shift;
     if (@_) {
-      $self->{server_port} = shift;
+        $self->{server_port} = shift;
     }
     return $self->{server_port};
 }
@@ -442,7 +461,7 @@ sub filter
 {
     my $self = shift;
     if (@_) {
-      $self->{filter} = shift;
+        $self->{filter} = shift;
     }
     return $self->{filter};
 }
@@ -450,7 +469,7 @@ sub cipherc
 {
     my $self = shift;
     if (@_) {
-      $self->{cipherc} = shift;
+        $self->{cipherc} = shift;
     }
     return $self->{cipherc};
 }
@@ -458,7 +477,7 @@ sub ciphers
 {
     my $self = shift;
     if (@_) {
-      $self->{ciphers} = shift;
+        $self->{ciphers} = shift;
     }
     return $self->{ciphers};
 }
@@ -466,7 +485,7 @@ sub serverflags
 {
     my $self = shift;
     if (@_) {
-      $self->{serverflags} = shift;
+        $self->{serverflags} = shift;
     }
     return $self->{serverflags};
 }
@@ -474,7 +493,7 @@ sub clientflags
 {
     my $self = shift;
     if (@_) {
-      $self->{clientflags} = shift;
+        $self->{clientflags} = shift;
     }
     return $self->{clientflags};
 }
@@ -482,7 +501,7 @@ sub serverconnects
 {
     my $self = shift;
     if (@_) {
-      $self->{serverconnects} = shift;
+        $self->{serverconnects} = shift;
     }
     return $self->{serverconnects};
 }
@@ -498,4 +517,66 @@ sub message_list
     }
     return $self->{message_list};
 }
+sub serverpid
+{
+    my $self = shift;
+    if (@_) {
+        $self->{serverpid} = shift;
+    }
+    return $self->{serverpid};
+}
+
+sub fill_known_data
+{
+    my $length = shift;
+    my $ret = "";
+    for (my $i = 0; $i < $length; $i++) {
+        $ret .= chr($i);
+    }
+    return $ret;
+}
+
+sub is_tls13
+{
+    my $class = shift;
+    if (@_) {
+        $is_tls13 = shift;
+    }
+    return $is_tls13;
+}
+
+sub reneg
+{
+    my $self = shift;
+    if (@_) {
+        $self->{reneg} = shift;
+    }
+    return $self->{reneg};
+}
+
+#Setting a sessionfile means that the client will not close until the given
+#file exists. This is useful in TLSv1.3 where otherwise s_client will close
+#immediately at the end of the handshake, but before the session has been
+#received from the server. A side effect of this is that s_client never sends
+#a close_notify, so instead we consider success to be when it sends application
+#data over the connection.
+sub sessionfile
+{
+    my $self = shift;
+    if (@_) {
+        $self->{sessionfile} = shift;
+        TLSProxy::Message->successondata(1);
+    }
+    return $self->{sessionfile};
+}
+
+sub ciphersuite
+{
+    my $class = shift;
+    if (@_) {
+        $ciphersuite = shift;
+    }
+    return $ciphersuite;
+}
+
 1;
