@@ -12,7 +12,7 @@
 
 /* Test first part of SSL server handshake. */
 
-
+#include <time.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/rsa.h>
@@ -473,6 +473,23 @@ extern int rand_predictable;
 /* unused, to avoid warning. */
 static int idx;
 
+#define FUZZTIME 1485898104
+
+#define TIME_IMPL(t) { if (t != NULL) *t = FUZZTIME; return FUZZTIME; }
+
+/*
+ * This might not in all cases and still get the current time
+ * instead of the fixed time. This will just result in things
+ * not being fully reproducible and have a slightly different
+ * coverage.
+ */
+#if defined(_WIN32) && defined(_TIME64_T_DEFINED)
+__time64_t _time64(__time64_t *t) TIME_IMPL(t)
+#endif
+#if !defined(_WIN32) || !defined(_MSC_VER)
+time_t time(time_t *t) TIME_IMPL(t)
+#endif
+
 int FuzzerInitialize(int *argc, char ***argv)
 {
     STACK_OF(SSL_COMP) *comp_methods;
@@ -513,8 +530,9 @@ int FuzzerTestOneInput(const uint8_t *buf, size_t len)
 #ifndef OPENSSL_NO_DSA
     DSA *dsakey = NULL;
 #endif
+    uint8_t opt;
 
-    if (len == 0)
+    if (len < 2)
         return 0;
 
     /*
@@ -598,7 +616,24 @@ int FuzzerTestOneInput(const uint8_t *buf, size_t len)
     out = BIO_new(BIO_s_mem());
     SSL_set_bio(server, in, out);
     SSL_set_accept_state(server);
+
+    opt = (uint8_t)buf[len-1];
+    len--;
+
     OPENSSL_assert((size_t)BIO_write(in, buf, len) == len);
+
+    if ((opt & 0x01) != 0)
+    {
+        do {
+            char early_buf[16384];
+            size_t early_len;
+            ret = SSL_read_early_data(server, early_buf, sizeof(early_buf), &early_len);
+
+            if (ret != SSL_READ_EARLY_DATA_SUCCESS)
+                break;
+        } while (1);
+    }
+
     if (SSL_do_handshake(server) == 1) {
         /* Keep reading application data until error or EOF. */
         uint8_t tmp[1024];
