@@ -19,7 +19,7 @@ use File::Basename;
 use if $^O ne "VMS", 'File::Glob' => qw/glob/;
 use Module::Load::Conditional qw(can_load);
 
-my $TAP_Harness = can_load({modules => [ 'TAP::Harness' ]})
+my $TAP_Harness = can_load(modules => { 'TAP::Harness' => undef }) 
     ? 'TAP::Harness' : 'OpenSSL::TAP::Harness';
 
 my $srctop = $ENV{SRCTOP} || $ENV{TOP};
@@ -82,7 +82,10 @@ foreach my $arg (@ARGV ? @ARGV : ('alltests')) {
 }
 
 my $harness = $TAP_Harness->new(\%tapargs);
-$harness->runtests(map { abs2rel($_, rel2abs(curdir())); } sort keys %tests);
+my $ret = $harness->runtests(map { abs2rel($_, rel2abs(curdir())); }
+                                 sort keys %tests);
+
+exit $ret->has_errors if (ref($ret) eq "TAP::Parser::Aggregator");
 
 sub find_matching_tests {
     my ($glob) = @_;

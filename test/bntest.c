@@ -35,24 +35,11 @@ BIGNUM *bn_expand2(BIGNUM *b, int words);
 BIGNUM *bn_expand2(BIGNUM *b, int words) { return NULL; }
 #include "../crypto/bn/bn_lcl.h"
 
-#define MAXPAIRS        20
-
 /*
  * Things in boring, not in openssl.  TODO we should add them.
  */
 #define HAVE_BN_PADDED 0
 #define HAVE_BN_SQRT 0
-
-typedef struct pair_st {
-    char *key;
-    char *value;
-} PAIR;
-
-typedef struct stanza_st {
-    int start;
-    int numpairs;
-    PAIR pairs[MAXPAIRS];
-} STANZA;
 
 typedef struct filetest_st {
     const char *name;
@@ -67,7 +54,6 @@ typedef struct mpitest_st {
 
 static const int NUM0 = 100;           /* number of tests */
 static const int NUM1 = 50;            /* additional tests for some functions */
-static BIO *fp;
 static BN_CTX *ctx;
 
 /*
@@ -112,7 +98,7 @@ static BIGNUM *getBN(STANZA *s, const char *attribute)
     BIGNUM *ret = NULL;
 
     if ((hex = findattr(s, attribute)) == NULL) {
-        TEST_error("Can't find %s in test at line %d", attribute, s->start);
+        TEST_error("%s:%d: Can't find %s", s->test_file, s->start, attribute);
         return NULL;
     }
 
@@ -1985,79 +1971,6 @@ err:
     return ret;
 }
 
-
-/* Delete leading and trailing spaces from a string */
-static char *strip_spaces(char *p)
-{
-    char *q;
-
-    /* Skip over leading spaces */
-    while (*p && isspace(*p))
-        p++;
-    if (!*p)
-        return NULL;
-
-    for (q = p + strlen(p) - 1; q != p && isspace(*q); )
-        *q-- = '\0';
-    return *p ? p : NULL;
-}
-
-/*
- * Read next test stanza; return 1 if found, 0 on EOF or error.
- */
-static int readstanza(STANZA *s, int *linesread)
-{
-    PAIR *pp = s->pairs;
-    char *p, *equals, *key, *value;
-    char buff[1024];
-
-    while (BIO_gets(fp, buff, sizeof(buff))) {
-        (*linesread)++;
-        if (!TEST_ptr(p = strchr(buff, '\n'))) {
-            TEST_info("Line %d too long", s->start);
-            return 0;
-        }
-        *p = '\0';
-
-        /* Blank line marks end of tests. */
-        if (buff[0] == '\0')
-            break;
-
-        /* Lines starting with a pound sign are ignored. */
-        if (buff[0] == '#')
-            continue;
-
-        if (!TEST_ptr(equals = strchr(buff, '=')))
-            return 0;
-        *equals++ = '\0';
-
-        if (!TEST_ptr(key = strip_spaces(buff))
-                || !TEST_ptr(value = strip_spaces(equals))
-                || !TEST_int_lt(s->numpairs++, MAXPAIRS)
-                || !TEST_ptr(pp->key = OPENSSL_strdup(key))
-                || !TEST_ptr(pp->value = OPENSSL_strdup(value)))
-            return 0;
-        pp++;
-    }
-
-    /* If we read anything, return ok. */
-    return 1;
-}
-
-static void clearstanza(STANZA *s)
-{
-    PAIR *pp = s->pairs;
-    int i = s->numpairs;
-    int start = s->start;
-
-    for ( ; --i >= 0; pp++) {
-        OPENSSL_free(pp->key);
-        OPENSSL_free(pp->value);
-    }
-    memset(s, 0, sizeof(*s));
-    s->start = start;
-}
-
 static int file_test_run(STANZA *s)
 {
     static const FILETEST filetests[] = {
@@ -2079,13 +1992,14 @@ static int file_test_run(STANZA *s)
     for ( ; --numtests >= 0; tp++) {
         if (findattr(s, tp->name) != NULL) {
             if (!tp->func(s)) {
-                TEST_info("Failed %s test at %d", tp->name, s->start);
+                TEST_info("%s:%d: Failed %s test",
+                          s->test_file, s->start, tp->name);
                 return 0;
             }
             return 1;
         }
     }
-    TEST_info("Unknown test at %d", s->start);
+    TEST_info("%s:%d: Unknown test", s->test_file, s->start);
     return 0;
 }
 
@@ -2093,27 +2007,30 @@ static char * const *testfiles;
 
 static int run_file_tests(int i)
 {
-    STANZA s;
-    int linesread = 0, errcnt = 0;
+    STANZA *s = NULL;
+    int c;
 
-    if (!TEST_ptr(fp = BIO_new_file(testfiles[i], "rb")))
+    if (!TEST_ptr(s = OPENSSL_zalloc(sizeof(*s))))
         return 0;
+    if (!test_start_file(s, testfiles[i])) {
+        OPENSSL_free(s);
+        return 0;
+    }
 
     /* Read test file. */
-    set_test_title(testfiles[i]);
-    memset(&s, 0, sizeof(s));
-    while (!BIO_eof(fp) && readstanza(&s, &linesread)) {
-        if (s.numpairs == 0)
+    while (!BIO_eof(s->fp) && test_readstanza(s)) {
+        if (s->numpairs == 0)
             continue;
-        if (!file_test_run(&s)) {
-            errcnt++;
-        }
-        clearstanza(&s);
-        s.start = linesread;
+        if (!file_test_run(s))
+            s->errors++;
+        s->numtests++;
+        test_clearstanza(s);
     }
-    BIO_free(fp);
+    test_end_file(s);
+    c = s->errors;
+    OPENSSL_free(s);
 
-    return errcnt == 0;
+    return c == 0;
 }
 
 

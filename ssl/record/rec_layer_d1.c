@@ -14,7 +14,6 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 #include "record_locl.h"
-#include <assert.h>
 #include "../packet_locl.h"
 
 int DTLS_RECORD_LAYER_new(RECORD_LAYER *rl)
@@ -645,8 +644,7 @@ int dtls1_read_bytes(SSL *s, int type, int *recvd_type, unsigned char *buf,
          * (which is tested for at the top of this function) then init must be
          * finished
          */
-        assert(SSL_is_init_finished(s));
-        if (!SSL_is_init_finished(s)) {
+        if (!ossl_assert(SSL_is_init_finished(s))) {
             al = SSL_AD_INTERNAL_ERROR;
             SSLerr(SSL_F_DTLS1_READ_BYTES, ERR_R_INTERNAL_ERROR);
             goto f_err;
@@ -734,7 +732,10 @@ int dtls1_write_bytes(SSL *s, int type, const void *buf, size_t len,
 {
     int i;
 
-    OPENSSL_assert(len <= SSL3_RT_MAX_PLAIN_LENGTH);
+    if (!ossl_assert(len <= SSL3_RT_MAX_PLAIN_LENGTH)) {
+        SSLerr(SSL_F_DTLS1_WRITE_BYTES, ERR_R_INTERNAL_ERROR);
+        return -1;
+    }
     s->rwstate = SSL_NOTHING;
     i = do_dtls1_write(s, type, buf, len, 0, written);
     return i;
@@ -757,9 +758,9 @@ int do_dtls1_write(SSL *s, int type, const unsigned char *buf,
      * first check if there is a SSL3_BUFFER still being written out.  This
      * will happen with non blocking IO
      */
-    if (SSL3_BUFFER_get_left(wb) != 0) {
-        OPENSSL_assert(0);      /* XDTLS: want to see if we ever get here */
-        return ssl3_write_pending(s, type, buf, len, written);
+    if (!ossl_assert(SSL3_BUFFER_get_left(wb) == 0)) {
+        SSLerr(SSL_F_DO_DTLS1_WRITE, ERR_R_INTERNAL_ERROR);
+        return 0;
     }
 
     /* If we have an alert to send, lets send it */

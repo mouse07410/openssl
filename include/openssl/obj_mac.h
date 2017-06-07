@@ -934,7 +934,7 @@
 
 #define SN_id_smime_aa_signingCertificateV2             "id-smime-aa-signingCertificateV2"
 #define NID_id_smime_aa_signingCertificateV2            1086
-#define OBJ_id_smime_aa_signingCertificateV2            OBJ_id_smime_aa,30L
+#define OBJ_id_smime_aa_signingCertificateV2            OBJ_id_smime_aa,47L
 
 #define SN_id_smime_alg_ESDHwith3DES            "id-smime-alg-ESDHwith3DES"
 #define NID_id_smime_alg_ESDHwith3DES           241
@@ -2296,6 +2296,24 @@
 #define LN_role         "role"
 #define NID_role                400
 #define OBJ_role                OBJ_X509,72L
+
+#define LN_organizationIdentifier               "organizationIdentifier"
+#define NID_organizationIdentifier              1089
+#define OBJ_organizationIdentifier              OBJ_X509,97L
+
+#define SN_countryCode3c                "c3"
+#define LN_countryCode3c                "countryCode3c"
+#define NID_countryCode3c               1090
+#define OBJ_countryCode3c               OBJ_X509,98L
+
+#define SN_countryCode3n                "n3"
+#define LN_countryCode3n                "countryCode3n"
+#define NID_countryCode3n               1091
+#define OBJ_countryCode3n               OBJ_X509,99L
+
+#define LN_dnsName              "dnsName"
+#define NID_dnsName             1092
+#define OBJ_dnsName             OBJ_X509,100L
 
 #define SN_X500algorithms               "X500algorithms"
 #define LN_X500algorithms               "directory services - algorithms"
@@ -4612,6 +4630,14 @@
 #define SN_X448         "X448"
 #define NID_X448                1035
 #define OBJ_X448                1L,3L,101L,111L
+
+#define SN_ED25519              "ED25519"
+#define NID_ED25519             1087
+#define OBJ_ED25519             1L,3L,101L,112L
+
+#define SN_ED448                "ED448"
+#define NID_ED448               1088
+#define OBJ_ED448               1L,3L,101L,113L
 
 #define SN_kx_rsa               "KxRSA"
 #define LN_kx_rsa               "kx-rsa"

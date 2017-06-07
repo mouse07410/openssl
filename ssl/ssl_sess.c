@@ -151,6 +151,8 @@ SSL_SESSION *ssl_session_dup(SSL_SESSION *src, int ticket)
 #ifndef OPENSSL_NO_SRP
     dest->srp_username = NULL;
 #endif
+    dest->peer_chain = NULL;
+    dest->peer = NULL;
     memset(&dest->ex_data, 0, sizeof(dest->ex_data));
 
     /* We deliberately don't copy the prev and next pointers */
@@ -163,8 +165,14 @@ SSL_SESSION *ssl_session_dup(SSL_SESSION *src, int ticket)
     if (dest->lock == NULL)
         goto err;
 
-    if (src->peer != NULL)
-        X509_up_ref(src->peer);
+    if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_SSL_SESSION, dest, &dest->ex_data))
+        goto err;
+
+    if (src->peer != NULL) {
+        if (!X509_up_ref(src->peer))
+            goto err;
+        dest->peer = src->peer;
+    }
 
     if (src->peer_chain != NULL) {
         dest->peer_chain = X509_chain_up_ref(src->peer_chain);
@@ -220,7 +228,7 @@ SSL_SESSION *ssl_session_dup(SSL_SESSION *src, int ticket)
     }
 #endif
 
-    if (ticket != 0) {
+    if (ticket != 0 && src->ext.tick != NULL) {
         dest->ext.tick =
             OPENSSL_memdup(src->ext.tick, src->ext.ticklen);
         if (dest->ext.tick == NULL)
@@ -603,7 +611,7 @@ int ssl_get_prev_session(SSL *s, CLIENTHELLO_MSG *hello, int *al)
         /* If old session includes extms, but new does not: abort handshake */
         if (!(s->s3->flags & TLS1_FLAGS_RECEIVED_EXTMS)) {
             SSLerr(SSL_F_SSL_GET_PREV_SESSION, SSL_R_INCONSISTENT_EXTMS);
-            ssl3_send_alert(s, SSL3_AL_FATAL, SSL_AD_HANDSHAKE_FAILURE);
+            ssl3_send_alert(s, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
             fatal = 1;
             goto err;
         }

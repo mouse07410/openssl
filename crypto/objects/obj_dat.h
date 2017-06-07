@@ -10,7 +10,7 @@
  */
 
 /* Serialized OID's */
-static const unsigned char so[6911] = {
+static const unsigned char so[6929] = {
     0x2A,0x86,0x48,0x86,0xF7,0x0D,                 /* [    0] OBJ_rsadsi */
     0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,            /* [    6] OBJ_pkcs */
     0x2A,0x86,0x48,0x86,0xF7,0x0D,0x02,0x02,       /* [   13] OBJ_md2 */
@@ -976,10 +976,16 @@ static const unsigned char so[6911] = {
     0x2A,0x83,0x1A,0x8C,0x9A,0x6E,0x01,0x01,0x0D,  /* [ 6872] OBJ_aria_256_cfb128 */
     0x2A,0x83,0x1A,0x8C,0x9A,0x6E,0x01,0x01,0x0E,  /* [ 6881] OBJ_aria_256_ofb128 */
     0x2A,0x83,0x1A,0x8C,0x9A,0x6E,0x01,0x01,0x0F,  /* [ 6890] OBJ_aria_256_ctr */
-    0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x09,0x10,0x02,0x1E,  /* [ 6899] OBJ_id_smime_aa_signingCertificateV2 */
+    0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,0x09,0x10,0x02,0x2F,  /* [ 6899] OBJ_id_smime_aa_signingCertificateV2 */
+    0x2B,0x65,0x70,                                /* [ 6910] OBJ_ED25519 */
+    0x2B,0x65,0x71,                                /* [ 6913] OBJ_ED448 */
+    0x55,0x04,0x61,                                /* [ 6916] OBJ_organizationIdentifier */
+    0x55,0x04,0x62,                                /* [ 6919] OBJ_countryCode3c */
+    0x55,0x04,0x63,                                /* [ 6922] OBJ_countryCode3n */
+    0x55,0x04,0x64,                                /* [ 6925] OBJ_dnsName */
 };
 
-#define NUM_NID 1087
+#define NUM_NID 1093
 static const ASN1_OBJECT nid_objs[NUM_NID] = {
     {"UNDEF", "undefined", NID_undef},
     {"rsadsi", "RSA Data Security, Inc.", NID_rsadsi, 6, &so[0]},
@@ -2068,9 +2074,15 @@ static const ASN1_OBJECT nid_objs[NUM_NID] = {
     {"ARIA-192-CFB8", "aria-192-cfb8", NID_aria_192_cfb8},
     {"ARIA-256-CFB8", "aria-256-cfb8", NID_aria_256_cfb8},
     {"id-smime-aa-signingCertificateV2", "id-smime-aa-signingCertificateV2", NID_id_smime_aa_signingCertificateV2, 11, &so[6899]},
+    {"ED25519", "ED25519", NID_ED25519, 3, &so[6910]},
+    {"ED448", "ED448", NID_ED448, 3, &so[6913]},
+    {"organizationIdentifier", "organizationIdentifier", NID_organizationIdentifier, 3, &so[6916]},
+    {"c3", "countryCode3c", NID_countryCode3c, 3, &so[6919]},
+    {"n3", "countryCode3n", NID_countryCode3n, 3, &so[6922]},
+    {"dnsName", "dnsName", NID_dnsName, 3, &so[6925]},
 };
 
-#define NUM_SN 1078
+#define NUM_SN 1084
 static const unsigned int sn_objs[NUM_SN] = {
      364,    /* "AD_DVCS" */
      419,    /* "AES-128-CBC" */
@@ -2209,6 +2221,8 @@ static const unsigned int sn_objs[NUM_SN] = {
       70,    /* "DSA-SHA1-old" */
       67,    /* "DSA-old" */
      297,    /* "DVCS" */
+    1087,    /* "ED25519" */
+    1088,    /* "ED448" */
       99,    /* "GN" */
     1036,    /* "HKDF" */
      855,    /* "HMAC" */
@@ -2390,6 +2404,7 @@ static const unsigned int sn_objs[NUM_SN] = {
      696,    /* "c2tnb239v3" */
      701,    /* "c2tnb359v1" */
      703,    /* "c2tnb431r1" */
+    1090,    /* "c3" */
      881,    /* "cACertificate" */
      483,    /* "cNAMERecord" */
      179,    /* "caIssuers" */
@@ -2446,6 +2461,7 @@ static const unsigned int sn_objs[NUM_SN] = {
      887,    /* "distinguishedName" */
      892,    /* "dmdName" */
      174,    /* "dnQualifier" */
+    1092,    /* "dnsName" */
      447,    /* "document" */
      471,    /* "documentAuthor" */
      468,    /* "documentIdentifier" */
@@ -2828,6 +2844,7 @@ static const unsigned int sn_objs[NUM_SN] = {
      137,    /* "msSGC" */
      648,    /* "msSmartcardLogin" */
      649,    /* "msUPN" */
+    1091,    /* "n3" */
      481,    /* "nSRecord" */
      173,    /* "name" */
      666,    /* "nameConstraints" */
@@ -2846,6 +2863,7 @@ static const unsigned int sn_objs[NUM_SN] = {
      139,    /* "nsSGC" */
       77,    /* "nsSslServerName" */
      681,    /* "onBasis" */
+    1089,    /* "organizationIdentifier" */
      491,    /* "organizationalStatus" */
      475,    /* "otherMailbox" */
      876,    /* "owner" */
@@ -3152,7 +3170,7 @@ static const unsigned int sn_objs[NUM_SN] = {
      160,    /* "x509Crl" */
 };
 
-#define NUM_LN 1078
+#define NUM_LN 1084
 static const unsigned int ln_objs[NUM_LN] = {
      363,    /* "AD Time Stamping" */
      405,    /* "ANSI X9.62" */
@@ -3175,6 +3193,8 @@ static const unsigned int ln_objs[NUM_LN] = {
      382,    /* "Directory" */
      392,    /* "Domain" */
      132,    /* "E-mail Protection" */
+    1087,    /* "ED25519" */
+    1088,    /* "ED448" */
      389,    /* "Enterprises" */
      384,    /* "Experimental" */
      372,    /* "Extended OCSP Status" */
@@ -3499,6 +3519,8 @@ static const unsigned int ln_objs[NUM_LN] = {
      513,    /* "content types" */
       50,    /* "contentType" */
       53,    /* "countersignature" */
+    1090,    /* "countryCode3c" */
+    1091,    /* "countryCode3n" */
       14,    /* "countryName" */
      153,    /* "crlBag" */
      884,    /* "crossCertificatePair" */
@@ -3548,6 +3570,7 @@ static const unsigned int ln_objs[NUM_LN] = {
      887,    /* "distinguishedName" */
      892,    /* "dmdName" */
      174,    /* "dnQualifier" */
+    1092,    /* "dnsName" */
      447,    /* "document" */
      471,    /* "documentAuthor" */
      468,    /* "documentIdentifier" */
@@ -3909,6 +3932,7 @@ static const unsigned int ln_objs[NUM_LN] = {
      173,    /* "name" */
      681,    /* "onBasis" */
      379,    /* "org" */
+    1089,    /* "organizationIdentifier" */
       17,    /* "organizationName" */
      491,    /* "organizationalStatus" */
       18,    /* "organizationalUnitName" */
@@ -4234,7 +4258,7 @@ static const unsigned int ln_objs[NUM_LN] = {
      125,    /* "zlib compression" */
 };
 
-#define NUM_OBJ 972
+#define NUM_OBJ 978
 static const unsigned int obj_objs[NUM_OBJ] = {
        0,    /* OBJ_undef                        0 */
      181,    /* OBJ_iso                          1 */
@@ -4259,6 +4283,8 @@ static const unsigned int obj_objs[NUM_OBJ] = {
      381,    /* OBJ_iana                         1 3 6 1 */
     1034,    /* OBJ_X25519                       1 3 101 110 */
     1035,    /* OBJ_X448                         1 3 101 111 */
+    1087,    /* OBJ_ED25519                      1 3 101 112 */
+    1088,    /* OBJ_ED448                        1 3 101 113 */
      677,    /* OBJ_certicom_arc                 1 3 132 */
      394,    /* OBJ_selected_attribute_types     2 5 1 5 */
       13,    /* OBJ_commonName                   2 5 4 3 */
@@ -4315,6 +4341,10 @@ static const unsigned int obj_objs[NUM_OBJ] = {
      892,    /* OBJ_dmdName                      2 5 4 54 */
      510,    /* OBJ_pseudonym                    2 5 4 65 */
      400,    /* OBJ_role                         2 5 4 72 */
+    1089,    /* OBJ_organizationIdentifier       2 5 4 97 */
+    1090,    /* OBJ_countryCode3c                2 5 4 98 */
+    1091,    /* OBJ_countryCode3n                2 5 4 99 */
+    1092,    /* OBJ_dnsName                      2 5 4 100 */
      769,    /* OBJ_subject_directory_attributes 2 5 29 9 */
       82,    /* OBJ_subject_key_identifier       2 5 29 14 */
       83,    /* OBJ_key_usage                    2 5 29 15 */
@@ -5177,7 +5207,7 @@ static const unsigned int obj_objs[NUM_OBJ] = {
      238,    /* OBJ_id_smime_aa_ets_archiveTimeStamp 1 2 840 113549 1 9 16 2 27 */
      239,    /* OBJ_id_smime_aa_signatureType    1 2 840 113549 1 9 16 2 28 */
      240,    /* OBJ_id_smime_aa_dvcs_dvc         1 2 840 113549 1 9 16 2 29 */
-    1086,    /* OBJ_id_smime_aa_signingCertificateV2 1 2 840 113549 1 9 16 2 30 */
+    1086,    /* OBJ_id_smime_aa_signingCertificateV2 1 2 840 113549 1 9 16 2 47 */
      241,    /* OBJ_id_smime_alg_ESDHwith3DES    1 2 840 113549 1 9 16 3 1 */
      242,    /* OBJ_id_smime_alg_ESDHwithRC2     1 2 840 113549 1 9 16 3 2 */
      243,    /* OBJ_id_smime_alg_3DESwrap        1 2 840 113549 1 9 16 3 3 */
