@@ -1,50 +1,12 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- *
- * Portions of the attached software ("Contribution") are developed by
- * SUN MICROSYSTEMS, INC., and are contributed to the OpenSSL project.
- *
- * The Contribution is licensed pursuant to the OpenSSL open source
- * license provided above.
- *
- * ECC cipher suite support in OpenSSL originally written by
- * Vipul Gupta and Sumit Gupta of Sun Microsystems Laboratories.
- *
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <stdio.h>
@@ -1444,7 +1406,8 @@ MSG_PROCESS_RETURN tls_process_client_hello(SSL *s, PACKET *pkt)
  err:
     ossl_statem_set_error(s);
 
-    OPENSSL_free(clienthello->pre_proc_exts);
+    if (clienthello != NULL)
+        OPENSSL_free(clienthello->pre_proc_exts);
     OPENSSL_free(clienthello);
 
     return MSG_PROCESS_ERROR;
@@ -1565,6 +1528,69 @@ static int tls_early_post_process_client_hello(SSL *s, int *pal)
 
     s->hit = 0;
 
+    if (!ssl_cache_cipherlist(s, &clienthello->ciphersuites,
+                              clienthello->isv2, &al) ||
+        !bytes_to_cipher_list(s, &clienthello->ciphersuites, &ciphers, &scsvs,
+                             clienthello->isv2, &al)) {
+        goto err;
+    }
+
+    s->s3->send_connection_binding = 0;
+    /* Check what signalling cipher-suite values were received. */
+    if (scsvs != NULL) {
+        for(i = 0; i < sk_SSL_CIPHER_num(scsvs); i++) {
+            c = sk_SSL_CIPHER_value(scsvs, i);
+            if (SSL_CIPHER_get_id(c) == SSL3_CK_SCSV) {
+                if (s->renegotiate) {
+                    /* SCSV is fatal if renegotiating */
+                    SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO,
+                           SSL_R_SCSV_RECEIVED_WHEN_RENEGOTIATING);
+                    al = SSL_AD_HANDSHAKE_FAILURE;
+                    goto err;
+                }
+                s->s3->send_connection_binding = 1;
+            } else if (SSL_CIPHER_get_id(c) == SSL3_CK_FALLBACK_SCSV &&
+                       !ssl_check_version_downgrade(s)) {
+                /*
+                 * This SCSV indicates that the client previously tried
+                 * a higher version.  We should fail if the current version
+                 * is an unexpected downgrade, as that indicates that the first
+                 * connection may have been tampered with in order to trigger
+                 * an insecure downgrade.
+                 */
+                SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO,
+                       SSL_R_INAPPROPRIATE_FALLBACK);
+                al = SSL_AD_INAPPROPRIATE_FALLBACK;
+                goto err;
+            }
+        }
+    }
+
+    /* For TLSv1.3 we must select the ciphersuite *before* session resumption */
+    if (SSL_IS_TLS13(s)) {
+        const SSL_CIPHER *cipher =
+            ssl3_choose_cipher(s, ciphers, SSL_get_ciphers(s));
+
+        if (cipher == NULL) {
+            SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO,
+                   SSL_R_NO_SHARED_CIPHER);
+            al = SSL_AD_HANDSHAKE_FAILURE;
+            goto err;
+        }
+        if (s->hello_retry_request
+                && (s->s3->tmp.new_cipher == NULL
+                    || s->s3->tmp.new_cipher->id != cipher->id)) {
+            /*
+             * A previous HRR picked a different ciphersuite to the one we
+             * just selected. Something must have changed.
+             */
+            al = SSL_AD_ILLEGAL_PARAMETER;
+            SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO, SSL_R_BAD_CIPHER);
+            goto err;
+        }
+        s->s3->tmp.new_cipher = cipher;
+    }
+
     /* We need to do this before getting the session */
     if (!tls_parse_extension(s, TLSEXT_IDX_extended_master_secret,
                              SSL_EXT_CLIENT_HELLO,
@@ -1608,46 +1634,11 @@ static int tls_early_post_process_client_hello(SSL *s, int *pal)
         }
     }
 
-    if (!ssl_cache_cipherlist(s, &clienthello->ciphersuites,
-                              clienthello->isv2, &al) ||
-        !bytes_to_cipher_list(s, &clienthello->ciphersuites, &ciphers, &scsvs,
-                             clienthello->isv2, &al)) {
-        goto err;
-    }
-
-    s->s3->send_connection_binding = 0;
-    /* Check what signalling cipher-suite values were received. */
-    if (scsvs != NULL) {
-        for(i = 0; i < sk_SSL_CIPHER_num(scsvs); i++) {
-            c = sk_SSL_CIPHER_value(scsvs, i);
-            if (SSL_CIPHER_get_id(c) == SSL3_CK_SCSV) {
-                if (s->renegotiate) {
-                    /* SCSV is fatal if renegotiating */
-                    SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO,
-                           SSL_R_SCSV_RECEIVED_WHEN_RENEGOTIATING);
-                    al = SSL_AD_HANDSHAKE_FAILURE;
-                    goto err;
-                }
-                s->s3->send_connection_binding = 1;
-            } else if (SSL_CIPHER_get_id(c) == SSL3_CK_FALLBACK_SCSV &&
-                       !ssl_check_version_downgrade(s)) {
-                /*
-                 * This SCSV indicates that the client previously tried
-                 * a higher version.  We should fail if the current version
-                 * is an unexpected downgrade, as that indicates that the first
-                 * connection may have been tampered with in order to trigger
-                 * an insecure downgrade.
-                 */
-                SSLerr(SSL_F_TLS_EARLY_POST_PROCESS_CLIENT_HELLO,
-                       SSL_R_INAPPROPRIATE_FALLBACK);
-                al = SSL_AD_INAPPROPRIATE_FALLBACK;
-                goto err;
-            }
-        }
-    }
-
-    /* If it is a hit, check that the cipher is in the list */
-    if (s->hit) {
+    /*
+     * If it is a hit, check that the cipher is in the list. In TLSv1.3 we check
+     * ciphersuite compatibility with the session as part of resumption.
+     */
+    if (!SSL_IS_TLS13(s) && s->hit) {
         j = 0;
         id = s->session->cipher->id;
 
@@ -1715,7 +1706,11 @@ static int tls_early_post_process_client_hello(SSL *s, int *pal)
         }
     }
 
-    if (!s->hit && s->version >= TLS1_VERSION && s->ext.session_secret_cb) {
+    if (!s->hit
+            && s->version >= TLS1_VERSION
+            && !SSL_IS_TLS13(s)
+            && !SSL_IS_DTLS(s)
+            && s->ext.session_secret_cb) {
         const SSL_CIPHER *pref_cipher = NULL;
         /*
          * s->session->master_key_length is a size_t, but this is an int for
@@ -1849,7 +1844,7 @@ static int tls_early_post_process_client_hello(SSL *s, int *pal)
      * Given s->session->ciphers and SSL_get_ciphers, we must pick a cipher
      */
 
-    if (!s->hit || s->hello_retry_request) {
+    if (!s->hit || SSL_IS_TLS13(s)) {
         sk_SSL_CIPHER_free(s->session->ciphers);
         s->session->ciphers = ciphers;
         if (ciphers == NULL) {
@@ -1955,9 +1950,9 @@ WORK_STATE tls_post_process_client_hello(SSL *s, WORK_STATE wst)
         wst = WORK_MORE_B;
     }
     if (wst == WORK_MORE_B) {
-        if (!s->hit || s->hello_retry_request) {
+        if (!s->hit || SSL_IS_TLS13(s)) {
             /* Let cert callback update server certificates if required */
-            if (s->cert->cert_cb) {
+            if (!s->hit && s->cert->cert_cb != NULL) {
                 int rv = s->cert->cert_cb(s, s->cert->cert_cb_arg);
                 if (rv == 0) {
                     al = SSL_AD_INTERNAL_ERROR;
@@ -1971,34 +1966,28 @@ WORK_STATE tls_post_process_client_hello(SSL *s, WORK_STATE wst)
                 }
                 s->rwstate = SSL_NOTHING;
             }
-            cipher =
-                ssl3_choose_cipher(s, s->session->ciphers, SSL_get_ciphers(s));
 
-            if (cipher == NULL) {
-                SSLerr(SSL_F_TLS_POST_PROCESS_CLIENT_HELLO,
-                       SSL_R_NO_SHARED_CIPHER);
-                goto f_err;
+            /* In TLSv1.3 we selected the ciphersuite before resumption */
+            if (!SSL_IS_TLS13(s)) {
+                cipher =
+                    ssl3_choose_cipher(s, s->session->ciphers, SSL_get_ciphers(s));
+
+                if (cipher == NULL) {
+                    SSLerr(SSL_F_TLS_POST_PROCESS_CLIENT_HELLO,
+                           SSL_R_NO_SHARED_CIPHER);
+                    goto f_err;
+                }
+                s->s3->tmp.new_cipher = cipher;
             }
-            if (SSL_IS_TLS13(s) && s->s3->tmp.new_cipher != NULL
-                    && s->s3->tmp.new_cipher->id != cipher->id) {
-                /*
-                 * A previous HRR picked a different ciphersuite to the one we
-                 * just selected. Something must have changed.
-                 */
-                al = SSL_AD_ILLEGAL_PARAMETER;
-                SSLerr(SSL_F_TLS_POST_PROCESS_CLIENT_HELLO, SSL_R_BAD_CIPHER);
-                goto f_err;
-            }
-            s->s3->tmp.new_cipher = cipher;
             if (!s->hit) {
                 if (!tls_choose_sigalg(s, &al))
                     goto f_err;
                 /* check whether we should disable session resumption */
                 if (s->not_resumable_session_cb != NULL)
                     s->session->not_resumable =
-                        s->not_resumable_session_cb(s, ((cipher->algorithm_mkey
-                                                        & (SSL_kDHE | SSL_kECDHE))
-                                                       != 0));
+                        s->not_resumable_session_cb(s,
+                            ((s->s3->tmp.new_cipher->algorithm_mkey
+                              & (SSL_kDHE | SSL_kECDHE)) != 0));
                 if (s->session->not_resumable)
                     /* do not send a session ticket */
                     s->ext.ticket_expected = 0;
@@ -2421,11 +2410,12 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
     /* not anonymous */
     if (lu != NULL) {
         EVP_PKEY *pkey = s->s3->tmp.cert->privatekey;
-        const EVP_MD *md = ssl_md(lu->hash_idx);
-        unsigned char *sigbytes1, *sigbytes2;
-        size_t siglen;
+        const EVP_MD *md;
+        unsigned char *sigbytes1, *sigbytes2, *tbs;
+        size_t siglen, tbslen;
+        int rv;
 
-        if (pkey == NULL || md == NULL) {
+        if (pkey == NULL || !tls1_lookup_md(lu, &md)) {
             /* Should never happen */
             al = SSL_AD_INTERNAL_ERROR;
             SSLerr(SSL_F_TLS_CONSTRUCT_SERVER_KEY_EXCHANGE,
@@ -2467,15 +2457,17 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
                 goto f_err;
             }
         }
-        if (EVP_DigestSignUpdate(md_ctx, &(s->s3->client_random[0]),
-                                 SSL3_RANDOM_SIZE) <= 0
-            || EVP_DigestSignUpdate(md_ctx, &(s->s3->server_random[0]),
-                                        SSL3_RANDOM_SIZE) <= 0
-            || EVP_DigestSignUpdate(md_ctx,
-                                        s->init_buf->data + paramoffset,
-                                        paramlen) <= 0
-            || EVP_DigestSignFinal(md_ctx, sigbytes1, &siglen) <= 0
-            || !WPACKET_sub_allocate_bytes_u16(pkt, siglen, &sigbytes2)
+        tbslen = construct_key_exchange_tbs(s, &tbs,
+                                            s->init_buf->data + paramoffset,
+                                            paramlen);
+        if (tbslen == 0) {
+            SSLerr(SSL_F_TLS_CONSTRUCT_SERVER_KEY_EXCHANGE,
+                   ERR_R_MALLOC_FAILURE);
+            goto f_err;
+        }
+        rv = EVP_DigestSign(md_ctx, sigbytes1, &siglen, tbs, tbslen);
+        OPENSSL_free(tbs);
+        if (rv <= 0 || !WPACKET_sub_allocate_bytes_u16(pkt, siglen, &sigbytes2)
             || sigbytes1 != sigbytes2) {
             SSLerr(SSL_F_TLS_CONSTRUCT_SERVER_KEY_EXCHANGE,
                    ERR_R_INTERNAL_ERROR);

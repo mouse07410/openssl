@@ -1,24 +1,11 @@
 /*
- * Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2002-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- *
- * Portions of the attached software ("Contribution") are developed by
- * SUN MICROSYSTEMS, INC., and are contributed to the OpenSSL project.
- *
- * The Contribution is licensed pursuant to the OpenSSL open source
- * license provided above.
- *
- * The elliptic curve binary polynomial software is originally written by
- * Sheueling Chang Shantz and Douglas Stebila of Sun Microsystems Laboratories.
- *
  */
 
 #include <openssl/opensslconf.h>
@@ -232,8 +219,9 @@ int ecparam_main(int argc, char **argv)
             BIO_printf(bio_err, "using curve name prime256v1 "
                        "instead of secp256r1\n");
             nid = NID_X9_62_prime256v1;
-        } else
+        } else {
             nid = OBJ_sn2nid(curve_name);
+        }
 
         if (nid == 0)
             nid = EC_curve_nist2nid(curve_name);
@@ -250,10 +238,11 @@ int ecparam_main(int argc, char **argv)
         }
         EC_GROUP_set_asn1_flag(group, asn1_flag);
         EC_GROUP_set_point_conversion_form(group, form);
-    } else if (informat == FORMAT_ASN1)
+    } else if (informat == FORMAT_ASN1) {
         group = d2i_ECPKParameters_bio(in, NULL);
-    else
+    } else {
         group = PEM_read_bio_ECPKParameters(in, NULL, NULL, NULL);
+    }
     if (group == NULL) {
         BIO_printf(bio_err, "unable to load elliptic curve parameters\n");
         ERR_print_errors(bio_err);

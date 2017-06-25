@@ -146,6 +146,9 @@ BIN_SCRIPTS=[.tools]c_rehash.pl
 MISC_SCRIPTS=[.apps]CA.pl, [.apps]tsget.pl
 {- output_on() if $disabled{apps}; "" -}
 
+APPS_OPENSSL={- use File::Spec::Functions;
+                catfile("apps","openssl") -}
+
 # DESTDIR is for package builders so that they can configure for, say,
 # SYS$COMMON:[OPENSSL] and yet have everything installed in STAGING:[USER].
 # In that case, configure with --prefix=SYS$COMMON:[OPENSSL] and then run
@@ -265,6 +268,10 @@ build_programs_nodep : $(PROGRAMS), $(SCRIPTS)
 
 # Kept around for backward compatibility
 build_apps build_tests : build_programs
+
+# Convenience target to prebuild all generated files, not just the mandatory
+# ones
+build_all_generated : $(GENERATED_MANDATORY) $(GENERATED)
 
 test : tests
 {- dependmagic('tests'); -} : build_programs_nodep, build_engines_nodep

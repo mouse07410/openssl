@@ -43,7 +43,10 @@ static struct thread_local_inits_st *ossl_init_get_thread_local(int alloc)
 
     if (local == NULL && alloc) {
         local = OPENSSL_zalloc(sizeof *local);
-        CRYPTO_THREAD_set_local(&threadstopkey, local);
+        if (local != NULL && !CRYPTO_THREAD_set_local(&threadstopkey, local)) {
+            OPENSSL_free(local);
+            return NULL;
+        }
     }
     if (!alloc) {
         CRYPTO_THREAD_set_local(&threadstopkey, NULL);
@@ -145,7 +148,7 @@ DEFINE_RUN_ONCE_STATIC(ossl_init_load_crypto_strings)
 # endif
     ret = err_load_crypto_strings_int();
     load_crypto_strings_inited = 1;
-#endif    
+#endif
     return ret;
 }
 
@@ -238,19 +241,6 @@ DEFINE_RUN_ONCE_STATIC(ossl_init_engine_openssl)
     engine_load_openssl_int();
     return 1;
 }
-# if !defined(OPENSSL_NO_HW) && \
-    (defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(HAVE_CRYPTODEV))
-static CRYPTO_ONCE engine_cryptodev = CRYPTO_ONCE_STATIC_INIT;
-DEFINE_RUN_ONCE_STATIC(ossl_init_engine_cryptodev)
-{
-#  ifdef OPENSSL_INIT_DEBUG
-    fprintf(stderr, "OPENSSL_INIT: ossl_init_engine_cryptodev: "
-                    "engine_load_cryptodev_int()\n");
-#  endif
-    engine_load_cryptodev_int();
-    return 1;
-}
-# endif
 
 # ifndef OPENSSL_NO_RDRAND
 static CRYPTO_ONCE engine_rdrand = CRYPTO_ONCE_STATIC_INIT;
@@ -359,7 +349,12 @@ void OPENSSL_thread_stop(void)
 
 int ossl_init_thread_start(uint64_t opts)
 {
-    struct thread_local_inits_st *locals = ossl_init_get_thread_local(1);
+    struct thread_local_inits_st *locals;
+
+    if (!OPENSSL_init_crypto(0, NULL))
+        return 0;
+
+    locals = ossl_init_get_thread_local(1);
 
     if (locals == NULL)
         return 0;
@@ -565,12 +560,6 @@ int OPENSSL_init_crypto(uint64_t opts, const OPENSSL_INIT_SETTINGS *settings)
     if ((opts & OPENSSL_INIT_ENGINE_OPENSSL)
             && !RUN_ONCE(&engine_openssl, ossl_init_engine_openssl))
         return 0;
-# if !defined(OPENSSL_NO_HW) && \
-    (defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(HAVE_CRYPTODEV))
-    if ((opts & OPENSSL_INIT_ENGINE_CRYPTODEV)
-            && !RUN_ONCE(&engine_cryptodev, ossl_init_engine_cryptodev))
-        return 0;
-# endif
 # ifndef OPENSSL_NO_RDRAND
     if ((opts & OPENSSL_INIT_ENGINE_RDRAND)
             && !RUN_ONCE(&engine_rdrand, ossl_init_engine_rdrand))

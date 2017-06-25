@@ -1,5 +1,6 @@
 /*
  * Copyright 2001-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -7,19 +8,13 @@
  * https://www.openssl.org/source/license.html
  */
 
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECDH support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-
 #include "eng_int.h"
 
 /*
  * The linked-list of pointers to engine types. engine_list_head incorporates
  * an implicit structural reference but engine_list_tail does not - the
- * latter is a computational niceity and only points to something that is
- * already pointed to by its predecessor in the list (or engine_list_head
+ * latter is a computational optimization and only points to something that
+ * is already pointed to by its predecessor in the list (or engine_list_head
  * itself). In the same way, the use of the "prev" pointer in each ENGINE is
  * to save excessive list iteration, it doesn't correspond to an extra
  * structural reference. Hence, engine_list_head, and each non-null "next"

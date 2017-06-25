@@ -18,6 +18,7 @@
 #include "ssltestlib.h"
 #include "testutil.h"
 #include "e_os.h"
+#include "../ssl/ssl_locl.h"
 
 static char *cert = NULL;
 static char *privkey = NULL;
@@ -404,6 +405,7 @@ static int full_early_callback(SSL *s, int *al, void *arg)
 {
     int *ctr = arg;
     const unsigned char *p;
+    int *exts;
     /* We only configure two ciphers, but the SCSV is added automatically. */
 #ifdef OPENSSL_NO_EC
     const unsigned char expected_ciphers[] = {0x00, 0x9d, 0x00, 0xff};
@@ -411,6 +413,11 @@ static int full_early_callback(SSL *s, int *al, void *arg)
     const unsigned char expected_ciphers[] = {0x00, 0x9d, 0xc0,
                                               0x2c, 0x00, 0xff};
 #endif
+    const int expected_extensions[] = {
+#ifndef OPENSSL_NO_EC
+                                       11, 10,
+#endif
+                                       35, 13, 22, 23};
     size_t len;
 
     /* Make sure we can defer processing and get called back. */
@@ -422,6 +429,15 @@ static int full_early_callback(SSL *s, int *al, void *arg)
             || !TEST_size_t_eq(SSL_early_get0_compression_methods(s, &p), 1)
             || !TEST_int_eq(*p, 0))
         return 0;
+    if (!SSL_early_get1_extensions_present(s, &exts, &len))
+        return 0;
+    if (len != OSSL_NELEM(expected_extensions) ||
+        memcmp(exts, expected_extensions, len * sizeof(*exts)) != 0) {
+        printf("Early callback expected ClientHello extensions mismatch\n");
+        OPENSSL_free(exts);
+        return 0;
+    }
+    OPENSSL_free(exts);
     return 1;
 }
 
@@ -1782,8 +1798,317 @@ static int test_early_data_tls1_2(int idx)
 
     return testresult;
 }
-# endif
-#endif
+# endif /* OPENSSL_NO_TLS1_2 */
+
+static int test_ciphersuite_change(void)
+{
+    SSL_CTX *cctx = NULL, *sctx = NULL;
+    SSL *clientssl = NULL, *serverssl = NULL;
+    SSL_SESSION *clntsess = NULL;
+    int testresult = 0;
+    const SSL_CIPHER *aes_128_gcm_sha256 = NULL;
+
+    /* Create a session based on SHA-256 */
+    if (!TEST_true(create_ssl_ctx_pair(TLS_server_method(),
+                                       TLS_client_method(), &sctx,
+                                       &cctx, cert, privkey))
+            || !TEST_true(SSL_CTX_set_cipher_list(cctx,
+                                                  "TLS13-AES-128-GCM-SHA256"))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl,
+                                          &clientssl, NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE)))
+        goto end;
+
+    clntsess = SSL_get1_session(clientssl);
+    /* Save for later */
+    aes_128_gcm_sha256 = SSL_SESSION_get0_cipher(clntsess);
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    serverssl = clientssl = NULL;
+
+    /* Check we can resume a session with a different SHA-256 ciphersuite */
+    if (!TEST_true(SSL_CTX_set_cipher_list(cctx,
+                                           "TLS13-CHACHA20-POLY1305-SHA256"))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(SSL_set_session(clientssl, clntsess))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE))
+            || !TEST_true(SSL_session_reused(clientssl)))
+        goto end;
+
+    SSL_SESSION_free(clntsess);
+    clntsess = SSL_get1_session(clientssl);
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    serverssl = clientssl = NULL;
+
+    /*
+     * Check attempting to resume a SHA-256 session with no SHA-256 ciphersuites
+     * succeeds but does not resume.
+     */
+    if (!TEST_true(SSL_CTX_set_cipher_list(cctx, "TLS13-AES-256-GCM-SHA384"))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(SSL_set_session(clientssl, clntsess))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_SSL))
+            || !TEST_false(SSL_session_reused(clientssl)))
+        goto end;
+
+    SSL_SESSION_free(clntsess);
+    clntsess = NULL;
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    serverssl = clientssl = NULL;
+
+    /* Create a session based on SHA384 */
+    if (!TEST_true(SSL_CTX_set_cipher_list(cctx, "TLS13-AES-256-GCM-SHA384"))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl,
+                                          &clientssl, NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE)))
+        goto end;
+
+    clntsess = SSL_get1_session(clientssl);
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    serverssl = clientssl = NULL;
+
+    if (!TEST_true(SSL_CTX_set_cipher_list(cctx,
+                   "TLS13-AES-128-GCM-SHA256:TLS13-AES-256-GCM-SHA384"))
+            || !TEST_true(SSL_CTX_set_cipher_list(sctx,
+                                                  "TLS13-AES-256-GCM-SHA384"))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(SSL_set_session(clientssl, clntsess))
+               /*
+                * We use SSL_ERROR_WANT_READ below so that we can pause the
+                * connection after the initial ClientHello has been sent to
+                * enable us to make some session changes.
+                */
+            || !TEST_false(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_WANT_READ)))
+        goto end;
+
+    /* Trick the client into thinking this session is for a different digest */
+    clntsess->cipher = aes_128_gcm_sha256;
+    clntsess->cipher_id = clntsess->cipher->id;
+
+    /*
+     * Continue the previously started connection. Server has selected a SHA-384
+     * ciphersuite, but client thinks the session is for SHA-256, so it should
+     * bail out.
+     */
+    if (!TEST_false(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_SSL))
+            || !TEST_int_eq(ERR_GET_REASON(ERR_get_error()),
+                            SSL_R_CIPHERSUITE_DIGEST_HAS_CHANGED))
+        goto end;
+
+    testresult = 1;
+
+ end:
+    SSL_SESSION_free(clntsess);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(cctx);
+
+    return testresult;
+}
+
+
+static SSL_SESSION *psk = NULL;
+static const char *pskid = "Identity";
+static const char *srvid;
+
+static int use_session_cb_cnt = 0;
+static int find_session_cb_cnt = 0;
+
+static int use_session_cb(SSL *ssl, const EVP_MD *md, const unsigned char **id,
+                          size_t *idlen, SSL_SESSION **sess)
+{
+    switch (++use_session_cb_cnt) {
+    case 1:
+        /* The first call should always have a NULL md */
+        if (md != NULL)
+            return 0;
+        break;
+
+    case 2:
+        /* The second call should always have an md */
+        if (md == NULL)
+            return 0;
+        break;
+
+    default:
+        /* We should only be called a maximum of twice */
+        return 0;
+    }
+
+    if (psk != NULL)
+        SSL_SESSION_up_ref(psk);
+
+    *sess = psk;
+    *id = (const unsigned char *)pskid;
+    *idlen = strlen(pskid);
+
+    return 1;
+}
+
+static int find_session_cb(SSL *ssl, const unsigned char *identity,
+                           size_t identity_len, SSL_SESSION **sess)
+{
+    find_session_cb_cnt++;
+
+    /* We should only ever be called a maximum of twice per connection */
+    if (find_session_cb_cnt > 2)
+        return 0;
+
+    if (psk == NULL)
+        return 0;
+
+    /* Identity should match that set by the client */
+    if (strlen(srvid) != identity_len
+            || strncmp(srvid, (const char *)identity, identity_len) != 0) {
+        /* No PSK found, continue but without a PSK */
+        *sess = NULL;
+        return 1;
+    }
+
+    SSL_SESSION_up_ref(psk);
+    *sess = psk;
+
+    return 1;
+}
+
+#define TLS13_AES_256_GCM_SHA384_BYTES  ((const unsigned char *)"\x13\x02")
+
+static int test_tls13_psk(void)
+{
+    SSL_CTX *sctx = NULL, *cctx = NULL;
+    SSL *serverssl = NULL, *clientssl = NULL;
+    const SSL_CIPHER *cipher = NULL;
+    const unsigned char key[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+        0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+    };
+    int testresult = 0;
+
+    if (!TEST_true(create_ssl_ctx_pair(TLS_server_method(),
+                                       TLS_client_method(), &sctx,
+                                       &cctx, cert, privkey)))
+        goto end;
+
+    SSL_CTX_set_psk_use_session_callback(cctx, use_session_cb);
+    SSL_CTX_set_psk_find_session_callback(sctx, find_session_cb);
+    srvid = pskid;
+
+    /* Check we can create a connection if callback decides not to send a PSK */
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE))
+            || !TEST_false(SSL_session_reused(clientssl))
+            || !TEST_false(SSL_session_reused(serverssl))
+            || !TEST_true(use_session_cb_cnt == 1)
+            || !TEST_true(find_session_cb_cnt == 0))
+        goto end;
+
+    shutdown_ssl_connection(serverssl, clientssl);
+    serverssl = clientssl = NULL;
+    use_session_cb_cnt = 0;
+
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL)))
+        goto end;
+
+    /* Create the PSK */
+    cipher = SSL_CIPHER_find(clientssl, TLS13_AES_256_GCM_SHA384_BYTES);
+    psk = SSL_SESSION_new();
+    if (!TEST_ptr(psk)
+            || !TEST_ptr(cipher)
+            || !TEST_true(SSL_SESSION_set1_master_key(psk, key, sizeof(key)))
+            || !TEST_true(SSL_SESSION_set_cipher(psk, cipher))
+            || !TEST_true(SSL_SESSION_set_protocol_version(psk,
+                                                           TLS1_3_VERSION)))
+        goto end;
+
+    /* Check we can create a connection and the PSK is used */
+    if (!TEST_true(create_ssl_connection(serverssl, clientssl, SSL_ERROR_NONE))
+            || !TEST_true(SSL_session_reused(clientssl))
+            || !TEST_true(SSL_session_reused(serverssl))
+            || !TEST_true(use_session_cb_cnt == 1)
+            || !TEST_true(find_session_cb_cnt == 1))
+        goto end;
+
+    shutdown_ssl_connection(serverssl, clientssl);
+    serverssl = clientssl = NULL;
+    use_session_cb_cnt = find_session_cb_cnt = 0;
+
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL)))
+        goto end;
+
+    /* Force an HRR */
+    if (!TEST_true(SSL_set1_groups_list(serverssl, "P-256")))
+        goto end;
+
+    /*
+     * Check we can create a connection, the PSK is used and the callbacks are
+     * called twice.
+     */
+    if (!TEST_true(create_ssl_connection(serverssl, clientssl, SSL_ERROR_NONE))
+            || !TEST_true(SSL_session_reused(clientssl))
+            || !TEST_true(SSL_session_reused(serverssl))
+            || !TEST_true(use_session_cb_cnt == 2)
+            || !TEST_true(find_session_cb_cnt == 2))
+        goto end;
+
+    shutdown_ssl_connection(serverssl, clientssl);
+    serverssl = clientssl = NULL;
+    use_session_cb_cnt = find_session_cb_cnt = 0;
+
+    /*
+     * Check that if the server rejects the PSK we can still connect, but with
+     * a full handshake
+     */
+    srvid = "Dummy Identity";
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE))
+            || !TEST_false(SSL_session_reused(clientssl))
+            || !TEST_false(SSL_session_reused(serverssl))
+            || !TEST_true(use_session_cb_cnt == 1)
+            || !TEST_true(find_session_cb_cnt == 1))
+        goto end;
+
+    shutdown_ssl_connection(serverssl, clientssl);
+    serverssl = clientssl = NULL;
+    testresult = 1;
+
+ end:
+    SSL_SESSION_free(psk);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(cctx);
+    return testresult;
+}
+
+#endif /* OPENSSL_NO_TLS1_3 */
 
 static int clntaddoldcb = 0;
 static int clntparseoldcb = 0;
@@ -2207,6 +2532,8 @@ int test_main(int argc, char *argv[])
 # endif
 #endif
 #ifndef OPENSSL_NO_TLS1_3
+    ADD_TEST(test_ciphersuite_change);
+    ADD_TEST(test_tls13_psk);
     ADD_ALL_TESTS(test_custom_exts, 5);
 #else
     ADD_ALL_TESTS(test_custom_exts, 3);

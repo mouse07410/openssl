@@ -1,50 +1,12 @@
 /*
  * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- *
- * Portions of the attached software ("Contribution") are developed by
- * SUN MICROSYSTEMS, INC., and are contributed to the OpenSSL project.
- *
- * The Contribution is licensed pursuant to the OpenSSL open source
- * license provided above.
- *
- * ECC cipher suite support in OpenSSL originally written by
- * Vipul Gupta and Sumit Gupta of Sun Microsystems Laboratories.
- *
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <stdio.h>
@@ -3471,7 +3433,12 @@ long ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
     case SSL_CTRL_SET_TLS_EXT_SRP_PASSWORD:
         ctx->srp_ctx.SRP_give_srp_client_pwd_callback =
             srp_password_from_info_cb;
-        ctx->srp_ctx.info = parg;
+        if (ctx->srp_ctx.info != NULL)
+            OPENSSL_free(ctx->srp_ctx.info);
+        if ((ctx->srp_ctx.info = BUF_strdup((char *)parg)) == NULL) {
+            SSLerr(SSL_F_SSL3_CTX_CTRL, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
         break;
     case SSL_CTRL_SET_SRP_ARG:
         ctx->srp_ctx.srp_Mask |= SSL_kSRP;
@@ -3675,7 +3642,7 @@ const SSL_CIPHER *ssl3_choose_cipher(SSL *s, STACK_OF(SSL_CIPHER) *clnt,
     const SSL_CIPHER *c, *ret = NULL;
     STACK_OF(SSL_CIPHER) *prio, *allow;
     int i, ii, ok;
-    unsigned long alg_k = 0, alg_a = 0, mask_k, mask_a;
+    unsigned long alg_k = 0, alg_a = 0, mask_k = 0, mask_a = 0;
 
     /* Let's see which ciphers we can support */
 
@@ -3709,8 +3676,10 @@ const SSL_CIPHER *ssl3_choose_cipher(SSL *s, STACK_OF(SSL_CIPHER) *clnt,
         allow = srvr;
     }
 
-    tls1_set_cert_validity(s);
-    ssl_set_masks(s);
+    if (!SSL_IS_TLS13(s)) {
+        tls1_set_cert_validity(s);
+        ssl_set_masks(s);
+    }
 
     for (i = 0; i < sk_SSL_CIPHER_num(prio); i++) {
         c = sk_SSL_CIPHER_value(prio, i);
@@ -3723,6 +3692,7 @@ const SSL_CIPHER *ssl3_choose_cipher(SSL *s, STACK_OF(SSL_CIPHER) *clnt,
             (DTLS_VERSION_LT(s->version, c->min_dtls) ||
              DTLS_VERSION_GT(s->version, c->max_dtls)))
             continue;
+
         /*
          * Since TLS 1.3 ciphersuites can be used with any auth or
          * key exchange scheme skip tests.

@@ -119,6 +119,9 @@ BIN_SCRIPTS=$(BLDDIR)/tools/c_rehash
 MISC_SCRIPTS=$(BLDDIR)/apps/CA.pl $(BLDDIR)/apps/tsget
 {- output_on() if $disabled{apps}; "" -}
 
+APPS_OPENSSL={- use File::Spec::Functions;
+                catfile("apps","openssl") -}
+
 # DESTDIR is for package builders so that they can configure for, say,
 # /usr/ and yet have everything installed to /tmp/somedir/usr/.
 # Normally it is left empty.
@@ -247,6 +250,10 @@ build_programs_nodep: $(PROGRAMS) $(SCRIPTS)
 
 # Kept around for backward compatibility
 build_apps build_tests: build_programs
+
+# Convenience target to prebuild all generated files, not just the mandatory
+# ones
+build_all_generated: $(GENERATED_MANDATORY) $(GENERATED)
 
 test: tests
 {- dependmagic('tests'); -}: build_programs_nodep build_engines_nodep link-utils
@@ -602,7 +609,7 @@ generate: generate_apps generate_crypto_bn generate_crypto_objects \
           generate_crypto_conf generate_crypto_asn1
 
 doc-nits:
-	(cd $(SRCDIR); $(PERL) util/find-doc-nits -n ) >doc-nits
+	(cd $(SRCDIR); $(PERL) util/find-doc-nits -n -p ) >doc-nits
 	if [ -s doc-nits ] ; then cat doc-nits; rm doc-nits ; exit 1; fi
 
 # Test coverage is a good idea for the future
@@ -612,19 +619,9 @@ doc-nits:
 lint:
 	lint -DLINT $(INCLUDES) $(SRCS)
 
-{- # because the program apps/openssl has object files as sources, and
-   # they then have the corresponding C files as source, we need to chain
-   # the lookups in %unified_info
-   my $apps_openssl = catfile("apps","openssl");
-   our @openssl_source = map { @{$unified_info{sources}->{$_}} }
-                         @{$unified_info{sources}->{$apps_openssl}};
-   ""; -}
 generate_apps:
 	( cd $(SRCDIR); $(PERL) VMS/VMSify-conf.pl \
 				< apps/openssl.cnf > apps/openssl-vms.cnf )
-	( b=`pwd`; cd $(SRCDIR); $(PERL) -I$$b apps/progs.pl \
-					{- join(" ", @openssl_source) -} \
-					> apps/progs.h )
 
 generate_crypto_bn:
 	( cd $(SRCDIR); $(PERL) crypto/bn/bn_prime.pl > crypto/bn/bn_prime.h )
@@ -650,14 +647,16 @@ generate_crypto_asn1:
 	( cd $(SRCDIR); $(PERL) crypto/asn1/charmap.pl \
 			        > crypto/asn1/charmap.h )
 
+# Set to -force to force a rebuild
+ERROR_REBUILD=
 errors:
 	( cd $(SRCDIR); $(PERL) util/ck_errf.pl -strict */*.c */*/*.c )
-	( cd $(SRCDIR); $(PERL) util/mkerr.pl -recurse -write )
+	( cd $(SRCDIR); $(PERL) util/mkerr.pl $(ERROR_REBUILD) -internal )
 	( cd $(SRCDIR)/engines; \
-	  for e in *.ec; do \
-	      $(PERL) ../util/mkerr.pl -conf $$e \
-		      -nostatic -staticloader -write *.c; \
-	  done )
+          for E in *.ec ; do \
+              $(PERL) ../util/mkerr.pl $(ERROR_REBUILD) -static \
+                -conf $$E `basename $$E .ec`.c ; \
+          done )
 
 ordinals:
 	( b=`pwd`; cd $(SRCDIR); $(PERL) -I$$b util/mkdef.pl crypto update )

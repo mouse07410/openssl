@@ -1,50 +1,12 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- *
- * Portions of the attached software ("Contribution") are developed by
- * SUN MICROSYSTEMS, INC., and are contributed to the OpenSSL project.
- *
- * The Contribution is licensed pursuant to the OpenSSL open source
- * license provided above.
- *
- * ECC cipher suite support in OpenSSL originally written by
- * Vipul Gupta and Sumit Gupta of Sun Microsystems Laboratories.
- *
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <stdio.h>
@@ -1268,9 +1230,26 @@ static int set_client_ciphersuite(SSL *s, const unsigned char *cipherchars)
     if (s->session->cipher != NULL)
         s->session->cipher_id = s->session->cipher->id;
     if (s->hit && (s->session->cipher_id != c->id)) {
-        SSLerr(SSL_F_SET_CLIENT_CIPHERSUITE,
-               SSL_R_OLD_SESSION_CIPHER_NOT_RETURNED);
-        return 0;
+        if (SSL_IS_TLS13(s)) {
+            /*
+             * In TLSv1.3 it is valid for the server to select a different
+             * ciphersuite as long as the hash is the same.
+             */
+            if (ssl_md(c->algorithm2)
+                    != ssl_md(s->session->cipher->algorithm2)) {
+                SSLerr(SSL_F_SET_CLIENT_CIPHERSUITE,
+                       SSL_R_CIPHERSUITE_DIGEST_HAS_CHANGED);
+                return 0;
+            }
+        } else {
+            /*
+             * Prior to TLSv1.3 resuming a session always meant using the same
+             * ciphersuite.
+             */
+            SSLerr(SSL_F_SET_CLIENT_CIPHERSUITE,
+                   SSL_R_OLD_SESSION_CIPHER_NOT_RETURNED);
+            return 0;
+        }
     }
     s->s3->tmp.new_cipher = c;
 
@@ -1811,9 +1790,10 @@ MSG_PROCESS_RETURN tls_process_server_certificate(SSL *s, PACKET *pkt)
     if (!SSL_IS_TLS13(s)) {
         exp_idx = ssl_cipher_get_cert_index(s->s3->tmp.new_cipher);
         if (exp_idx >= 0 && i != exp_idx
-            && (exp_idx != SSL_PKEY_GOST_EC ||
-                (i != SSL_PKEY_GOST12_512 && i != SSL_PKEY_GOST12_256
-                 && i != SSL_PKEY_GOST01))) {
+                && (exp_idx != SSL_PKEY_ECC || i != SSL_PKEY_ED25519)
+                && (exp_idx != SSL_PKEY_GOST_EC ||
+                    (i != SSL_PKEY_GOST12_512 && i != SSL_PKEY_GOST12_256
+                    && i != SSL_PKEY_GOST01))) {
             x = NULL;
             al = SSL_AD_ILLEGAL_PARAMETER;
             SSLerr(SSL_F_TLS_PROCESS_SERVER_CERTIFICATE,
@@ -2191,6 +2171,9 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
         PACKET params;
         int maxsig;
         const EVP_MD *md = NULL;
+        unsigned char *tbs;
+        size_t tbslen;
+        int rv;
 
         /*
          * |pkt| now points to the beginning of the signature, so the difference
@@ -2206,7 +2189,6 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
 
         if (SSL_USE_SIGALGS(s)) {
             unsigned int sigalg;
-            int rv;
 
             if (!PACKET_get_net_2(pkt, &sigalg)) {
                 al = SSL_AD_DECODE_ERROR;
@@ -2229,7 +2211,10 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
             goto err;
         }
 
-        md = ssl_md(s->s3->tmp.peer_sigalg->hash_idx);
+        if (!tls1_lookup_md(s->s3->tmp.peer_sigalg, &md)) {
+            al = SSL_AD_INTERNAL_ERROR;
+            goto err;
+        }
 
         if (!PACKET_get_length_prefixed_2(pkt, &signature)
             || PACKET_remaining(pkt) != 0) {
@@ -2276,19 +2261,18 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
                 goto err;
             }
         }
-        if (EVP_DigestVerifyUpdate(md_ctx, &(s->s3->client_random[0]),
-                                   SSL3_RANDOM_SIZE) <= 0
-                || EVP_DigestVerifyUpdate(md_ctx, &(s->s3->server_random[0]),
-                                          SSL3_RANDOM_SIZE) <= 0
-                || EVP_DigestVerifyUpdate(md_ctx, PACKET_data(&params),
-                                          PACKET_remaining(&params)) <= 0) {
+        tbslen = construct_key_exchange_tbs(s, &tbs, PACKET_data(&params),
+                                            PACKET_remaining(&params));
+        if (tbslen == 0) {
             al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_EVP_LIB);
+            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_MALLOC_FAILURE);
             goto err;
         }
-        if (EVP_DigestVerifyFinal(md_ctx, PACKET_data(&signature),
-                                  PACKET_remaining(&signature)) <= 0) {
-            /* bad signature */
+
+        rv = EVP_DigestVerify(md_ctx, PACKET_data(&signature),
+                              PACKET_remaining(&signature), tbs, tbslen);
+        OPENSSL_free(tbs);
+        if (rv <= 0) {
             al = SSL_AD_DECRYPT_ERROR;
             SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_BAD_SIGNATURE);
             goto err;
@@ -3368,7 +3352,7 @@ int ssl3_check_cert_and_algorithm(SSL *s)
 
 #ifndef OPENSSL_NO_EC
     idx = s->session->peer_type;
-    if (idx == SSL_PKEY_ECC) {
+    if (idx == SSL_PKEY_ECC || idx == SSL_PKEY_ED25519) {
         if (ssl_check_srvr_ecc_cert_and_alg(s->session->peer, s) == 0) {
             /* check failed */
             SSLerr(SSL_F_SSL3_CHECK_CERT_AND_ALGORITHM, SSL_R_BAD_ECC_CERT);

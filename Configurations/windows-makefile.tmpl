@@ -78,7 +78,7 @@ SHLIBS={- join(" ", map { shlib($_) } @{$unified_info{libraries}}) -}
 SHLIBPDBS={- join(" ", map { local $shlibext = ".pdb"; shlib($_) } @{$unified_info{libraries}}) -}
 ENGINES={- join(" ", map { dso($_) } @{$unified_info{engines}}) -}
 ENGINEPDBS={- join(" ", map { local $dsoext = ".pdb"; dso($_) } @{$unified_info{engines}}) -}
-PROGRAMS={- join(" ", map { $_.$exeext } @{$unified_info{programs}}) -}
+PROGRAMS={- our @PROGRAMS = map { $_.$exeext } @{$unified_info{programs}}; join(" ", @PROGRAMS) -}
 PROGRAMPDBS={- join(" ", map { $_.".pdb" } @{$unified_info{programs}}) -}
 SCRIPTS={- join(" ", @{$unified_info{scripts}}) -}
 {- output_off() if $disabled{makedepend}; "" -}
@@ -106,6 +106,9 @@ BIN_SCRIPTS=$(BLDDIR)\tools\c_rehash.pl
 MISC_SCRIPTS=$(BLDDIR)\apps\CA.pl $(BLDDIR)\apps\tsget.pl
 {- output_on() if $disabled{apps}; "" -}
 
+APPS_OPENSSL={- use File::Spec::Functions;
+                catfile("apps","openssl") -}
+
 # Do not edit these manually. Use Configure with --prefix or --openssldir
 # to change this!  Short explanation in the top comment in Configure
 INSTALLTOP_dev={- # $prefix is used in the OPENSSLDIR perl snippet
@@ -118,7 +121,7 @@ INSTALLTOP_dev={- # $prefix is used in the OPENSSLDIR perl snippet
 INSTALLTOP_dir={- $prefix_dir -}
 OPENSSLDIR_dev={- #
                   # The logic here is that if no --openssldir was given,
-                  # OPENSSLDIR will get the value from $prefix plus "/ssl".
+                  # OPENSSLDIR will get the value "$win_commonroot\\SSL".
                   # If --openssldir was given and the value is an absolute
                   # path, OPENSSLDIR will get its value without change.
                   # If the value from --openssldir is a relative path,
@@ -203,6 +206,10 @@ build_programs_nodep: $(PROGRAMS) $(SCRIPTS)
 # Kept around for backward compatibility
 build_apps build_tests: build_programs
 
+# Convenience target to prebuild all generated files, not just the mandatory
+# ones
+build_all_generated: $(GENERATED_MANDATORY) $(GENERATED)
+
 test: tests
 {- dependmagic('tests'); -}: build_programs_nodep build_engines_nodep
 	@rem {- output_off() if $disabled{tests}; "" -}
@@ -235,7 +242,9 @@ libclean:
 	-del /Q ossl_static.pdb
 
 clean: libclean
-	-del /Q /F $(PROGRAMS) $(ENGINES) $(SCRIPTS)
+	{- join("\n\t", map { "-del /Q /F $_" } @PROGRAMS) -}
+	-del /Q /F $(ENGINES)
+	-del /Q /F $(SCRIPTS)
 	-del /Q /F $(GENERATED)
 	-del /Q /S /F *.d
 	-del /Q /S /F *.obj

@@ -107,7 +107,6 @@ ASN1_GENERALIZEDTIME *ASN1_TIME_to_generalizedtime(const ASN1_TIME *t,
     return NULL;
 }
 
-
 int ASN1_TIME_set_string(ASN1_TIME *s, const char *str)
 {
     ASN1_TIME t;
@@ -130,20 +129,85 @@ int ASN1_TIME_set_string(ASN1_TIME *s, const char *str)
     return 1;
 }
 
-static int asn1_time_to_tm(struct tm *tm, const ASN1_TIME *t)
+int ASN1_TIME_set_string_X509(ASN1_TIME *s, const char *str)
 {
-    if (t == NULL) {
+    ASN1_TIME t;
+    struct tm tm;
+    int rv = 0;
+
+    t.length = strlen(str);
+    t.data = (unsigned char *)str;
+    t.flags = ASN1_STRING_FLAG_X509_TIME;
+
+    t.type = V_ASN1_UTCTIME;
+
+    if (!ASN1_TIME_check(&t)) {
+        t.type = V_ASN1_GENERALIZEDTIME;
+        if (!ASN1_TIME_check(&t))
+            goto out;
+    }
+
+    /*
+     * Per RFC 5280 (section 4.1.2.5.), the valid input time
+     * strings should be encoded with the following rules:
+     *
+     * 1. UTC: YYMMDDHHMMSSZ, if YY < 50 (20YY) --> UTC: YYMMDDHHMMSSZ
+     * 2. UTC: YYMMDDHHMMSSZ, if YY >= 50 (19YY) --> UTC: YYMMDDHHMMSSZ
+     * 3. G'd: YYYYMMDDHHMMSSZ, if YYYY >= 2050 --> G'd: YYYYMMDDHHMMSSZ
+     * 4. G'd: YYYYMMDDHHMMSSZ, if YYYY < 2050 --> UTC: YYMMDDHHMMSSZ
+     *
+     * Only strings of the 4th rule should be reformatted, but since a
+     * UTC can only present [1950, 2050), so if the given time string
+     * is less than 1950 (e.g. 19230419000000Z), we do nothing...
+     */
+
+    if (s != NULL && t.type == V_ASN1_GENERALIZEDTIME) {
+        if (!asn1_generalizedtime_to_tm(&tm, &t))
+            goto out;
+        if (tm.tm_year >= 50 && tm.tm_year < 150) {
+            t.length -= 2;
+            /*
+             * it's OK to let original t.data go since that's assigned
+             * to a piece of memory allocated outside of this function.
+             * new t.data would be freed after ASN1_STRING_copy is done.
+             */
+            t.data = OPENSSL_zalloc(t.length + 1);
+            if (t.data == NULL)
+                goto out;
+            memcpy(t.data, str + 2, t.length);
+            t.type = V_ASN1_UTCTIME;
+        }
+    }
+
+    if (s == NULL || ASN1_STRING_copy((ASN1_STRING *)s, (ASN1_STRING *)&t))
+        rv = 1;
+
+    if (t.data != (unsigned char *)str)
+        OPENSSL_free(t.data);
+out:
+    return rv;
+}
+
+int ASN1_TIME_to_tm(const ASN1_TIME *s, struct tm *tm)
+{
+    if (s == NULL) {
         time_t now_t;
+
         time(&now_t);
+        memset(tm, 0, sizeof(*tm));
         if (OPENSSL_gmtime(&now_t, tm))
             return 1;
         return 0;
     }
 
-    if (t->type == V_ASN1_UTCTIME)
-        return asn1_utctime_to_tm(tm, t);
-    else if (t->type == V_ASN1_GENERALIZEDTIME)
-        return asn1_generalizedtime_to_tm(tm, t);
+    if (s->type == V_ASN1_UTCTIME) {
+        memset(tm, 0, sizeof(*tm));
+        return asn1_utctime_to_tm(tm, s);
+    }
+    if (s->type == V_ASN1_GENERALIZEDTIME) {
+        memset(tm, 0, sizeof(*tm));
+        return asn1_generalizedtime_to_tm(tm, s);
+    }
 
     return 0;
 }
@@ -152,9 +216,10 @@ int ASN1_TIME_diff(int *pday, int *psec,
                    const ASN1_TIME *from, const ASN1_TIME *to)
 {
     struct tm tm_from, tm_to;
-    if (!asn1_time_to_tm(&tm_from, from))
+
+    if (!ASN1_TIME_to_tm(from, &tm_from))
         return 0;
-    if (!asn1_time_to_tm(&tm_to, to))
+    if (!ASN1_TIME_to_tm(to, &tm_to))
         return 0;
     return OPENSSL_gmtime_diff(pday, psec, &tm_from, &tm_to);
 }

@@ -1,24 +1,11 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- *
- * Portions of the attached software ("Contribution") are developed by
- * SUN MICROSYSTEMS, INC., and are contributed to the OpenSSL project.
- *
- * The Contribution is licensed pursuant to the OpenSSL open source
- * license provided above.
- *
- * The ECDH and ECDSA speed test software is originally written by
- * Sumit Gupta of Sun Microsystems Laboratories.
- *
  */
 
 #undef SECONDS
@@ -1357,6 +1344,7 @@ int speed_main(int argc, char **argv)
             usertime = 0;
             break;
         case OPT_EVP:
+            evp_md = NULL;
             evp_cipher = EVP_get_cipherbyname(opt_arg());
             if (evp_cipher == NULL)
                 evp_md = EVP_get_digestbyname(opt_arg());
@@ -1594,9 +1582,9 @@ int speed_main(int argc, char **argv)
 #endif
 #ifndef OPENSSL_NO_DSA
     for (i = 0; i < loopargs_len; i++) {
-        loopargs[i].dsa_key[0] = get_dsa512();
-        loopargs[i].dsa_key[1] = get_dsa1024();
-        loopargs[i].dsa_key[2] = get_dsa2048();
+        loopargs[i].dsa_key[0] = get_dsa(512);
+        loopargs[i].dsa_key[1] = get_dsa(1024);
+        loopargs[i].dsa_key[2] = get_dsa(2048);
     }
 #endif
 #ifndef OPENSSL_NO_DES
@@ -2639,7 +2627,7 @@ int speed_main(int argc, char **argv)
                 EVP_PKEY_CTX_free(pctx);
                 pctx = NULL;
             }
-            if (!kctx ||        /* keygen ctx is not null */
+            if (kctx == NULL ||      /* keygen ctx is not null */
                 !EVP_PKEY_keygen_init(kctx) /* init keygen ctx */ ) {
                 ecdh_checks = 0;
                 BIO_printf(bio_err, "ECDH keygen failure.\n");

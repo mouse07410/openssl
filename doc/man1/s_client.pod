@@ -113,6 +113,7 @@ B<openssl> B<s_client>
 [B<-ctlogfile>]
 [B<-keylogfile file>]
 [B<-early_data file>]
+[B<target>]
 
 =head1 DESCRIPTION
 
@@ -135,8 +136,10 @@ Print out a usage message.
 
 =item B<-connect host:port>
 
-This specifies the host and optional port to connect to. If not specified
-then an attempt is made to connect to the local host on port 4433.
+This specifies the host and optional port to connect to. It is possible to
+select the host and port using the optional target positional argument instead.
+If neither this nor the target positonal argument are specified then an attempt
+is made to connect to the local host on port 4433.
 
 =item B<-proxy host:port>
 
@@ -159,16 +162,20 @@ Use IPv6 only.
 =item B<-servername name>
 
 Set the TLS SNI (Server Name Indication) extension in the ClientHello message to
-the given value.
+the given value. If both this option and the B<-noservername> are not given, the
+TLS SNI extension is still set to the hostname provided to the B<-connect> option,
+or "localhost" if B<-connect> has not been supplied. This is default since OpenSSL
+1.1.1.
+
+Even though SNI name should normally be a DNS name and not an IP address, this
+option will not make the distinction when parsing B<-connect> and will send
+IP address if one passed.
 
 =item B<-noservername>
 
 Suppresses sending of the SNI (Server Name Indication) extension in the
 ClientHello message. Cannot be used in conjunction with the B<-servername> or
-<-dane_tlsa_domain> options. If this option is not given then the hostname
-provided to the B<-connect> option is used in the SNI extension, or "localhost"
-if B<-connect> has not been supplied. Note that an SNI name should normally be a
-DNS name and not an IP address.
+<-dane_tlsa_domain> options.
 
 =item B<-cert certname>
 
@@ -560,6 +567,7 @@ for example "http/1.1" or "spdy/3".
 An empty list of protocols is treated specially and will cause the
 client to advertise support for the TLS extension but disconnect just
 after receiving ServerHello with a list of server supported protocols.
+The flag B<-nextprotoneg> cannot be specified if B<-tls1_3> is used.
 
 =item B<-ct|noct>
 
@@ -586,6 +594,13 @@ Appends TLS secrets to the specified keylog file such that external programs
 Reads the contents of the specified file and attempts to send it as early data
 to the server. This will only work with resumed sessions that support early
 data and when the server accepts the early data.
+
+=item B<[target]>
+
+Rather than providing B<-connect>, the target hostname and optional port may
+be provided as a single positional argument after all options. If neither this
+nor B<-connect> are provided, falls back to attempting to connect to localhost
+on port 4433.
 
 =back
 
@@ -653,7 +668,7 @@ information whenever a session is renegotiated.
 
 L<SSL_CONF_cmd(3)>, L<sess_id(1)>, L<s_server(1)>, L<ciphers(1)>,
 L<SSL_CTX_set_max_send_fragment(3)>, L<SSL_CTX_set_split_send_fragment(3)>
-L<SSL_CTX_set_max_pipelines(3)> 
+L<SSL_CTX_set_max_pipelines(3)>
 
 =head1 HISTORY
 

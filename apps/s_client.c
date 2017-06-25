@@ -1,37 +1,11 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <ctype.h>
@@ -91,6 +65,7 @@ static int keymatexportlen = 20;
 static BIO *bio_c_out = NULL;
 static int c_quiet = 0;
 static char *sess_out = NULL;
+static SSL_SESSION *psksess = NULL;
 
 static void print_stuff(BIO *berr, SSL *con, int full);
 #ifndef OPENSSL_NO_OCSP
@@ -134,10 +109,10 @@ static void do_ssl_shutdown(SSL *ssl)
     } while (ret < 0);
 }
 
-#ifndef OPENSSL_NO_PSK
 /* Default PSK identity and key */
 static char *psk_identity = "Client_identity";
 
+#ifndef OPENSSL_NO_PSK
 static unsigned int psk_client_cb(SSL *ssl, const char *hint, char *identity,
                                   unsigned int max_identity_len,
                                   unsigned char *psk,
@@ -154,8 +129,9 @@ static unsigned int psk_client_cb(SSL *ssl, const char *hint, char *identity,
         if (c_debug)
             BIO_printf(bio_c_out,
                        "NULL received PSK identity hint, continuing anyway\n");
-    } else if (c_debug)
+    } else if (c_debug) {
         BIO_printf(bio_c_out, "Received PSK identity hint '%s'\n", hint);
+    }
 
     /*
      * lookup PSK identity and PSK key based on the given identity hint here
@@ -195,6 +171,76 @@ static unsigned int psk_client_cb(SSL *ssl, const char *hint, char *identity,
     return 0;
 }
 #endif
+
+const unsigned char tls13_aes128gcmsha256_id[] = { 0x13, 0x01 };
+const unsigned char tls13_aes256gcmsha384_id[] = { 0x13, 0x02 };
+
+static int psk_use_session_cb(SSL *s, const EVP_MD *md,
+                              const unsigned char **id, size_t *idlen,
+                              SSL_SESSION **sess)
+{
+    SSL_SESSION *usesess = NULL;
+    const SSL_CIPHER *cipher = NULL;
+
+    if (psksess != NULL) {
+        SSL_SESSION_up_ref(psksess);
+        usesess = psksess;
+    } else {
+        long key_len;
+        unsigned char *key = OPENSSL_hexstr2buf(psk_key, &key_len);
+
+        if (key == NULL) {
+            BIO_printf(bio_err, "Could not convert PSK key '%s' to buffer\n",
+                       psk_key);
+            return 0;
+        }
+
+        if (key_len == EVP_MD_size(EVP_sha256()))
+            cipher = SSL_CIPHER_find(s, tls13_aes128gcmsha256_id);
+        else if(key_len == EVP_MD_size(EVP_sha384()))
+            cipher = SSL_CIPHER_find(s, tls13_aes256gcmsha384_id);
+
+        if (cipher == NULL) {
+            /* Doesn't look like a suitable TLSv1.3 key. Ignore it */
+            OPENSSL_free(key);
+            *id = NULL;
+            *idlen = 0;
+            *sess = NULL;
+            return 0;
+        }
+        usesess = SSL_SESSION_new();
+        if (usesess == NULL
+                || !SSL_SESSION_set1_master_key(usesess, key, key_len)
+                || !SSL_SESSION_set_cipher(usesess, cipher)
+                || !SSL_SESSION_set_protocol_version(usesess, TLS1_3_VERSION)) {
+            OPENSSL_free(key);
+            goto err;
+        }
+        OPENSSL_free(key);
+    }
+
+    cipher = SSL_SESSION_get0_cipher(usesess);
+    if (cipher == NULL)
+        goto err;
+
+    if (md != NULL && SSL_CIPHER_get_handshake_digest(cipher) != md) {
+        /* PSK not usable, ignore it */
+        *id = NULL;
+        *idlen = 0;
+        *sess = NULL;
+        SSL_SESSION_free(usesess);
+    } else {
+        *sess = usesess;
+        *id = (unsigned char *)psk_identity;
+        *idlen = strlen(psk_identity);
+    }
+
+    return 1;
+
+ err:
+    SSL_SESSION_free(usesess);
+    return 0;
+}
 
 /* This is a context that we pass to callbacks */
 typedef struct tlsextctx_st {
@@ -530,9 +576,7 @@ typedef enum OPTION_choice {
     OPT_DEBUG, OPT_TLSEXTDEBUG, OPT_STATUS, OPT_WDEBUG,
     OPT_MSG, OPT_MSGFILE, OPT_ENGINE, OPT_TRACE, OPT_SECURITY_DEBUG,
     OPT_SECURITY_DEBUG_VERBOSE, OPT_SHOWCERTS, OPT_NBIO_TEST, OPT_STATE,
-#ifndef OPENSSL_NO_PSK
-    OPT_PSK_IDENTITY, OPT_PSK,
-#endif
+    OPT_PSK_IDENTITY, OPT_PSK, OPT_PSK_SESS,
 #ifndef OPENSSL_NO_SRP
     OPT_SRPUSER, OPT_SRPPASS, OPT_SRP_STRENGTH, OPT_SRP_LATEUSER,
     OPT_SRP_MOREGROUPS,
@@ -650,7 +694,7 @@ const OPTIONS s_client_options[] = {
      "CA file for certificate verification (PEM format)"},
     {"nocommands", OPT_NOCMDS, '-', "Do not use interactive command letters"},
     {"servername", OPT_SERVERNAME, 's',
-     "Set TLS extension servername in ClientHello"},
+     "Set TLS extension servername (SNI) in ClientHello (default)"},
     {"noservername", OPT_NOSERVERNAME, '-',
      "Do not send the server name (SNI) extension in the ClientHello"},
     {"tlsextdebug", OPT_TLSEXTDEBUG, '-',
@@ -711,10 +755,9 @@ const OPTIONS s_client_options[] = {
     {"wdebug", OPT_WDEBUG, '-', "WATT-32 tcp debugging"},
 #endif
     {"nbio", OPT_NBIO, '-', "Use non-blocking IO"},
-#ifndef OPENSSL_NO_PSK
     {"psk_identity", OPT_PSK_IDENTITY, 's', "PSK identity"},
     {"psk", OPT_PSK, 's', "PSK in hex (without 0x)"},
-#endif
+    {"psk_session", OPT_PSK_SESS, '<', "File to read PSK SSL session from"},
 #ifndef OPENSSL_NO_SRP
     {"srpuser", OPT_SRPUSER, 's', "SRP authentication for 'user'"},
     {"srppass", OPT_SRPPASS, 's', "Password for 'user'"},
@@ -911,6 +954,7 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
     int isdtls = 0;
 #endif
+    char *psksessf = NULL;
 
     FD_ZERO(&readfds);
     FD_ZERO(&writefds);
@@ -1159,7 +1203,6 @@ int s_client_main(int argc, char **argv)
         case OPT_STATE:
             state = 1;
             break;
-#ifndef OPENSSL_NO_PSK
         case OPT_PSK_IDENTITY:
             psk_identity = opt_arg();
             break;
@@ -1171,7 +1214,9 @@ int s_client_main(int argc, char **argv)
                 goto end;
             }
             break;
-#endif
+        case OPT_PSK_SESS:
+            psksessf = opt_arg();
+            break;
 #ifndef OPENSSL_NO_SRP
         case OPT_SRPUSER:
             srp_arg.srplogin = opt_arg();
@@ -1420,14 +1465,34 @@ int s_client_main(int argc, char **argv)
         }
     }
     argc = opt_num_rest();
-    if (argc != 0)
+    if (argc == 1) {
+        /* If there's a positional argument, it's the equivalent of
+         * OPT_CONNECT.
+         * Don't allow -connect and a separate argument.
+         */
+        if (connectstr != NULL) {
+            BIO_printf(bio_err,
+                       "%s: must not provide both -connect option and target parameter\n",
+                       prog);
+            goto opthelp;
+        }
+        connect_type = use_inet;
+        connectstr = *opt_rest();
+    } else if (argc != 0) {
         goto opthelp;
+    }
 
-    if (proxystr) {
+#ifndef OPENSSL_NO_NEXTPROTONEG
+    if (min_version == TLS1_3_VERSION && next_proto_neg_in != NULL) {
+        BIO_printf(bio_err, "Cannot supply -nextprotoneg with TLSv1.3\n");
+        goto opthelp;
+    }
+#endif
+    if (proxystr != NULL) {
         int res;
         char *tmp_host = host, *tmp_port = port;
         if (connectstr == NULL) {
-            BIO_printf(bio_err, "%s: -proxy requires use of -connect\n", prog);
+            BIO_printf(bio_err, "%s: -proxy requires use of -connect or target parameter\n", prog);
             goto opthelp;
         }
         res = BIO_parse_hostserv(proxystr, &host, &port, BIO_PARSE_PRIO_HOST);
@@ -1452,7 +1517,7 @@ int s_client_main(int argc, char **argv)
             OPENSSL_free(tmp_port);
         if (!res) {
             BIO_printf(bio_err,
-                       "%s: -connect argument malformed or ambiguous\n",
+                       "%s: -connect argument or target parameter malformed or ambiguous\n",
                        prog);
             goto end;
         }
@@ -1496,7 +1561,7 @@ int s_client_main(int argc, char **argv)
     if (key_file == NULL)
         key_file = cert_file;
 
-    if (key_file) {
+    if (key_file != NULL) {
         key = load_key(key_file, key_format, 0, pass, e,
                        "client certificate private key file");
         if (key == NULL) {
@@ -1505,7 +1570,7 @@ int s_client_main(int argc, char **argv)
         }
     }
 
-    if (cert_file) {
+    if (cert_file != NULL) {
         cert = load_cert(cert_file, cert_format, "client certificate file");
         if (cert == NULL) {
             ERR_print_errors(bio_err);
@@ -1513,13 +1578,13 @@ int s_client_main(int argc, char **argv)
         }
     }
 
-    if (chain_file) {
+    if (chain_file != NULL) {
         if (!load_certs(chain_file, &chain, FORMAT_PEM, NULL,
                         "client certificate chain"))
             goto end;
     }
 
-    if (crl_file) {
+    if (crl_file != NULL) {
         X509_CRL *crl;
         crl = load_crl(crl_file, crl_format);
         if (crl == NULL) {
@@ -1552,7 +1617,7 @@ int s_client_main(int argc, char **argv)
     if (bio_c_out == NULL) {
         if (c_quiet && !c_debug) {
             bio_c_out = BIO_new(BIO_s_null());
-            if (c_msg && !bio_c_msg)
+            if (c_msg && bio_c_msg == NULL)
                 bio_c_msg = dup_bio_out(FORMAT_TEXT);
         } else if (bio_c_out == NULL)
             bio_c_out = dup_bio_out(FORMAT_TEXT);
@@ -1573,7 +1638,7 @@ int s_client_main(int argc, char **argv)
     if (sdebug)
         ssl_ctx_security_debug(ctx, sdebug);
 
-    if (ssl_config) {
+    if (ssl_config != NULL) {
         if (SSL_CTX_config(ctx, ssl_config) == 0) {
             BIO_printf(bio_err, "Error using configuration \"%s\"\n",
                        ssl_config);
@@ -1661,6 +1726,25 @@ int s_client_main(int argc, char **argv)
         SSL_CTX_set_psk_client_callback(ctx, psk_client_cb);
     }
 #endif
+    if (psksessf != NULL) {
+        BIO *stmp = BIO_new_file(psksessf, "r");
+
+        if (stmp == NULL) {
+            BIO_printf(bio_err, "Can't open PSK session file %s\n", psksessf);
+            ERR_print_errors(bio_err);
+            goto end;
+        }
+        psksess = PEM_read_bio_SSL_SESSION(stmp, NULL, 0, NULL);
+        BIO_free(stmp);
+        if (psksess == NULL) {
+            BIO_printf(bio_err, "Can't read PSK session file %s\n", psksessf);
+            ERR_print_errors(bio_err);
+            goto end;
+        }
+    }
+    if (psk_key != NULL || psksess != NULL)
+        SSL_CTX_set_psk_use_session_callback(ctx, psk_use_session_cb);
+
 #ifndef OPENSSL_NO_SRTP
     if (srtp_profiles != NULL) {
         /* Returns 0 on success! */
@@ -1672,11 +1756,11 @@ int s_client_main(int argc, char **argv)
     }
 #endif
 
-    if (exc)
+    if (exc != NULL)
         ssl_ctx_set_excert(ctx, exc);
 
 #if !defined(OPENSSL_NO_NEXTPROTONEG)
-    if (next_proto.data)
+    if (next_proto.data != NULL)
         SSL_CTX_set_next_proto_select_cb(ctx, next_proto_cb, &next_proto);
 #endif
     if (alpn_in) {
@@ -1782,7 +1866,7 @@ int s_client_main(int argc, char **argv)
      * come at any time. Therefore we use a callback to write out the session
      * when we know about it. This approach works for < TLSv1.3 as well.
      */
-    if (sess_out) {
+    if (sess_out != NULL) {
         SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_CLIENT
                                             | SSL_SESS_CACHE_NO_INTERNAL_STORE);
         SSL_CTX_sess_set_new_cb(ctx, new_session_cb);
@@ -1792,17 +1876,17 @@ int s_client_main(int argc, char **argv)
         goto end;
 
     con = SSL_new(ctx);
-    if (sess_in) {
+    if (sess_in != NULL) {
         SSL_SESSION *sess;
         BIO *stmp = BIO_new_file(sess_in, "r");
-        if (!stmp) {
+        if (stmp == NULL) {
             BIO_printf(bio_err, "Can't open session file %s\n", sess_in);
             ERR_print_errors(bio_err);
             goto end;
         }
         sess = PEM_read_bio_SSL_SESSION(stmp, NULL, 0, NULL);
         BIO_free(stmp);
-        if (!sess) {
+        if (sess == NULL) {
             BIO_printf(bio_err, "Can't open session file %s\n", sess_in);
             ERR_print_errors(bio_err);
             goto end;
@@ -1920,9 +2004,10 @@ int s_client_main(int argc, char **argv)
                 BIO_free(sbio);
                 goto shut;
             }
-        } else
+        } else {
             /* want to do MTU discovery */
             BIO_ctrl(sbio, BIO_CTRL_DGRAM_MTU_DISCOVER, 0, NULL);
+        }
     } else
 #endif /* OPENSSL_NO_DTLS */
         sbio = BIO_new_socket(s, BIO_NOCLOSE);
@@ -2172,6 +2257,15 @@ int s_client_main(int argc, char **argv)
              * HTTP/d.d ddd Reason text\r\n
              */
             mbuf_len = BIO_gets(fbio, mbuf, BUFSIZZ);
+            if (mbuf_len < (int)strlen("HTTP/1.0 200")) {
+                BIO_printf(bio_err,
+                           "%s: HTTP CONNECT failed, insufficient response "
+                           "from proxy (got %d octets)\n", prog, mbuf_len);
+                (void)BIO_flush(fbio);
+                BIO_pop(fbio);
+                BIO_free(fbio);
+                goto shut;
+            }
             if (mbuf[8] != ' ') {
                 BIO_printf(bio_err,
                            "%s: HTTP CONNECT failed, incorrect response "
@@ -3161,12 +3255,12 @@ static int ocsp_resp_cb(SSL *s, void *arg)
     OCSP_RESPONSE *rsp;
     len = SSL_get_tlsext_status_ocsp_resp(s, &p);
     BIO_puts(arg, "OCSP response: ");
-    if (!p) {
+    if (p == NULL) {
         BIO_puts(arg, "no response sent\n");
         return 1;
     }
     rsp = d2i_OCSP_RESPONSE(NULL, &p, len);
-    if (!rsp) {
+    if (rsp == NULL) {
         BIO_puts(arg, "response parse error\n");
         BIO_dump_indent(arg, (char *)p, len, 4);
         return 0;

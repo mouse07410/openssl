@@ -1,14 +1,11 @@
 /*
  * Copyright 2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2017, Oracle and/or its affiliates.  All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/*
- * Copyright (c) 2017 Oracle and/or its affiliates.  All rights reserved.
  */
 
 #include <stdio.h>
@@ -80,7 +77,7 @@ static int test_int_lhash(void)
         { 999,      1 },
         { 37,       0 },
         { 1,        0 },
-        { 34,       1 }     
+        { 34,       1 }
     };
     const unsigned int n_dels = OSSL_NELEM(dels);
     LHASH_OF(int) *h = lh_int_new(&int_hash, &int_cmp);
@@ -133,7 +130,7 @@ static int test_int_lhash(void)
             TEST_info("lhash int doall %d", i);
             goto end;
         }
-    
+
     /* do_all_arg */
     memset(int_found, 0, sizeof(int_found));
     lh_int_doall_short(h, int_doall_arg, int_found);
@@ -142,7 +139,7 @@ static int test_int_lhash(void)
             TEST_info("lhash int doall arg %d", i);
             goto end;
         }
-    
+
     /* delete */
     for (i = 0; i < n_dels; i++) {
         const int b = lh_int_delete(h, &dels[i].data) == NULL;
@@ -192,10 +189,10 @@ static int test_stress(void)
     if (!TEST_int_eq(lh_int_num_items(h), n))
             goto end;
 
-    fprintf(stderr, "hash full statistics:\n");
-    OPENSSL_LH_stats((OPENSSL_LHASH *)h, stderr);
-    fprintf(stderr, "\nhash full node usage:\n");
-    OPENSSL_LH_node_usage_stats((OPENSSL_LHASH *)h, stderr);
+    TEST_info("hash full statistics:");
+    OPENSSL_LH_stats_bio((OPENSSL_LHASH *)h, bio_err);
+    TEST_note("hash full node usage:");
+    OPENSSL_LH_node_usage_stats_bio((OPENSSL_LHASH *)h, bio_err);
 
     /* delete in a different order */
     for (i = 0; i < n; i++) {
@@ -212,10 +209,10 @@ static int test_stress(void)
         OPENSSL_free(p);
     }
 
-    fprintf(stderr, "\nhash empty statistics:\n");
-    OPENSSL_LH_stats((OPENSSL_LHASH *)h, stderr);
-    fprintf(stderr, "\nhash empty node usage:\n");
-    OPENSSL_LH_node_usage_stats((OPENSSL_LHASH *)h, stderr);
+    TEST_info("hash empty statistics:");
+    OPENSSL_LH_stats_bio((OPENSSL_LHASH *)h, bio_err);
+    TEST_note("hash empty node usage:");
+    OPENSSL_LH_node_usage_stats_bio((OPENSSL_LHASH *)h, bio_err);
 
     testresult = 1;
 end:

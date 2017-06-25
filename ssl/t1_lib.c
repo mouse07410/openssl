@@ -169,7 +169,7 @@ static const tls_curve_info nid_list[] = {
     {NID_brainpoolP256r1, 128, TLS_CURVE_PRIME}, /* brainpoolP256r1 (26) */
     {NID_brainpoolP384r1, 192, TLS_CURVE_PRIME}, /* brainpoolP384r1 (27) */
     {NID_brainpoolP512r1, 256, TLS_CURVE_PRIME}, /* brainpool512r1 (28) */
-    {NID_X25519, 128, TLS_CURVE_CUSTOM}, /* X25519 (29) */
+    {EVP_PKEY_X25519, 128, TLS_CURVE_CUSTOM}, /* X25519 (29) */
 };
 
 static const unsigned char ecformats_default[] = {
@@ -621,7 +621,6 @@ static int tls1_check_cert_param(SSL *s, X509 *x, int check_ee_md)
     return rv;
 }
 
-# ifndef OPENSSL_NO_EC
 /*
  * tls1_check_ec_tmp_key - Check EC temporary key compatibility
  * @s: SSL connection
@@ -658,7 +657,6 @@ int tls1_check_ec_tmp_key(SSL *s, unsigned long cid)
         return 1;
     return 0;
 }
-# endif                         /* OPENSSL_NO_EC */
 
 #else
 
@@ -675,6 +673,7 @@ static const uint16_t tls12_sigalgs[] = {
     TLSEXT_SIGALG_ecdsa_secp256r1_sha256,
     TLSEXT_SIGALG_ecdsa_secp384r1_sha384,
     TLSEXT_SIGALG_ecdsa_secp521r1_sha512,
+    TLSEXT_SIGALG_ed25519,
 #endif
 
     TLSEXT_SIGALG_rsa_pss_sha256,
@@ -686,10 +685,13 @@ static const uint16_t tls12_sigalgs[] = {
     TLSEXT_SIGALG_rsa_pkcs1_sha512,
 
 #ifndef OPENSSL_NO_EC
+    TLSEXT_SIGALG_ecdsa_sha224,
     TLSEXT_SIGALG_ecdsa_sha1,
 #endif
+    TLSEXT_SIGALG_rsa_pkcs1_sha224,
     TLSEXT_SIGALG_rsa_pkcs1_sha1,
 #ifndef OPENSSL_NO_DSA
+    TLSEXT_SIGALG_dsa_sha224,
     TLSEXT_SIGALG_dsa_sha1,
 
     TLSEXT_SIGALG_dsa_sha256,
@@ -716,6 +718,12 @@ static const SIGALG_LOOKUP sigalg_lookup_tbl[] = {
     {"ecdsa_secp521r1_sha512", TLSEXT_SIGALG_ecdsa_secp521r1_sha512,
      NID_sha512, SSL_MD_SHA512_IDX, EVP_PKEY_EC, SSL_PKEY_ECC,
      NID_ecdsa_with_SHA512, NID_secp521r1},
+    {"ed25519", TLSEXT_SIGALG_ed25519,
+     NID_undef, -1, EVP_PKEY_ED25519, SSL_PKEY_ED25519,
+     NID_undef, NID_undef},
+    {NULL, TLSEXT_SIGALG_ecdsa_sha224,
+     NID_sha224, SSL_MD_SHA224_IDX, EVP_PKEY_EC, SSL_PKEY_ECC,
+     NID_ecdsa_with_SHA224, NID_undef},
     {NULL, TLSEXT_SIGALG_ecdsa_sha1,
      NID_sha1, SSL_MD_SHA1_IDX, EVP_PKEY_EC, SSL_PKEY_ECC,
      NID_ecdsa_with_SHA1, NID_undef},
@@ -738,6 +746,9 @@ static const SIGALG_LOOKUP sigalg_lookup_tbl[] = {
     {"rsa_pkcs1_sha512", TLSEXT_SIGALG_rsa_pkcs1_sha512,
      NID_sha512, SSL_MD_SHA512_IDX, EVP_PKEY_RSA, SSL_PKEY_RSA,
      NID_sha512WithRSAEncryption, NID_undef},
+    {"rsa_pkcs1_sha224", TLSEXT_SIGALG_rsa_pkcs1_sha224,
+     NID_sha224, SSL_MD_SHA224_IDX, EVP_PKEY_RSA, SSL_PKEY_RSA,
+     NID_sha224WithRSAEncryption, NID_undef},
     {"rsa_pkcs1_sha1", TLSEXT_SIGALG_rsa_pkcs1_sha1,
      NID_sha1, SSL_MD_SHA1_IDX, EVP_PKEY_RSA, SSL_PKEY_RSA,
      NID_sha1WithRSAEncryption, NID_undef},
@@ -750,6 +761,9 @@ static const SIGALG_LOOKUP sigalg_lookup_tbl[] = {
      NID_undef, NID_undef},
     {NULL, TLSEXT_SIGALG_dsa_sha512,
      NID_sha512, SSL_MD_SHA512_IDX, EVP_PKEY_DSA, SSL_PKEY_DSA_SIGN,
+     NID_undef, NID_undef},
+    {NULL, TLSEXT_SIGALG_dsa_sha224,
+     NID_sha224, SSL_MD_SHA224_IDX, EVP_PKEY_DSA, SSL_PKEY_DSA_SIGN,
      NID_undef, NID_undef},
     {NULL, TLSEXT_SIGALG_dsa_sha1,
      NID_sha1, SSL_MD_SHA1_IDX, EVP_PKEY_DSA, SSL_PKEY_DSA_SIGN,
@@ -788,7 +802,8 @@ static const uint16_t tls_default_sigalg[] = {
     TLSEXT_SIGALG_ecdsa_sha1, /* SSL_PKEY_ECC */
     TLSEXT_SIGALG_gostr34102001_gostr3411, /* SSL_PKEY_GOST01 */
     TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256, /* SSL_PKEY_GOST12_256 */
-    TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512 /* SSL_PKEY_GOST12_512 */
+    TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512, /* SSL_PKEY_GOST12_512 */
+    0 /* SSL_PKEY_ED25519 */
 };
 
 /* Lookup TLS signature algorithm */
@@ -804,6 +819,25 @@ static const SIGALG_LOOKUP *tls1_lookup_sigalg(uint16_t sigalg)
     }
     return NULL;
 }
+/* Lookup hash: return 0 if invalid or not enabled */
+int tls1_lookup_md(const SIGALG_LOOKUP *lu, const EVP_MD **pmd)
+{
+    const EVP_MD *md;
+    if (lu == NULL)
+        return 0;
+    /* lu->hash == NID_undef means no associated digest */
+    if (lu->hash == NID_undef) {
+        md = NULL;
+    } else {
+        md = ssl_md(lu->hash_idx);
+        if (md == NULL)
+            return 0;
+    }
+    if (pmd)
+        *pmd = md;
+    return 1;
+}
+
 /*
  * Return a signature algorithm for TLS < 1.2 where the signature type
  * is fixed by the certificate type.
@@ -815,9 +849,8 @@ static const SIGALG_LOOKUP *tls1_get_legacy_sigalg(const SSL *s, int idx)
     if (SSL_USE_SIGALGS(s) || idx != SSL_PKEY_RSA) {
         const SIGALG_LOOKUP *lu = tls1_lookup_sigalg(tls_default_sigalg[idx]);
 
-        if (lu == NULL || ssl_md(lu->hash_idx) == NULL) {
+        if (!tls1_lookup_md(lu, NULL))
             return NULL;
-        }
         return lu;
     }
     return &legacy_rsa_sigalg;
@@ -901,10 +934,11 @@ int tls12_check_peer_sigalg(SSL *s, uint16_t sig, EVP_PKEY *pkey)
     }
     lu = tls1_lookup_sigalg(sig);
     /*
-     * Check sigalgs is known. Disallow SHA1 with TLS 1.3. Check key type is
-     * consistent with signature: RSA keys can be used for RSA-PSS
+     * Check sigalgs is known. Disallow SHA1/SHA224 with TLS 1.3. Check key type
+     * is consistent with signature: RSA keys can be used for RSA-PSS
      */
-    if (lu == NULL || (SSL_IS_TLS13(s) && lu->hash == NID_sha1)
+    if (lu == NULL
+        || (SSL_IS_TLS13(s) && (lu->hash == NID_sha1 || lu->hash == NID_sha224))
         || (pkeyid != lu->sig
         && (lu->sig != EVP_PKEY_RSA_PSS || pkeyid != EVP_PKEY_RSA))) {
         SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_WRONG_SIGNATURE_TYPE);
@@ -974,22 +1008,23 @@ int tls12_check_peer_sigalg(SSL *s, uint16_t sig, EVP_PKEY *pkey)
         SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_WRONG_SIGNATURE_TYPE);
         return 0;
     }
-    md = ssl_md(lu->hash_idx);
-    if (md == NULL) {
-        SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_UNKNOWN_DIGEST);
-        return 0;
+    if (!tls1_lookup_md(lu, &md)) {
+            SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_UNKNOWN_DIGEST);
+            return 0;
     }
-    /*
-     * Make sure security callback allows algorithm. For historical reasons we
-     * have to pass the sigalg as a two byte char array.
-     */
-    sigalgstr[0] = (sig >> 8) & 0xff;
-    sigalgstr[1] = sig & 0xff;
-    if (!ssl_security(s, SSL_SECOP_SIGALG_CHECK,
-                      EVP_MD_size(md) * 4, EVP_MD_type(md),
-                      (void *)sigalgstr)) {
-        SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_WRONG_SIGNATURE_TYPE);
-        return 0;
+    if (md != NULL) {
+        /*
+         * Make sure security callback allows algorithm. For historical
+         * reasons we have to pass the sigalg as a two byte char array.
+         */
+        sigalgstr[0] = (sig >> 8) & 0xff;
+        sigalgstr[1] = sig & 0xff;
+        if (!ssl_security(s, SSL_SECOP_SIGALG_CHECK,
+                    EVP_MD_size(md) * 4, EVP_MD_type(md),
+                    (void *)sigalgstr)) {
+            SSLerr(SSL_F_TLS12_CHECK_PEER_SIGALG, SSL_R_WRONG_SIGNATURE_TYPE);
+            return 0;
+        }
     }
     /* Store the sigalg the peer uses */
     s->s3->tmp.peer_sigalg = lu;
@@ -1383,6 +1418,8 @@ static int tls12_get_pkey_idx(int sig_nid)
 #ifndef OPENSSL_NO_EC
     case EVP_PKEY_EC:
         return SSL_PKEY_ECC;
+    case EVP_PKEY_ED25519:
+        return SSL_PKEY_ED25519;
 #endif
 #ifndef OPENSSL_NO_GOST
     case NID_id_GostR3410_2001:
@@ -1405,14 +1442,22 @@ static int tls12_sigalg_allowed(SSL *s, int op, const SIGALG_LOOKUP *lu)
     int secbits;
 
     /* See if sigalgs is recognised and if hash is enabled */
-    if (lu == NULL || ssl_md(lu->hash_idx) == NULL)
+    if (!tls1_lookup_md(lu, NULL))
         return 0;
     /* DSA is not allowed in TLS 1.3 */
     if (SSL_IS_TLS13(s) && lu->sig == EVP_PKEY_DSA)
         return 0;
+    /* TODO(OpenSSL1.2) fully axe DSA/etc. in ClientHello per TLS 1.3 spec */
+    if (!s->server && !SSL_IS_DTLS(s) && s->s3->tmp.min_ver >= TLS1_3_VERSION
+        && (lu->sig == EVP_PKEY_DSA || lu->hash_idx == SSL_MD_SHA1_IDX
+            || lu->hash_idx == SSL_MD_MD5_IDX
+            || lu->hash_idx == SSL_MD_SHA224_IDX))
+        return 0;
     /* See if public key algorithm allowed */
     if (tls12_get_pkey_idx(lu->sig) == -1)
         return 0;
+    if (lu->hash == NID_undef)
+        return 1;
     /* Security bits: half digest bits */
     secbits = EVP_MD_size(ssl_md(lu->hash_idx)) * 4;
     /* Finally see if security callback allows it */
@@ -1459,6 +1504,7 @@ void ssl_set_sig_mask(uint32_t *pmask_a, SSL *s, int op)
             break;
 #endif
 #ifndef OPENSSL_NO_EC
+        case EVP_PKEY_ED25519:
         case EVP_PKEY_EC:
             if (!have_ecdsa && tls12_sigalg_allowed(s, op, lu))
                 have_ecdsa = 1;
@@ -1489,10 +1535,12 @@ int tls12_copy_sigalgs(SSL *s, WPACKET *pkt,
             return 0;
         /*
          * If TLS 1.3 must have at least one valid TLS 1.3 message
-         * signing algorithm: i.e. neither RSA nor SHA1
+         * signing algorithm: i.e. neither RSA nor SHA1/SHA224
          */
         if (rv == 0 && (!SSL_IS_TLS13(s)
-            || (lu->sig != EVP_PKEY_RSA && lu->hash != NID_sha1)))
+            || (lu->sig != EVP_PKEY_RSA
+                && lu->hash != NID_sha1
+                && lu->hash != NID_sha224)))
             rv = 1;
     }
     if (rv == 0)
@@ -1752,7 +1800,7 @@ static int sig_cb(const char *elem, int len, void *arg)
         get_sigorhash(&sig_alg, &hash_alg, p);
     }
 
-    if (sig_alg == NID_undef || hash_alg == NID_undef)
+    if (sig_alg == NID_undef || (p != NULL && hash_alg == NID_undef))
         return 0;
 
     for (i = 0; i < sarg->sigalgcnt; i += 2) {
@@ -2117,6 +2165,7 @@ void tls1_set_cert_validity(SSL *s)
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_GOST01);
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_GOST12_256);
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_GOST12_512);
+    tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_ED25519);
 }
 
 /* User level utility function to check a chain is suitable */
@@ -2190,20 +2239,19 @@ static int ssl_security_cert_key(SSL *s, SSL_CTX *ctx, X509 *x, int op)
 static int ssl_security_cert_sig(SSL *s, SSL_CTX *ctx, X509 *x, int op)
 {
     /* Lookup signature algorithm digest */
-    int secbits = -1, md_nid = NID_undef, sig_nid;
+    int secbits, nid, pknid;
     /* Don't check signature if self signed */
     if ((X509_get_extension_flags(x) & EXFLAG_SS) != 0)
         return 1;
-    sig_nid = X509_get_signature_nid(x);
-    if (sig_nid && OBJ_find_sigid_algs(sig_nid, &md_nid, NULL)) {
-        const EVP_MD *md;
-        if (md_nid && (md = EVP_get_digestbynid(md_nid)))
-            secbits = EVP_MD_size(md) * 4;
-    }
+    if (!X509_get_signature_info(x, &nid, &pknid, &secbits, NULL))
+        secbits = -1;
+    /* If digest NID not defined use signature NID */
+    if (nid == NID_undef)
+        nid = pknid;
     if (s)
-        return ssl_security(s, op, secbits, md_nid, x);
+        return ssl_security(s, op, secbits, nid, x);
     else
-        return ssl_ctx_security(ctx, op, secbits, md_nid, x);
+        return ssl_ctx_security(ctx, op, secbits, nid, x);
 }
 
 int ssl_security_cert(SSL *s, SSL_CTX *ctx, X509 *x, int vfy, int is_ee)
@@ -2279,11 +2327,13 @@ int tls_choose_sigalg(SSL *s, int *al)
         for (i = 0; i < s->cert->shared_sigalgslen; i++) {
             lu = s->cert->shared_sigalgs[i];
 
-            /* Skip SHA1, DSA and RSA if not PSS */
-            if (lu->hash == NID_sha1 || lu->sig == EVP_PKEY_DSA
+            /* Skip SHA1, SHA224, DSA and RSA if not PSS */
+            if (lu->hash == NID_sha1
+                || lu->hash == NID_sha224
+                || lu->sig == EVP_PKEY_DSA
                 || lu->sig == EVP_PKEY_RSA)
                 continue;
-            if (ssl_md(lu->hash_idx) == NULL)
+            if (!tls1_lookup_md(lu, NULL))
                 continue;
             idx = lu->sig_idx;
             if (!ssl_has_cert(s, idx))
@@ -2337,11 +2387,16 @@ int tls_choose_sigalg(SSL *s, int *al)
                     return 0;
                 }
             } else if (!ssl_has_cert(s, idx)) {
-                if (al == NULL)
-                    return 1;
-                *al = SSL_AD_INTERNAL_ERROR;
-                SSLerr(SSL_F_TLS_CHOOSE_SIGALG, ERR_R_INTERNAL_ERROR);
-                return 0;
+                /* Allow Ed25519 if no EC certificate */
+                if (idx == SSL_PKEY_ECC && ssl_has_cert(s, SSL_PKEY_ED25519)) {
+                    idx = SSL_PKEY_ED25519;
+                } else {
+                    if (al == NULL)
+                        return 1;
+                    *al = SSL_AD_INTERNAL_ERROR;
+                    SSLerr(SSL_F_TLS_CHOOSE_SIGALG, ERR_R_INTERNAL_ERROR);
+                    return 0;
+                }
             }
         } else {
             /* Find index for client certificate */
@@ -2378,6 +2433,10 @@ int tls_choose_sigalg(SSL *s, int *al)
                     if (lu->sig_idx == idx
                         && (curve == -1 || lu->curve == curve))
                         break;
+                    if (idx == SSL_PKEY_ECC && lu->sig == EVP_PKEY_ED25519) {
+                        idx = SSL_PKEY_ED25519;
+                        break;
+                    }
 #endif
                     if (idx == SSL_PKEY_RSA && lu->sig == EVP_PKEY_RSA_PSS)
                         break;
