@@ -63,6 +63,8 @@ int check_in_list(SSL *s, unsigned int group_id, const unsigned char *groups,
 int create_synthetic_message_hash(SSL *s);
 int parse_ca_names(SSL *s, PACKET *pkt, int *al);
 int construct_ca_names(SSL *s, WPACKET *pkt);
+size_t construct_key_exchange_tbs(const SSL *s, unsigned char **ptbs,
+                                  const void *param, size_t paramlen);
 
 /*
  * TLS/DTLS client state machine functions
@@ -181,7 +183,7 @@ __owur int tls_psk_do_binder(SSL *s, const EVP_MD *md,
                              const unsigned char *msgstart,
                              size_t binderoffset, const unsigned char *binderin,
                              unsigned char *binderout,
-                             SSL_SESSION *sess, int sign);
+                             SSL_SESSION *sess, int sign, int external);
 
 /* Server Extension processing */
 int tls_parse_ctos_renegotiate(SSL *s, PACKET *pkt, unsigned int context,

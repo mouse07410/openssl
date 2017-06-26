@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -196,20 +196,17 @@ static int check_nid(const char *name, int expected_nid, int nid)
 
 static void print_ca_names(STACK_OF(X509_NAME) *names)
 {
-    BIO *err;
     int i;
 
     if (names == NULL || sk_X509_NAME_num(names) == 0) {
-        fprintf(stderr, "    <empty>\n");
+        TEST_note("    <empty>");
         return;
     }
-    err = BIO_new_fp(stderr, BIO_NOCLOSE);
     for (i = 0; i < sk_X509_NAME_num(names); i++) {
-        X509_NAME_print_ex(err, sk_X509_NAME_value(names, i), 4,
+        X509_NAME_print_ex(bio_err, sk_X509_NAME_value(names, i), 4,
                            XN_FLAG_ONELINE);
-        BIO_puts(err, "\n");
+        BIO_puts(bio_err, "\n");
     }
-    BIO_free(err);
 }
 
 static int check_ca_names(const char *name,
@@ -221,23 +218,25 @@ static int check_ca_names(const char *name,
     if (expected_names == NULL)
         return 1;
     if (names == NULL || sk_X509_NAME_num(names) == 0) {
-        if (sk_X509_NAME_num(expected_names) == 0)
+        if (TEST_int_eq(sk_X509_NAME_num(expected_names), 0))
             return 1;
         goto err;
     }
     if (sk_X509_NAME_num(names) != sk_X509_NAME_num(expected_names))
         goto err;
     for (i = 0; i < sk_X509_NAME_num(names); i++) {
-        if (X509_NAME_cmp(sk_X509_NAME_value(names, i),
-                          sk_X509_NAME_value(expected_names, i)) != 0) {
+        if (!TEST_int_eq(X509_NAME_cmp(sk_X509_NAME_value(names, i),
+                                       sk_X509_NAME_value(expected_names, i)),
+                         0)) {
             goto err;
         }
     }
     return 1;
-    err:
-    fprintf(stderr, "%s: list mismatch\nExpected Names:\n", name);
+err:
+    TEST_info("%s: list mismatch", name);
+    TEST_note("Expected Names:");
     print_ca_names(expected_names);
-    fprintf(stderr, "Received Names:\n");
+    TEST_note("Received Names:");
     print_ca_names(names);
     return 0;
 }
@@ -360,15 +359,16 @@ static int test_handshake(int idx)
         server_ctx = SSL_CTX_new(DTLS_server_method());
         if (test_ctx->extra.server.servername_callback !=
             SSL_TEST_SERVERNAME_CB_NONE) {
-            server2_ctx = SSL_CTX_new(DTLS_server_method());
-            TEST_check(server2_ctx != NULL);
+            if (!TEST_ptr(server2_ctx = SSL_CTX_new(DTLS_server_method())))
+                goto err;
         }
         client_ctx = SSL_CTX_new(DTLS_client_method());
         if (test_ctx->handshake_mode == SSL_TEST_HANDSHAKE_RESUME) {
             resume_server_ctx = SSL_CTX_new(DTLS_server_method());
             resume_client_ctx = SSL_CTX_new(DTLS_client_method());
-            TEST_check(resume_server_ctx != NULL);
-            TEST_check(resume_client_ctx != NULL);
+            if (!TEST_ptr(resume_server_ctx)
+                    || !TEST_ptr(resume_client_ctx))
+                goto err;
         }
     }
 #endif
@@ -377,23 +377,24 @@ static int test_handshake(int idx)
         /* SNI on resumption isn't supported/tested yet. */
         if (test_ctx->extra.server.servername_callback !=
             SSL_TEST_SERVERNAME_CB_NONE) {
-            server2_ctx = SSL_CTX_new(TLS_server_method());
-            TEST_check(server2_ctx != NULL);
+            if (!TEST_ptr(server2_ctx = SSL_CTX_new(TLS_server_method())))
+                goto err;
         }
         client_ctx = SSL_CTX_new(TLS_client_method());
 
         if (test_ctx->handshake_mode == SSL_TEST_HANDSHAKE_RESUME) {
             resume_server_ctx = SSL_CTX_new(TLS_server_method());
             resume_client_ctx = SSL_CTX_new(TLS_client_method());
-            TEST_check(resume_server_ctx != NULL);
-            TEST_check(resume_client_ctx != NULL);
+            if (!TEST_ptr(resume_server_ctx)
+                    || !TEST_ptr(resume_client_ctx))
+                goto err;
         }
     }
 
-    TEST_check(server_ctx != NULL);
-    TEST_check(client_ctx != NULL);
-
-    TEST_check(CONF_modules_load(conf, test_app, 0) > 0);
+    if (!TEST_ptr(server_ctx)
+            || !TEST_ptr(client_ctx)
+            || !TEST_int_gt(CONF_modules_load(conf, test_app, 0),  0))
+        goto err;
 
     if (!SSL_CTX_config(server_ctx, "server")
         || !SSL_CTX_config(client_ctx, "client")) {
@@ -428,23 +429,21 @@ err:
 
 int test_main(int argc, char **argv)
 {
-    int result = 0;
+    int result = EXIT_FAILURE;
     long num_tests;
 
-    if (argc != 2)
-        return 1;
-
-    conf = NCONF_new(NULL);
-    TEST_check(conf != NULL);
-
-    /* argv[1] should point to the test conf file */
-    TEST_check(NCONF_load(conf, argv[1], NULL) > 0);
-
-    TEST_check(NCONF_get_number_e(conf, NULL, "num_tests", &num_tests));
+    if (!TEST_int_eq(argc, 2)
+            || !TEST_ptr(conf = NCONF_new(NULL))
+            /* argv[1] should point to the test conf file */
+            || !TEST_int_gt(NCONF_load(conf, argv[1], NULL), 0)
+            || !TEST_int_ne(NCONF_get_number_e(conf, NULL, "num_tests",
+                                               &num_tests), 0))
+        goto err;
 
     ADD_ALL_TESTS(test_handshake, (int)(num_tests));
     result = run_tests(argv[0]);
 
+err:
     NCONF_free(conf);
     return result;
 }

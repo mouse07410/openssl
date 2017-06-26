@@ -1,14 +1,11 @@
 /*
  * Copyright 2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2017, Oracle and/or its affiliates.  All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/*
- * Copyright (c) 2017 Oracle and/or its affiliates.  All rights reserved.
  */
 
 #include <stdio.h>
@@ -480,6 +477,38 @@ static int test_single_eval(void)
            && TEST_mem_eq(p--, sizeof("456"), "456", sizeof("456"));
 }
 
+static int test_output(void)
+{
+    const char s[] = "1234567890123456789012345678901234567890123456789012"
+                     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    test_output_string("test", s, sizeof(s) - 1);
+    test_output_memory("test", (const unsigned char *)s, sizeof(s));
+    return 1;
+}
+
+static const char *bn_output_tests[] = {
+    NULL,
+    "0",
+    "-12345678",
+    "1234567890123456789012345678901234567890123456789012"
+    "1234567890123456789012345678901234567890123456789013"
+    "987657"
+};
+
+static int test_bn_output(int n)
+{
+    BIGNUM *b = NULL;
+
+    if (bn_output_tests[n] != NULL
+            && !TEST_true(BN_hex2bn(&b, bn_output_tests[n])))
+        return 0;
+    test_output_bignum(bn_output_tests[n], b);
+    BN_free(b);
+    return 1;
+}
+
+
 void register_tests(void)
 {
     ADD_TEST(test_int);
@@ -499,4 +528,6 @@ void register_tests(void)
     ADD_TEST(test_long_output);
     ADD_TEST(test_messages);
     ADD_TEST(test_single_eval);
+    ADD_TEST(test_output);
+    ADD_ALL_TESTS(test_bn_output, OSSL_NELEM(bn_output_tests));
 }

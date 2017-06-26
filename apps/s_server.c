@@ -1,42 +1,12 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <ctype.h>
@@ -147,11 +117,12 @@ static long socket_mtu;
 static int dtlslisten = 0;
 
 static int early_data = 0;
+static SSL_SESSION *psksess = NULL;
 
-#ifndef OPENSSL_NO_PSK
 static char *psk_identity = "Client_identity";
 char *psk_key = NULL;           /* by default PSK is not used */
 
+#ifndef OPENSSL_NO_PSK
 static unsigned int psk_server_cb(SSL *ssl, const char *identity,
                                   unsigned char *psk,
                                   unsigned int max_psk_len)
@@ -161,7 +132,7 @@ static unsigned int psk_server_cb(SSL *ssl, const char *identity,
 
     if (s_debug)
         BIO_printf(bio_s_out, "psk_server_cb\n");
-    if (!identity) {
+    if (identity == NULL) {
         BIO_printf(bio_err, "Error: client did not send PSK identity\n");
         goto out_err;
     }
@@ -207,6 +178,59 @@ static unsigned int psk_server_cb(SSL *ssl, const char *identity,
     return 0;
 }
 #endif
+
+#define TLS13_AES_128_GCM_SHA256_BYTES  ((const unsigned char *)"\x13\x01")
+#define TLS13_AES_256_GCM_SHA384_BYTES  ((const unsigned char *)"\x13\x02")
+
+static int psk_find_session_cb(SSL *ssl, const unsigned char *identity,
+                               size_t identity_len, SSL_SESSION **sess)
+{
+    SSL_SESSION *tmpsess = NULL;
+    unsigned char *key;
+    long key_len;
+    const SSL_CIPHER *cipher = NULL;
+
+    if (strlen(psk_identity) != identity_len
+            || memcmp(psk_identity, identity, identity_len) != 0)
+        return 0;
+
+    if (psksess != NULL) {
+        SSL_SESSION_up_ref(psksess);
+        *sess = psksess;
+        return 1;
+    }
+
+    key = OPENSSL_hexstr2buf(psk_key, &key_len);
+    if (key == NULL) {
+        BIO_printf(bio_err, "Could not convert PSK key '%s' to buffer\n",
+                   psk_key);
+        return 0;
+    }
+
+    if (key_len == EVP_MD_size(EVP_sha256()))
+        cipher = SSL_CIPHER_find(ssl, tls13_aes128gcmsha256_id);
+    else if(key_len == EVP_MD_size(EVP_sha384()))
+        cipher = SSL_CIPHER_find(ssl, tls13_aes256gcmsha384_id);
+
+    if (cipher == NULL) {
+        /* Doesn't look like a suitable TLSv1.3 key. Ignore it */
+        OPENSSL_free(key);
+        return 0;
+    }
+
+    tmpsess = SSL_SESSION_new();
+    if (tmpsess == NULL
+            || !SSL_SESSION_set1_master_key(tmpsess, key, key_len)
+            || !SSL_SESSION_set_cipher(tmpsess, cipher)
+            || !SSL_SESSION_set_protocol_version(tmpsess, SSL_version(ssl))) {
+        OPENSSL_free(key);
+        return 0;
+    }
+    OPENSSL_free(key);
+    *sess = tmpsess;
+
+    return 1;
+}
 
 #ifndef OPENSSL_NO_SRP
 /* This is a context that we pass to callbacks */
@@ -435,17 +459,17 @@ static int ssl_servername_cb(SSL *s, int *ad, void *arg)
 {
     tlsextctx *p = (tlsextctx *) arg;
     const char *servername = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
-    if (servername && p->biodebug)
+    if (servername != NULL && p->biodebug != NULL)
         BIO_printf(p->biodebug, "Hostname in TLS extension: \"%s\"\n",
                    servername);
 
-    if (!p->servername)
+    if (p->servername == NULL)
         return SSL_TLSEXT_ERR_NOACK;
 
-    if (servername) {
+    if (servername != NULL) {
         if (strcasecmp(servername, p->servername))
             return p->extension_error;
-        if (ctx2) {
+        if (ctx2 != NULL) {
             BIO_printf(p->biodebug, "Switching server context.\n");
             SSL_set_SSL_CTX(s, ctx2);
         }
@@ -493,7 +517,7 @@ static int get_ocsp_resp_from_responder(SSL *s, tlsextstatusctx *srctx,
     /* Build up OCSP query from server certificate */
     x = SSL_get_certificate(s);
     aia = X509_get1_ocsp(x);
-    if (aia) {
+    if (aia != NULL) {
         if (!OCSP_parse_url(sk_OPENSSL_STRING_value(aia, 0),
                             &host, &port, &path, &use_ssl)) {
             BIO_puts(bio_err, "cert_status: can't parse AIA URL\n");
@@ -503,7 +527,7 @@ static int get_ocsp_resp_from_responder(SSL *s, tlsextstatusctx *srctx,
             BIO_printf(bio_err, "cert_status: AIA URL: %s\n",
                        sk_OPENSSL_STRING_value(aia, 0));
     } else {
-        if (!srctx->host) {
+        if (srctx->host == NULL) {
             BIO_puts(bio_err,
                      "cert_status: no AIA and no default responder URL\n");
             goto done;
@@ -529,7 +553,7 @@ static int get_ocsp_resp_from_responder(SSL *s, tlsextstatusctx *srctx,
     }
     id = OCSP_cert_to_id(NULL, x, X509_OBJECT_get0_X509(obj));
     X509_OBJECT_free(obj);
-    if (!id)
+    if (id == NULL)
         goto err;
     req = OCSP_REQUEST_new();
     if (req == NULL)
@@ -715,9 +739,9 @@ typedef enum OPTION_choice {
     OPT_STATUS_TIMEOUT, OPT_STATUS_URL, OPT_STATUS_FILE, OPT_MSG, OPT_MSGFILE,
     OPT_TRACE, OPT_SECURITY_DEBUG, OPT_SECURITY_DEBUG_VERBOSE, OPT_STATE,
     OPT_CRLF, OPT_QUIET, OPT_BRIEF, OPT_NO_DHE,
-    OPT_NO_RESUME_EPHEMERAL, OPT_PSK_IDENTITY, OPT_PSK_HINT, OPT_PSK, OPT_SRPVFILE,
-    OPT_SRPUSERSEED, OPT_REV, OPT_WWW, OPT_UPPER_WWW, OPT_HTTP, OPT_ASYNC,
-    OPT_SSL_CONFIG, 
+    OPT_NO_RESUME_EPHEMERAL, OPT_PSK_IDENTITY, OPT_PSK_HINT, OPT_PSK,
+    OPT_PSK_SESS, OPT_SRPVFILE, OPT_SRPUSERSEED, OPT_REV, OPT_WWW,
+    OPT_UPPER_WWW, OPT_HTTP, OPT_ASYNC, OPT_SSL_CONFIG,
     OPT_MAX_SEND_FRAG, OPT_SPLIT_SEND_FRAG, OPT_MAX_PIPELINES, OPT_READ_BUF,
     OPT_SSL3, OPT_TLS1_3, OPT_TLS1_2, OPT_TLS1_1, OPT_TLS1, OPT_DTLS, OPT_DTLS1,
     OPT_DTLS1_2, OPT_SCTP, OPT_TIMEOUT, OPT_MTU, OPT_LISTEN,
@@ -868,11 +892,12 @@ const OPTIONS s_server_options[] = {
     OPT_V_OPTIONS,
     OPT_X_OPTIONS,
     {"nbio", OPT_NBIO, '-', "Use non-blocking IO"},
-#ifndef OPENSSL_NO_PSK
     {"psk_identity", OPT_PSK_IDENTITY, 's', "PSK identity to expect"},
+#ifndef OPENSSL_NO_PSK
     {"psk_hint", OPT_PSK_HINT, 's', "PSK identity hint to use"},
-    {"psk", OPT_PSK, 's', "PSK in hex (without 0x)"},
 #endif
+    {"psk", OPT_PSK, 's', "PSK in hex (without 0x)"},
+    {"psk_session", OPT_PSK_SESS, '<', "File to read PSK SSL session from"},
 #ifndef OPENSSL_NO_SRP
     {"srpvfile", OPT_SRPVFILE, '<', "The verifier file for SRP"},
     {"srpuserseed", OPT_SRPUSERSEED, 's',
@@ -986,8 +1011,8 @@ int s_server_main(int argc, char *argv[])
 #ifndef OPENSSL_NO_PSK
     /* by default do not send a PSK identity hint */
     char *psk_identity_hint = NULL;
-    char *p;
 #endif
+    char *p;
 #ifndef OPENSSL_NO_SRP
     char *srpuserseed = NULL;
     char *srp_verifier_file = NULL;
@@ -1007,6 +1032,7 @@ int s_server_main(int argc, char *argv[])
     const char *s_serverinfo_file = NULL;
     const char *keylog_file = NULL;
     int max_early_data = -1;
+    char *psksessf = NULL;
 
     /* Init of few remaining global variables */
     local_argc = argc;
@@ -1353,9 +1379,7 @@ int s_server_main(int argc, char *argv[])
             no_resume_ephemeral = 1;
             break;
         case OPT_PSK_IDENTITY:
-#ifndef OPENSSL_NO_PSK
             psk_identity = opt_arg();
-#endif
             break;
         case OPT_PSK_HINT:
 #ifndef OPENSSL_NO_PSK
@@ -1363,14 +1387,15 @@ int s_server_main(int argc, char *argv[])
 #endif
             break;
         case OPT_PSK:
-#ifndef OPENSSL_NO_PSK
             for (p = psk_key = opt_arg(); *p; p++) {
                 if (isxdigit(_UC(*p)))
                     continue;
                 BIO_printf(bio_err, "Not a hex number '%s'\n", *argv);
                 goto end;
             }
-#endif
+            break;
+        case OPT_PSK_SESS:
+            psksessf = opt_arg();
             break;
         case OPT_SRPVFILE:
 #ifndef OPENSSL_NO_SRP
@@ -1536,6 +1561,12 @@ int s_server_main(int argc, char *argv[])
     argc = opt_num_rest();
     argv = opt_rest();
 
+#ifndef OPENSSL_NO_NEXTPROTONEG
+    if (min_version == TLS1_3_VERSION && next_proto_neg_in != NULL) {
+        BIO_printf(bio_err, "Cannot supply -nextprotoneg with TLSv1.3\n");
+        goto opthelp;
+    }
+#endif
 #ifndef OPENSSL_NO_DTLS
     if (www && socket_type == SOCK_DGRAM) {
         BIO_printf(bio_err, "Can't use -HTTP, -www or -WWW with DTLS\n");
@@ -1584,7 +1615,7 @@ int s_server_main(int argc, char *argv[])
     if (nocert == 0) {
         s_key = load_key(s_key_file, s_key_format, 0, pass, engine,
                          "server certificate private key file");
-        if (!s_key) {
+        if (s_key == NULL) {
             ERR_print_errors(bio_err);
             goto end;
         }
@@ -1592,20 +1623,20 @@ int s_server_main(int argc, char *argv[])
         s_cert = load_cert(s_cert_file, s_cert_format,
                            "server certificate file");
 
-        if (!s_cert) {
+        if (s_cert == NULL) {
             ERR_print_errors(bio_err);
             goto end;
         }
-        if (s_chain_file) {
+        if (s_chain_file != NULL) {
             if (!load_certs(s_chain_file, &s_chain, FORMAT_PEM, NULL,
                             "server certificate chain"))
                 goto end;
         }
 
-        if (tlsextcbp.servername) {
+        if (tlsextcbp.servername != NULL) {
             s_key2 = load_key(s_key_file2, s_key_format, 0, pass, engine,
                               "second server certificate private key file");
-            if (!s_key2) {
+            if (s_key2 == NULL) {
                 ERR_print_errors(bio_err);
                 goto end;
             }
@@ -1613,7 +1644,7 @@ int s_server_main(int argc, char *argv[])
             s_cert2 = load_cert(s_cert_file2, s_cert_format,
                                 "second server certificate file");
 
-            if (!s_cert2) {
+            if (s_cert2 == NULL) {
                 ERR_print_errors(bio_err);
                 goto end;
             }
@@ -1633,16 +1664,16 @@ int s_server_main(int argc, char *argv[])
             goto end;
     }
 
-    if (crl_file) {
+    if (crl_file != NULL) {
         X509_CRL *crl;
         crl = load_crl(crl_file, crl_format);
-        if (!crl) {
+        if (crl == NULL) {
             BIO_puts(bio_err, "Error loading CRL\n");
             ERR_print_errors(bio_err);
             goto end;
         }
         crls = sk_X509_CRL_new_null();
-        if (!crls || !sk_X509_CRL_push(crls, crl)) {
+        if (crls == NULL || !sk_X509_CRL_push(crls, crl)) {
             BIO_puts(bio_err, "Error adding CRL\n");
             ERR_print_errors(bio_err);
             X509_CRL_free(crl);
@@ -1650,14 +1681,14 @@ int s_server_main(int argc, char *argv[])
         }
     }
 
-    if (s_dcert_file) {
+    if (s_dcert_file != NULL) {
 
         if (s_dkey_file == NULL)
             s_dkey_file = s_dcert_file;
 
         s_dkey = load_key(s_dkey_file, s_dkey_format,
                           0, dpass, engine, "second certificate private key file");
-        if (!s_dkey) {
+        if (s_dkey == NULL) {
             ERR_print_errors(bio_err);
             goto end;
         }
@@ -1665,11 +1696,11 @@ int s_server_main(int argc, char *argv[])
         s_dcert = load_cert(s_dcert_file, s_dcert_format,
                             "second server certificate file");
 
-        if (!s_dcert) {
+        if (s_dcert == NULL) {
             ERR_print_errors(bio_err);
             goto end;
         }
-        if (s_dchain_file) {
+        if (s_dchain_file != NULL) {
             if (!load_certs(s_dchain_file, &s_dchain, FORMAT_PEM, NULL,
                             "second server certificate chain"))
                 goto end;
@@ -1689,7 +1720,7 @@ int s_server_main(int argc, char *argv[])
     if (bio_s_out == NULL) {
         if (s_quiet && !s_debug) {
             bio_s_out = BIO_new(BIO_s_null());
-            if (s_msg && !bio_s_msg)
+            if (s_msg && bio_s_msg == NULL)
                 bio_s_msg = dup_bio_out(FORMAT_TEXT);
         } else {
             if (bio_s_out == NULL)
@@ -1740,7 +1771,7 @@ int s_server_main(int argc, char *argv[])
         BIO_printf(bio_err, "id_prefix '%s' set.\n", session_id_prefix);
     }
     SSL_CTX_set_quiet_shutdown(ctx, 1);
-    if (exc)
+    if (exc != NULL)
         ssl_ctx_set_excert(ctx, exc);
 
     if (state)
@@ -1819,7 +1850,7 @@ int s_server_main(int argc, char *argv[])
         }
     }
 
-    if (ctx2) {
+    if (ctx2 != NULL) {
         BIO_printf(bio_s_out, "Setting secondary ctx parameters\n");
 
         if (sdebug)
@@ -1837,7 +1868,7 @@ int s_server_main(int argc, char *argv[])
             BIO_printf(bio_err, "id_prefix '%s' set.\n", session_id_prefix);
         }
         SSL_CTX_set_quiet_shutdown(ctx2, 1);
-        if (exc)
+        if (exc != NULL)
             ssl_ctx_set_excert(ctx2, exc);
 
         if (state)
@@ -1880,9 +1911,9 @@ int s_server_main(int argc, char *argv[])
     if (!no_dhe) {
         DH *dh = NULL;
 
-        if (dhfile)
+        if (dhfile != NULL)
             dh = load_dh_param(dhfile);
-        else if (s_cert_file)
+        else if (s_cert_file != NULL)
             dh = load_dh_param(s_cert_file);
 
         if (dh != NULL) {
@@ -1892,16 +1923,16 @@ int s_server_main(int argc, char *argv[])
         }
         (void)BIO_flush(bio_s_out);
 
-        if (dh == NULL)
+        if (dh == NULL) {
             SSL_CTX_set_dh_auto(ctx, 1);
-        else if (!SSL_CTX_set_tmp_dh(ctx, dh)) {
+        } else if (!SSL_CTX_set_tmp_dh(ctx, dh)) {
             BIO_puts(bio_err, "Error setting temp DH parameters\n");
             ERR_print_errors(bio_err);
             DH_free(dh);
             goto end;
         }
 
-        if (ctx2) {
+        if (ctx2 != NULL) {
             if (!dhfile) {
                 DH *dh2 = load_dh_param(s_cert_file2);
                 if (dh2 != NULL) {
@@ -1912,9 +1943,9 @@ int s_server_main(int argc, char *argv[])
                     dh = dh2;
                 }
             }
-            if (dh == NULL)
+            if (dh == NULL) {
                 SSL_CTX_set_dh_auto(ctx2, 1);
-            else if (!SSL_CTX_set_tmp_dh(ctx2, dh)) {
+            } else if (!SSL_CTX_set_tmp_dh(ctx2, dh)) {
                 BIO_puts(bio_err, "Error setting temp DH parameters\n");
                 ERR_print_errors(bio_err);
                 DH_free(dh);
@@ -1934,7 +1965,8 @@ int s_server_main(int argc, char *argv[])
         goto end;
     }
 
-    if (ctx2 && !set_cert_key_stuff(ctx2, s_cert2, s_key2, NULL, build_chain))
+    if (ctx2 != NULL
+        && !set_cert_key_stuff(ctx2, s_cert2, s_key2, NULL, build_chain))
         goto end;
 
     if (s_dcert != NULL) {
@@ -1946,7 +1978,7 @@ int s_server_main(int argc, char *argv[])
         SSL_CTX_set_not_resumable_session_callback(ctx,
                                                    not_resumable_sess_cb);
 
-        if (ctx2)
+        if (ctx2 != NULL)
             SSL_CTX_set_not_resumable_session_callback(ctx2,
                                                        not_resumable_sess_cb);
     }
@@ -1963,6 +1995,26 @@ int s_server_main(int argc, char *argv[])
         goto end;
     }
 #endif
+    if (psksessf != NULL) {
+        BIO *stmp = BIO_new_file(psksessf, "r");
+
+        if (stmp == NULL) {
+            BIO_printf(bio_err, "Can't open PSK session file %s\n", psksessf);
+            ERR_print_errors(bio_err);
+            goto end;
+        }
+        psksess = PEM_read_bio_SSL_SESSION(stmp, NULL, 0, NULL);
+        BIO_free(stmp);
+        if (psksess == NULL) {
+            BIO_printf(bio_err, "Can't read PSK session file %s\n", psksessf);
+            ERR_print_errors(bio_err);
+            goto end;
+        }
+
+    }
+
+    if (psk_key != NULL || psksess != NULL)
+        SSL_CTX_set_psk_find_session_callback(ctx, psk_find_session_cb);
 
     SSL_CTX_set_verify(ctx, s_server_verify, verify_callback);
     if (!SSL_CTX_set_session_id_context(ctx,
@@ -1977,7 +2029,7 @@ int s_server_main(int argc, char *argv[])
     SSL_CTX_set_cookie_generate_cb(ctx, generate_cookie_callback);
     SSL_CTX_set_cookie_verify_cb(ctx, verify_cookie_callback);
 
-    if (ctx2) {
+    if (ctx2 != NULL) {
         SSL_CTX_set_verify(ctx2, s_server_verify, verify_callback);
         if (!SSL_CTX_set_session_id_context(ctx2,
                     (void *)&s_server_session_id_context,
@@ -2373,8 +2425,9 @@ static int sv_body(int s, int stype, int prot, unsigned char *context)
                     }
                 }
                 assert(lf_num == 0);
-            } else
+            } else {
                 i = raw_read_stdin(buf, bufsize);
+            }
 
             if (!s_quiet && !s_brief) {
                 if ((i <= 0) || (buf[0] == 'Q')) {
@@ -2868,7 +2921,7 @@ static int www_body(int s, int stype, int prot, unsigned char *context)
         SSL_set_tlsext_debug_arg(con, bio_s_out);
     }
 
-    if (context
+    if (context != NULL
         && !SSL_set_session_id_context(con, context,
                                        strlen((char *)context)))
         goto err;
@@ -3237,7 +3290,7 @@ static int rev_body(int s, int stype, int prot, unsigned char *context)
         SSL_set_tlsext_debug_callback(con, tlsext_cb);
         SSL_set_tlsext_debug_arg(con, bio_s_out);
     }
-    if (context
+    if (context != NULL
         && !SSL_set_session_id_context(con, context,
                                        strlen((char *)context))) {
         ERR_print_errors(bio_err);

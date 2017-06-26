@@ -288,7 +288,7 @@ void bio_s_mempacket_test_free(void)
 static int mempacket_test_new(BIO *bio)
 {
     MEMPACKET_TEST_CTX *ctx;
-    
+
     if (!TEST_ptr(ctx = OPENSSL_zalloc(sizeof(*ctx))))
         return 0;
     if (!TEST_ptr(ctx->pkts = sk_MEMPACKET_new_null())) {
@@ -660,4 +660,12 @@ int create_ssl_connection(SSL *serverssl, SSL *clientssl, int want)
     }
 
     return 1;
+}
+
+void shutdown_ssl_connection(SSL *serverssl, SSL *clientssl)
+{
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    SSL_free(clientssl);
 }

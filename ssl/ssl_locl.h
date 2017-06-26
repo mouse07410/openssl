@@ -1,42 +1,12 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #ifndef HEADER_SSL_LOCL_H
@@ -394,7 +364,8 @@
 # define SSL_PKEY_GOST01         3
 # define SSL_PKEY_GOST12_256     4
 # define SSL_PKEY_GOST12_512     5
-# define SSL_PKEY_NUM            6
+# define SSL_PKEY_ED25519        6
+# define SSL_PKEY_NUM            7
 /*
  * Pseudo-constant. GOST cipher suites can use different certs for 1
  * SSL_CIPHER. So let's see which one we have in fact.
@@ -514,6 +485,8 @@ struct ssl_session_st {
                                  * in here? */
     size_t master_key_length;
 
+    /* TLSv1.3 early_secret used for external PSKs */
+    unsigned char early_secret[EVP_MAX_MD_SIZE];
     /*
      * For <=TLS1.2 this is the master_key. For TLS1.3 this is the resumption
      * master secret
@@ -668,6 +641,8 @@ typedef struct raw_extension_st {
     int parsed;
     /* The type of this extension, i.e. a TLSEXT_TYPE_* value */
     unsigned int type;
+    /* Track what order extensions are received in (0-based). */
+    size_t received_order;
 } RAW_EXTENSION;
 
 typedef struct {
@@ -979,6 +954,8 @@ struct ssl_ctx_st {
     SSL_psk_client_cb_func psk_client_callback;
     SSL_psk_server_cb_func psk_server_callback;
 # endif
+    SSL_psk_find_session_cb_func psk_find_session_cb;
+    SSL_psk_use_session_cb_func psk_use_session_cb;
 
 # ifndef OPENSSL_NO_SRP
     SRP_CTX srp_ctx;            /* ctx for SRP authentication */
@@ -1129,6 +1106,8 @@ struct ssl_st {
     unsigned char sid_ctx[SSL_MAX_SID_CTX_LENGTH];
     /* This can also be in the session once a session is established */
     SSL_SESSION *session;
+    /* TLSv1.3 PSK session */
+    SSL_SESSION *psksession;
     /* Default generate session ID callback. */
     GEN_SESSION_CB generate_session_id;
     /* Used in SSL3 */
@@ -1149,6 +1128,8 @@ struct ssl_st {
     SSL_psk_client_cb_func psk_client_callback;
     SSL_psk_server_cb_func psk_server_callback;
 # endif
+    SSL_psk_find_session_cb_func psk_find_session_cb;
+    SSL_psk_use_session_cb_func psk_use_session_cb;
     SSL_CTX *ctx;
     /* Verified chain of peer */
     STACK_OF(X509) *verified_chain;
@@ -1345,9 +1326,9 @@ typedef struct sigalg_lookup_st {
     const char *name;
     /* Raw value used in extension */
     uint16_t sigalg;
-    /* NID of hash algorithm */
+    /* NID of hash algorithm or NID_undef if no hash */
     int hash;
-    /* Index of hash algorithm */
+    /* Index of hash algorithm or -1 if no hash algorithm */
     int hash_idx;
     /* NID of signature algorithm */
     int sig;
@@ -1857,6 +1838,7 @@ typedef enum downgrade_en {
 #define TLSEXT_SIGALG_ecdsa_secp256r1_sha256                    0x0403
 #define TLSEXT_SIGALG_ecdsa_secp384r1_sha384                    0x0503
 #define TLSEXT_SIGALG_ecdsa_secp521r1_sha512                    0x0603
+#define TLSEXT_SIGALG_ecdsa_sha224                              0x0303
 #define TLSEXT_SIGALG_ecdsa_sha1                                0x0203
 #define TLSEXT_SIGALG_rsa_pss_sha256                            0x0804
 #define TLSEXT_SIGALG_rsa_pss_sha384                            0x0805
@@ -1864,14 +1846,18 @@ typedef enum downgrade_en {
 #define TLSEXT_SIGALG_rsa_pkcs1_sha256                          0x0401
 #define TLSEXT_SIGALG_rsa_pkcs1_sha384                          0x0501
 #define TLSEXT_SIGALG_rsa_pkcs1_sha512                          0x0601
+#define TLSEXT_SIGALG_rsa_pkcs1_sha224                          0x0301
 #define TLSEXT_SIGALG_rsa_pkcs1_sha1                            0x0201
 #define TLSEXT_SIGALG_dsa_sha256                                0x0402
 #define TLSEXT_SIGALG_dsa_sha384                                0x0502
 #define TLSEXT_SIGALG_dsa_sha512                                0x0602
+#define TLSEXT_SIGALG_dsa_sha224                                0x0302
 #define TLSEXT_SIGALG_dsa_sha1                                  0x0202
 #define TLSEXT_SIGALG_gostr34102012_256_gostr34112012_256       0xeeee
 #define TLSEXT_SIGALG_gostr34102012_512_gostr34112012_512       0xefef
 #define TLSEXT_SIGALG_gostr34102001_gostr3411                   0xeded
+
+#define TLSEXT_SIGALG_ed25519                                   0x0807
 
 /* Known PSK key exchange modes */
 #define TLSEXT_KEX_MODE_KE                                      0x00
@@ -2404,6 +2390,7 @@ __owur int tls12_copy_sigalgs(SSL *s, WPACKET *pkt,
 __owur int tls1_save_sigalgs(SSL *s, PACKET *pkt);
 __owur int tls1_process_sigalgs(SSL *s);
 __owur int tls1_set_peer_legacy_sigalg(SSL *s, const EVP_PKEY *pkey);
+__owur int tls1_lookup_md(const SIGALG_LOOKUP *lu, const EVP_MD **pmd);
 __owur size_t tls12_get_psigalgs(SSL *s, int sent, const uint16_t **psigs);
 __owur int tls12_check_peer_sigalg(SSL *s, uint16_t, EVP_PKEY *pkey);
 void ssl_set_client_disabled(SSL *s);

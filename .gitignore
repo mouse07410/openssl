@@ -26,9 +26,17 @@ Makefile
 
 # Auto generated headers
 /crypto/buildinf.h
+/apps/progs.h
 /crypto/include/internal/*_conf.h
 /openssl/include/opensslconf.h
 /util/domd
+
+# error code files
+/crypto/err/openssl.txt.old
+/engines/e_afalg.txt.old
+/engines/e_capi.txt.old
+/engines/e_dasync.txt.old
+/engines/e_ossltest.txt.old
 
 # Executables
 /apps/openssl

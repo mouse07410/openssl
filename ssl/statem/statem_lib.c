@@ -1,16 +1,11 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
  */
 
 #include <limits.h>
@@ -226,9 +221,8 @@ int tls_construct_cert_verify(SSL *s, WPACKET *pkt)
         goto err;
     }
     pkey = s->s3->tmp.cert->privatekey;
-    md = ssl_md(lu->hash_idx);
 
-    if (pkey == NULL || md == NULL) {
+    if (pkey == NULL || !tls1_lookup_md(lu, &md)) {
         SSLerr(SSL_F_TLS_CONSTRUCT_CERT_VERIFY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -351,49 +345,56 @@ MSG_PROCESS_RETURN tls_process_cert_verify(SSL *s, PACKET *pkt)
         goto f_err;
     }
 
-    /* Check for broken implementations of GOST ciphersuites */
-    /*
-     * If key is GOST and n is exactly 64, it is bare signature without
-     * length field (CryptoPro implementations at least till CSP 4.0)
-     */
-#ifndef OPENSSL_NO_GOST
-    if (PACKET_remaining(pkt) == 64
-        && EVP_PKEY_id(pkey) == NID_id_GostR3410_2001) {
-        len = 64;
-    } else
-#endif
-    {
-        if (SSL_USE_SIGALGS(s)) {
-            int rv;
-            unsigned int sigalg;
+    if (SSL_USE_SIGALGS(s)) {
+        int rv;
+        unsigned int sigalg;
 
-            if (!PACKET_get_net_2(pkt, &sigalg)) {
-                al = SSL_AD_DECODE_ERROR;
-                goto f_err;
-            }
-            rv = tls12_check_peer_sigalg(s, sigalg, pkey);
-            if (rv == -1) {
-                goto f_err;
-            } else if (rv == 0) {
-                al = SSL_AD_DECODE_ERROR;
-                goto f_err;
-            }
-#ifdef SSL_DEBUG
-            fprintf(stderr, "USING TLSv1.2 HASH %s\n", EVP_MD_name(md));
-#endif
-        } else if (!tls1_set_peer_legacy_sigalg(s, pkey)) {
-                al = SSL_AD_INTERNAL_ERROR;
-                goto f_err;
-        }
-
-        md = ssl_md(s->s3->tmp.peer_sigalg->hash_idx);
-
-        if (!PACKET_get_net_2(pkt, &len)) {
-            SSLerr(SSL_F_TLS_PROCESS_CERT_VERIFY, SSL_R_LENGTH_MISMATCH);
+        if (!PACKET_get_net_2(pkt, &sigalg)) {
             al = SSL_AD_DECODE_ERROR;
             goto f_err;
         }
+        rv = tls12_check_peer_sigalg(s, sigalg, pkey);
+        if (rv == -1) {
+            goto f_err;
+        } else if (rv == 0) {
+            al = SSL_AD_DECODE_ERROR;
+            goto f_err;
+        }
+#ifdef SSL_DEBUG
+        fprintf(stderr, "USING TLSv1.2 HASH %s\n", EVP_MD_name(md));
+#endif
+    } else if (!tls1_set_peer_legacy_sigalg(s, pkey)) {
+            al = SSL_AD_INTERNAL_ERROR;
+            goto f_err;
     }
+
+    if (!tls1_lookup_md(s->s3->tmp.peer_sigalg, &md)) {
+        SSLerr(SSL_F_TLS_PROCESS_CERT_VERIFY, ERR_R_INTERNAL_ERROR);
+        al = SSL_AD_INTERNAL_ERROR;
+        goto f_err;
+    }
+
+    /* Check for broken implementations of GOST ciphersuites */
+    /*
+     * If key is GOST and len is exactly 64 or 128, it is signature without
+     * length field (CryptoPro implementations at least till TLS 1.2)
+     */
+#ifndef OPENSSL_NO_GOST
+    if (!SSL_USE_SIGALGS(s)
+        && ((PACKET_remaining(pkt) == 64
+             && (EVP_PKEY_id(pkey) == NID_id_GostR3410_2001
+                 || EVP_PKEY_id(pkey) == NID_id_GostR3410_2012_256))
+            || (PACKET_remaining(pkt) == 128
+                && EVP_PKEY_id(pkey) == NID_id_GostR3410_2012_512))) {
+        len = PACKET_remaining(pkt);
+    } else
+#endif
+    if (!PACKET_get_net_2(pkt, &len)) {
+        SSLerr(SSL_F_TLS_PROCESS_CERT_VERIFY, SSL_R_LENGTH_MISMATCH);
+        al = SSL_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
     j = EVP_PKEY_size(pkey);
     if (((int)len > j) || ((int)PACKET_remaining(pkt) > j)
         || (PACKET_remaining(pkt) == 0)) {
@@ -458,10 +459,7 @@ MSG_PROCESS_RETURN tls_process_cert_verify(SSL *s, PACKET *pkt)
         }
     } else {
         j = EVP_DigestVerify(mctx, data, len, hdata, hdatalen);
-        if (j < 0) {
-            SSLerr(SSL_F_TLS_PROCESS_CERT_VERIFY, ERR_R_EVP_LIB);
-            goto f_err;
-        } else if (j == 0) {
+        if (j <= 0) {
             al = SSL_AD_DECRYPT_ERROR;
             SSLerr(SSL_F_TLS_PROCESS_CERT_VERIFY, SSL_R_BAD_SIGNATURE);
             goto f_err;
@@ -1250,6 +1248,8 @@ int ssl_cert_type(const X509 *x, const EVP_PKEY *pk)
 #ifndef OPENSSL_NO_EC
     case EVP_PKEY_EC:
         return SSL_PKEY_ECC;
+    case EVP_PKEY_ED25519:
+        return SSL_PKEY_ED25519;
 #endif
 #ifndef OPENSSL_NO_GOST
     case NID_id_GostR3410_2001:
@@ -2128,4 +2128,22 @@ int construct_ca_names(SSL *s, WPACKET *pkt)
         return 0;
 
     return 1;
+}
+
+/* Create a buffer containing data to be signed for server key exchange */
+size_t construct_key_exchange_tbs(const SSL *s, unsigned char **ptbs,
+                                  const void *param, size_t paramlen)
+{
+    size_t tbslen = 2 * SSL3_RANDOM_SIZE + paramlen;
+    unsigned char *tbs = OPENSSL_malloc(tbslen);
+
+    if (tbs == NULL)
+        return 0;
+    memcpy(tbs, s->s3->client_random, SSL3_RANDOM_SIZE);
+    memcpy(tbs + SSL3_RANDOM_SIZE, s->s3->server_random, SSL3_RANDOM_SIZE);
+
+    memcpy(tbs + SSL3_RANDOM_SIZE * 2, param, paramlen);
+
+    *ptbs = tbs;
+    return tbslen;
 }

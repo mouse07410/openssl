@@ -1,37 +1,11 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <stdio.h>
@@ -486,7 +460,7 @@ int tls1_generate_master_secret(SSL *s, unsigned char *out, unsigned char *p,
                  hash, hashlen,
                  NULL, 0,
                  NULL, 0,
-                 NULL, 0, p, len, s->session->master_key,
+                 NULL, 0, p, len, out,
                  SSL3_MASTER_SECRET_SIZE);
         OPENSSL_cleanse(hash, hashlen);
     } else {
@@ -496,7 +470,7 @@ int tls1_generate_master_secret(SSL *s, unsigned char *out, unsigned char *p,
                  s->s3->client_random, SSL3_RANDOM_SIZE,
                  NULL, 0,
                  s->s3->server_random, SSL3_RANDOM_SIZE,
-                 NULL, 0, p, len, s->session->master_key,
+                 NULL, 0, p, len, out,
                  SSL3_MASTER_SECRET_SIZE);
     }
 #ifdef SSL_DEBUG

@@ -9,6 +9,7 @@
 
 #include "../testutil.h"
 #include "output.h"
+#include "tu_local.h"
 
 #include <openssl/crypto.h>
 #include <openssl/bio.h>
@@ -20,6 +21,7 @@ void test_open_streams(void)
 {
     bio_out = BIO_new_fp(stdout, BIO_NOCLOSE | BIO_FP_TEXT);
     bio_err = BIO_new_fp(stderr, BIO_NOCLOSE | BIO_FP_TEXT);
+    bio_err = BIO_push(BIO_new(BIO_f_tap()), bio_err);
 
     OPENSSL_assert(bio_out != NULL);
     OPENSSL_assert(bio_err != NULL);
@@ -28,7 +30,7 @@ void test_open_streams(void)
 void test_close_streams(void)
 {
     BIO_free(bio_out);
-    BIO_free(bio_err);
+    BIO_free_all(bio_err);
 }
 
 int test_vprintf_stdout(const char *fmt, va_list ap)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2014-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -271,7 +271,9 @@ void test_error_c90(const char *desc, ...) PRINTF_FORMAT(1, 2);
 void test_info(const char *file, int line, const char *desc, ...)
     PRINTF_FORMAT(3, 4);
 void test_info_c90(const char *desc, ...) PRINTF_FORMAT(1, 2);
+void test_note(const char *desc, ...) PRINTF_FORMAT(1, 2);
 void test_openssl_errors(void);
+void test_perror(const char *s);
 
 /*
  * The following macros provide wrapper calls to the test functions with
@@ -384,12 +386,14 @@ void test_openssl_errors(void);
 #  define TEST_error(...)    test_error(__FILE__, __LINE__, __VA_ARGS__)
 #  define TEST_info(...)     test_info(__FILE__, __LINE__, __VA_ARGS__)
 # endif
+# define TEST_note           test_note
 # define TEST_openssl_errors test_openssl_errors
+# define TEST_perror         test_perror
 
 /*
  * For "impossible" conditions such as malloc failures or bugs in test code,
  * where continuing the test would be meaningless. Note that OPENSSL_assert
- * is fatal, and is never compiled out.
+ * is fatal, and is never compiled out.  This macro should be avoided.
  */
 # define TEST_check(condition)                  \
     do {                                        \
@@ -401,6 +405,14 @@ void test_openssl_errors(void);
 
 extern BIO *bio_out;
 extern BIO *bio_err;
+
+/*
+ * Formatted output for strings, memory and bignums.
+ */
+void test_output_string(const char *name, const char *m, size_t l);
+void test_output_bignum(const char *name, const BIGNUM *bn);
+void test_output_memory(const char *name, const unsigned char *m, size_t l);
+
 
 /*
  * Utilities to parse a test file.
@@ -434,7 +446,7 @@ int test_end_file(STANZA *s);
 
 /*
  * Read a stanza from the test file.  A stanza consists of a block
- * of lines of the form 
+ * of lines of the form
  *      key = value
  * The block is terminated by EOF or a blank line.
  * Return 1 if found, 0 on EOF or error.

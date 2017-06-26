@@ -53,13 +53,14 @@ int verify_callback(int ok, X509_STORE_CTX *ctx)
 
     if (!verify_args.quiet || !ok) {
         BIO_printf(bio_err, "depth=%d ", depth);
-        if (err_cert) {
+        if (err_cert != NULL) {
             X509_NAME_print_ex(bio_err,
                                X509_get_subject_name(err_cert),
                                0, get_nameopt());
             BIO_puts(bio_err, "\n");
-        } else
+        } else {
             BIO_puts(bio_err, "<no cert>\n");
+        }
     }
     if (!ok) {
         BIO_printf(bio_err, "verify error:num=%d:%s\n", err,
@@ -206,7 +207,7 @@ static void ssl_print_client_cert_types(BIO *bio, SSL *s)
 
         if (i)
             BIO_puts(bio, ", ");
-        if (cname)
+        if (cname != NULL)
             BIO_puts(bio, cname);
         else
             BIO_printf(bio, "UNKNOWN (%d),", cert_type);
@@ -228,6 +229,9 @@ static const char *get_sigtype(int nid)
 
      case EVP_PKEY_EC:
         return "ECDSA";
+
+     case NID_ED25519:
+        return "Ed25519";
 
     default:
         return NULL;
@@ -264,13 +268,13 @@ static int do_print_sigalgs(BIO *out, SSL *s, int shared)
             BIO_puts(out, ":");
         sstr = get_sigtype(sign_nid);
         if (sstr)
-            BIO_printf(out, "%s+", sstr);
+            BIO_printf(out, "%s", sstr);
         else
-            BIO_printf(out, "0x%02X+", (int)rsign);
+            BIO_printf(out, "0x%02X", (int)rsign);
         if (hash_nid != NID_undef)
-            BIO_printf(out, "%s", OBJ_nid2sn(hash_nid));
-        else
-            BIO_printf(out, "0x%02X", (int)rhash);
+            BIO_printf(out, "+%s", OBJ_nid2sn(hash_nid));
+        else if (sstr == NULL)
+            BIO_printf(out, "+0x%02X", (int)rhash);
     }
     BIO_puts(out, "\n");
     return 1;
@@ -283,7 +287,7 @@ int ssl_print_sigalgs(BIO *out, SSL *s)
         ssl_print_client_cert_types(out, s);
     do_print_sigalgs(out, s, 0);
     do_print_sigalgs(out, s, 1);
-    if (SSL_get_peer_signature_nid(s, &nid))
+    if (SSL_get_peer_signature_nid(s, &nid) && nid != NID_undef)
         BIO_printf(out, "Peer signing digest: %s\n", OBJ_nid2sn(nid));
     if (SSL_get_peer_signature_type_nid(s, &nid))
         BIO_printf(out, "Peer signature type: %s\n", get_sigtype(nid));
@@ -342,13 +346,13 @@ int ssl_print_groups(BIO *out, SSL *s, int noshared)
             BIO_puts(out, ":");
         nid = groups[i];
         /* If unrecognised print out hex version */
-        if (nid & TLSEXT_nid_unknown)
+        if (nid & TLSEXT_nid_unknown) {
             BIO_printf(out, "0x%04X", nid & 0xFFFF);
-        else {
+        } else {
             /* TODO(TLS1.3): Get group name here */
             /* Use NIST name for curve if it exists */
             gname = EC_curve_nid2nist(nid);
-            if (!gname)
+            if (gname == NULL)
                 gname = OBJ_nid2sn(nid);
             BIO_printf(out, "%s", gname);
         }
@@ -366,7 +370,7 @@ int ssl_print_groups(BIO *out, SSL *s, int noshared)
         nid = SSL_get_shared_group(s, i);
         /* TODO(TLS1.3): Convert for DH groups */
         gname = EC_curve_nid2nist(nid);
-        if (!gname)
+        if (gname == NULL)
             gname = OBJ_nid2sn(nid);
         BIO_printf(out, "%s", gname);
     }
@@ -376,6 +380,7 @@ int ssl_print_groups(BIO *out, SSL *s, int noshared)
     return 1;
 }
 #endif
+
 int ssl_print_tmp_key(BIO *out, SSL *s)
 {
     EVP_PKEY *key;
@@ -399,7 +404,7 @@ int ssl_print_tmp_key(BIO *out, SSL *s)
             nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
             EC_KEY_free(ec);
             cname = EC_curve_nid2nist(nid);
-            if (!cname)
+            if (cname == NULL)
                 cname = OBJ_nid2sn(nid);
             BIO_printf(out, "ECDH, %s, %d bits\n", cname, EVP_PKEY_bits(key));
         }
@@ -461,10 +466,9 @@ void apps_ssl_info_callback(const SSL *s, int where, int ret)
         if (ret == 0)
             BIO_printf(bio_err, "%s:failed in %s\n",
                        str, SSL_state_string_long(s));
-        else if (ret < 0) {
+        else if (ret < 0)
             BIO_printf(bio_err, "%s:error in %s\n",
                        str, SSL_state_string_long(s));
-        }
     }
 }
 
@@ -478,6 +482,7 @@ static STRINT_PAIR ssl_versions[] = {
     {"DTLS 1.0 (bad)", DTLS1_BAD_VER},
     {NULL}
 };
+
 static STRINT_PAIR alert_types[] = {
     {" close_notify", 0},
     {" end_of_early_data", 1},
@@ -813,19 +818,19 @@ static int set_cert_cb(SSL *ssl, void *arg)
 #endif
     SSL_certs_clear(ssl);
 
-    if (!exc)
+    if (exc == NULL)
         return 1;
 
     /*
      * Go to end of list and traverse backwards since we prepend newer
      * entries this retains the original order.
      */
-    while (exc->next)
+    while (exc->next != NULL)
         exc = exc->next;
 
     i = 0;
 
-    while (exc) {
+    while (exc != NULL) {
         i++;
         rv = SSL_check_chain(ssl, exc->cert, exc->key, exc->chain);
         BIO_printf(bio_err, "Checking cert chain %d:\nSubject: ", i);
@@ -846,8 +851,9 @@ static int set_cert_cb(SSL *ssl, void *arg)
             if (exc->build_chain) {
                 if (!SSL_build_cert_chain(ssl, 0))
                     return 0;
-            } else if (exc->chain)
+            } else if (exc->chain != NULL) {
                 SSL_set1_chain(ssl, exc->chain);
+            }
         }
         exc = exc->prev;
     }
@@ -884,7 +890,7 @@ void ssl_excert_free(SSL_EXCERT *exc)
 {
     SSL_EXCERT *curr;
 
-    if (!exc)
+    if (exc == NULL)
         return;
     while (exc) {
         X509_free(exc->cert);
@@ -899,33 +905,33 @@ void ssl_excert_free(SSL_EXCERT *exc)
 int load_excert(SSL_EXCERT **pexc)
 {
     SSL_EXCERT *exc = *pexc;
-    if (!exc)
+    if (exc == NULL)
         return 1;
     /* If nothing in list, free and set to NULL */
-    if (!exc->certfile && !exc->next) {
+    if (exc->certfile == NULL && exc->next == NULL) {
         ssl_excert_free(exc);
         *pexc = NULL;
         return 1;
     }
     for (; exc; exc = exc->next) {
-        if (!exc->certfile) {
+        if (exc->certfile == NULL) {
             BIO_printf(bio_err, "Missing filename\n");
             return 0;
         }
         exc->cert = load_cert(exc->certfile, exc->certform,
                               "Server Certificate");
-        if (!exc->cert)
+        if (exc->cert == NULL)
             return 0;
-        if (exc->keyfile) {
+        if (exc->keyfile != NULL) {
             exc->key = load_key(exc->keyfile, exc->keyform,
                                 0, NULL, NULL, "Server Key");
         } else {
             exc->key = load_key(exc->certfile, exc->certform,
                                 0, NULL, NULL, "Server Key");
         }
-        if (!exc->key)
+        if (exc->key == NULL)
             return 0;
-        if (exc->chainfile) {
+        if (exc->chainfile != NULL) {
             if (!load_certs(exc->chainfile, &exc->chain, FORMAT_PEM, NULL,
                             "Server Chain"))
                 return 0;
@@ -957,7 +963,7 @@ int args_excert(int opt, SSL_EXCERT **pexc)
     case OPT_X__LAST:
         return 0;
     case OPT_X_CERT:
-        if (exc->certfile && !ssl_excert_prepend(&exc)) {
+        if (exc->certfile != NULL && !ssl_excert_prepend(&exc)) {
             BIO_printf(bio_err, "%s: Error adding xcert\n", opt_getprog());
             goto err;
         }
@@ -965,14 +971,14 @@ int args_excert(int opt, SSL_EXCERT **pexc)
         exc->certfile = opt_arg();
         break;
     case OPT_X_KEY:
-        if (exc->keyfile) {
+        if (exc->keyfile != NULL) {
             BIO_printf(bio_err, "%s: Key already specified\n", opt_getprog());
             goto err;
         }
         exc->keyfile = opt_arg();
         break;
     case OPT_X_CHAIN:
-        if (exc->chainfile) {
+        if (exc->chainfile != NULL) {
             BIO_printf(bio_err, "%s: Chain already specified\n",
                        opt_getprog());
             goto err;
@@ -1015,11 +1021,11 @@ static void print_raw_cipherlist(SSL *s)
         const SSL_CIPHER *c = SSL_CIPHER_find(s, rlist);
         if (i)
             BIO_puts(bio_err, ":");
-        if (c)
+        if (c != NULL) {
             BIO_puts(bio_err, SSL_CIPHER_get_name(c));
-        else if (!memcmp(rlist, scsv_id, num))
+        } else if (memcmp(rlist, scsv_id, num) == 0) {
             BIO_puts(bio_err, "SCSV");
-        else {
+        } else {
             size_t j;
             BIO_puts(bio_err, "0x");
             for (j = 0; j < num; j++)
@@ -1114,7 +1120,7 @@ void print_ssl_summary(SSL *s)
     BIO_printf(bio_err, "Ciphersuite: %s\n", SSL_CIPHER_get_name(c));
     do_print_sigalgs(bio_err, s, 0);
     peer = SSL_get_peer_certificate(s);
-    if (peer) {
+    if (peer != NULL) {
         int nid;
 
         BIO_puts(bio_err, "Peer certificate: ");
@@ -1126,8 +1132,9 @@ void print_ssl_summary(SSL *s)
         if (SSL_get_peer_signature_type_nid(s, &nid))
             BIO_printf(bio_err, "Signature type: %s\n", get_sigtype(nid));
         print_verify_detail(s, bio_err);
-    } else
+    } else {
         BIO_puts(bio_err, "No peer certificate\n");
+    }
     X509_free(peer);
 #ifndef OPENSSL_NO_EC
     ssl_print_point_formats(bio_err, s);
@@ -1151,7 +1158,7 @@ int config_ctx(SSL_CONF_CTX *cctx, STACK_OF(OPENSSL_STRING) *str,
         const char *flag = sk_OPENSSL_STRING_value(str, i);
         const char *arg = sk_OPENSSL_STRING_value(str, i + 1);
         if (SSL_CONF_cmd(cctx, flag, arg) <= 0) {
-            if (arg)
+            if (arg != NULL)
                 BIO_printf(bio_err, "Error with command: \"%s %s\"\n",
                            flag, arg);
             else
@@ -1285,7 +1292,7 @@ static int security_callback_debug(const SSL *s, const SSL_CTX *ctx,
         cert_md = 1;
         break;
     }
-    if (nm)
+    if (nm != NULL)
         BIO_printf(sdb->out, "%s=", nm);
 
     switch (op & SSL_SECOP_OTHER_TYPE) {

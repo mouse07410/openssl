@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2015-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -181,10 +181,10 @@ int opt_format_error(const char *s, unsigned long flags)
 {
     OPT_PAIR *ap;
 
-    if (flags == OPT_FMT_PEMDER)
+    if (flags == OPT_FMT_PEMDER) {
         BIO_printf(bio_err, "%s: Bad format \"%s\"; must be pem or der\n",
                    prog, s);
-    else {
+    } else {
         BIO_printf(bio_err, "%s: Bad format \"%s\"; must be one of:\n",
                    prog, s);
         for (ap = formats; ap->name; ap++)
@@ -264,8 +264,9 @@ int opt_format(const char *s, unsigned long flags, int *result)
             if ((flags & OPT_FMT_PKCS12) == 0)
                 return opt_format_error(s, flags);
             *result = FORMAT_PKCS12;
-        } else
+        } else {
             return 0;
+        }
         break;
     }
     return 1;
@@ -275,7 +276,7 @@ int opt_format(const char *s, unsigned long flags, int *result)
 int opt_cipher(const char *name, const EVP_CIPHER **cipherp)
 {
     *cipherp = EVP_get_cipherbyname(name);
-    if (*cipherp)
+    if (*cipherp != NULL)
         return 1;
     BIO_printf(bio_err, "%s: Unknown cipher %s\n", prog, name);
     return 0;
@@ -287,7 +288,7 @@ int opt_cipher(const char *name, const EVP_CIPHER **cipherp)
 int opt_md(const char *name, const EVP_MD **mdp)
 {
     *mdp = EVP_get_digestbyname(name);
-    if (*mdp)
+    if (*mdp != NULL)
         return 1;
     BIO_printf(bio_err, "%s: Unknown digest %s\n", prog, name);
     return 0;
@@ -325,6 +326,30 @@ int opt_int(const char *value, int *result)
     return 1;
 }
 
+static void opt_number_error(const char *v)
+{
+    size_t i = 0;
+    struct strstr_pair_st {
+        char *prefix;
+        char *name;
+    } b[] = {
+        {"0x", "a hexadecimal"},
+        {"0X", "a hexadecimal"},
+        {"0", "an octal"}
+    };
+
+    for (i = 0; i < OSSL_NELEM(b); i++) {
+        if (strncmp(v, b[i].prefix, strlen(b[i].prefix)) == 0) {
+            BIO_printf(bio_err,
+                       "%s: Can't parse \"%s\" as %s number\n",
+                       prog, v, b[i].name);
+            return;
+        }
+    }
+    BIO_printf(bio_err, "%s: Can't parse \"%s\" as a number\n", prog, v);
+    return;
+}
+
 /* Parse a long, put it into *result; return 0 on failure, else 1. */
 int opt_long(const char *value, long *result)
 {
@@ -338,8 +363,7 @@ int opt_long(const char *value, long *result)
             || endp == value
             || ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
             || (l == 0 && errno != 0)) {
-        BIO_printf(bio_err, "%s: Can't parse \"%s\" as a number\n",
-                   prog, value);
+        opt_number_error(value);
         errno = oerrno;
         return 0;
     }
@@ -364,8 +388,7 @@ int opt_imax(const char *value, intmax_t *result)
             || endp == value
             || ((m == INTMAX_MAX || m == INTMAX_MIN) && errno == ERANGE)
             || (m == 0 && errno != 0)) {
-        BIO_printf(bio_err, "%s: Can't parse \"%s\" as a number\n",
-                   prog, value);
+        opt_number_error(value);
         errno = oerrno;
         return 0;
     }
@@ -387,8 +410,7 @@ int opt_umax(const char *value, uintmax_t *result)
             || endp == value
             || (m == UINTMAX_MAX && errno == ERANGE)
             || (m == 0 && errno != 0)) {
-        BIO_printf(bio_err, "%s: Can't parse \"%s\" as a number\n",
-                   prog, value);
+        opt_number_error(value);
         errno = oerrno;
         return 0;
     }
@@ -413,8 +435,7 @@ int opt_ulong(const char *value, unsigned long *result)
             || endptr == value
             || ((l == ULONG_MAX) && errno == ERANGE)
             || (l == 0 && errno != 0)) {
-        BIO_printf(bio_err, "%s: Can't parse \"%s\" as an unsigned number\n",
-                   prog, value);
+        opt_number_error(value);
         errno = oerrno;
         return 0;
     }

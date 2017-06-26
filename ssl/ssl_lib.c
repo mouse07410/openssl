@@ -1,42 +1,12 @@
 /*
  * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
+ * Copyright 2005 Nokia. All rights reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
- */
-
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-/* ====================================================================
- * Copyright 2005 Nokia. All rights reserved.
- *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
  */
 
 #include <stdio.h>
@@ -449,6 +419,8 @@ int SSL_clear(SSL *s)
         SSL_SESSION_free(s->session);
         s->session = NULL;
     }
+    SSL_SESSION_free(s->psksession);
+    s->psksession = NULL;
 
     s->error = 0;
     s->hit = 0;
@@ -664,6 +636,8 @@ SSL *SSL_new(SSL_CTX *ctx)
     s->psk_client_callback = ctx->psk_client_callback;
     s->psk_server_callback = ctx->psk_server_callback;
 #endif
+    s->psk_find_session_cb = ctx->psk_find_session_cb;
+    s->psk_use_session_cb = ctx->psk_use_session_cb;
 
     s->job = NULL;
 
@@ -999,6 +973,7 @@ void SSL_free(SSL *s)
         ssl_clear_bad_session(s);
         SSL_SESSION_free(s->session);
     }
+    SSL_SESSION_free(s->psksession);
 
     clear_ciphers(s);
 
@@ -2581,15 +2556,15 @@ void SSL_get0_alpn_selected(const SSL *ssl, const unsigned char **data,
 
 int SSL_export_keying_material(SSL *s, unsigned char *out, size_t olen,
                                const char *label, size_t llen,
-                               const unsigned char *p, size_t plen,
+                               const unsigned char *context, size_t contextlen,
                                int use_context)
 {
     if (s->version < TLS1_VERSION && s->version != DTLS1_BAD_VER)
         return -1;
 
     return s->method->ssl3_enc->export_keying_material(s, out, olen, label,
-                                                       llen, p, plen,
-                                                       use_context);
+                                                       llen, context,
+                                                       contextlen, use_context);
 }
 
 static unsigned long ssl_session_hash(const SSL_SESSION *a)
@@ -2999,6 +2974,11 @@ void ssl_set_masks(SSL *s)
         if (ecdsa_ok)
             mask_a |= SSL_aECDSA;
     }
+    /* Allow Ed25519 for TLS 1.2 if peer supports it */
+    if (!(mask_a & SSL_aECDSA) && ssl_has_cert(s, SSL_PKEY_ED25519)
+            && pvalid[SSL_PKEY_ED25519] & CERT_PKEY_EXPLICIT_SIGN
+            && TLS1_get_version(s) == TLS1_2_VERSION)
+            mask_a |= SSL_aECDSA;
 #endif
 
 #ifndef OPENSSL_NO_EC
@@ -3745,6 +3725,18 @@ size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
     return outlen;
 }
 
+int SSL_SESSION_set1_master_key(SSL_SESSION *sess, const unsigned char *in,
+                                size_t len)
+{
+    if (len > sizeof(sess->master_key))
+        return 0;
+
+    memcpy(sess->master_key, in, len);
+    sess->master_key_length = len;
+    return 1;
+}
+
+
 int SSL_set_ex_data(SSL *s, int idx, void *arg)
 {
     return (CRYPTO_set_ex_data(&s->ex_data, idx, arg));
@@ -3879,6 +3871,28 @@ void SSL_CTX_set_psk_server_callback(SSL_CTX *ctx, SSL_psk_server_cb_func cb)
     ctx->psk_server_callback = cb;
 }
 #endif
+
+void SSL_set_psk_find_session_callback(SSL *s, SSL_psk_find_session_cb_func cb)
+{
+    s->psk_find_session_cb = cb;
+}
+
+void SSL_CTX_set_psk_find_session_callback(SSL_CTX *ctx,
+                                           SSL_psk_find_session_cb_func cb)
+{
+    ctx->psk_find_session_cb = cb;
+}
+
+void SSL_set_psk_use_session_callback(SSL *s, SSL_psk_use_session_cb_func cb)
+{
+    s->psk_use_session_cb = cb;
+}
+
+void SSL_CTX_set_psk_use_session_callback(SSL_CTX *ctx,
+                                           SSL_psk_use_session_cb_func cb)
+{
+    ctx->psk_use_session_cb = cb;
+}
 
 void SSL_CTX_set_msg_callback(SSL_CTX *ctx,
                               void (*cb) (int write_p, int version,
@@ -4596,6 +4610,38 @@ size_t SSL_early_get0_compression_methods(SSL *s, const unsigned char **out)
     if (out != NULL)
         *out = s->clienthello->compressions;
     return s->clienthello->compressions_len;
+}
+
+int SSL_early_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+{
+    RAW_EXTENSION *ext;
+    int *present;
+    size_t num = 0, i;
+
+    if (s->clienthello == NULL || out == NULL || outlen == NULL)
+        return 0;
+    for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
+        ext = s->clienthello->pre_proc_exts + i;
+        if (ext->present)
+            num++;
+    }
+    present = OPENSSL_malloc(sizeof(*present) * num);
+    if (present == NULL)
+        return 0;
+    for (i = 0; i < s->clienthello->pre_proc_exts_len; i++) {
+        ext = s->clienthello->pre_proc_exts + i;
+        if (ext->present) {
+            if (ext->received_order >= num)
+                goto err;
+            present[ext->received_order] = ext->type;
+        }
+    }
+    *out = present;
+    *outlen = num;
+    return 1;
+ err:
+    OPENSSL_free(present);
+    return 0;
 }
 
 int SSL_early_get0_ext(SSL *s, unsigned int type, const unsigned char **out,
