@@ -347,6 +347,14 @@ int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))(EVP_CIPHER_CTX *,
 #define EVP_PADDING_ISO10126    4
 #define EVP_PADDING_ZERO        5
 
+/*
+ * Russian GOST has some parameters defining its usage:
+ * S-blocks, key meshing, padding modes
+ */
+#define          EVP_CTRL_GOST_PARAMS       0x1d
+#define          EVP_CTRL_GOST_KEY_MESHING  0x1e
+#define          EVP_CTRL_GOST_PADDING      0x1f
+
 /* RFC 5246 defines additional data to be 13 bytes in length */
 # define         EVP_AEAD_TLS1_AAD_LEN           13
 
