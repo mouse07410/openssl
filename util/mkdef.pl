@@ -68,6 +68,7 @@ my $do_checkexist = 0;
 my $VMS=0;
 my $W32=0;
 my $NT=0;
+my $UNIX=0;
 my $linux=0;
 # Set this to make typesafe STACK definitions appear in DEF
 my $safe_stack_def = 0;
@@ -75,7 +76,7 @@ my $safe_stack_def = 0;
 my @known_platforms = ( "__FreeBSD__", "PERL5",
 			"EXPORT_VAR_AS_FUNCTION", "ZLIB", "_WIN32"
 			);
-my @known_ossl_platforms = ( "VMS", "WIN32", "WINNT", "OS2" );
+my @known_ossl_platforms = ( "UNIX", "VMS", "WIN32", "WINNT", "OS2" );
 my @known_algorithms = ( "RC2", "RC4", "RC5", "IDEA", "DES", "BF",
 			 "CAST", "MD2", "MD4", "MD5", "SHA", "SHA0", "SHA1",
 			 "SHA256", "SHA512", "RMD160",
@@ -165,6 +166,7 @@ foreach (@ARGV, split(/ /, $config{options}))
 	}
 	if ($_ eq "linux") {
 		$linux=1;
+		$UNIX=1;
 	}
 	$VMS=1 if $_ eq "VMS";
 	if ($_ eq "zlib" || $_ eq "enable-zlib" || $_ eq "zlib-dynamic"
@@ -1064,6 +1066,7 @@ sub is_valid
 
 		if ($platforms) {
 			# platforms
+			if ($keyword eq "UNIX" && $UNIX) { return 1; }
 			if ($keyword eq "VMS" && $VMS) { return 1; }
 			if ($keyword eq "WIN32" && $W32) { return 1; }
 			if ($keyword eq "_WIN32" && $W32) { return 1; }
@@ -1210,7 +1213,6 @@ EOF
 					if(!$do_update);
 			} else {
 				(my $n, my $symversion, my $dummy) = split /\\/, $nums{$s};
-				next if $symversion ne $thisversion;
 				my %pf = ();
 				my $p = ($i =~ /^[^:]*:([^:]*):/,$1);
 				my $a = ($i =~ /^[^:]*:[^:]*:[^:]*:([^:]*)/,$1);
@@ -1223,6 +1225,7 @@ EOF
 					}
 					$prev = $s2;	# To warn about duplicates...
 					if($linux) {
+						next if $symversion ne $thisversion;
 						if ($symversion ne $prevsymversion) {
 							if ($prevsymversion ne "") {
 								if ($prevprevsymversion ne "") {
@@ -1278,7 +1281,7 @@ EOF
 				}
 			}
 		}
-	} while ($thisversion ne $currversion);
+	} while ($linux && $thisversion ne $currversion);
 	if ($linux) {
 		if ($prevprevsymversion ne "") {
 			print OUT "    local: *;\n} OPENSSL_$prevprevsymversion;\n\n";

@@ -22,11 +22,14 @@ int ERR_load_OSSL_STORE_strings(void);
 /*
  * OSSL_STORE function codes.
  */
+# define OSSL_STORE_F_FILE_CTRL                           129
 # define OSSL_STORE_F_FILE_GET_PASS                       118
 # define OSSL_STORE_F_FILE_LOAD                           119
 # define OSSL_STORE_F_FILE_LOAD_TRY_DECODE                124
 # define OSSL_STORE_F_FILE_NAME_TO_URI                    126
 # define OSSL_STORE_F_FILE_OPEN                           120
+# define OSSL_STORE_F_OSSL_STORE_ATTACH_PEM_BIO           127
+# define OSSL_STORE_F_OSSL_STORE_FILE_ATTACH_PEM_BIO_INT  128
 # define OSSL_STORE_F_OSSL_STORE_GET0_LOADER_INT          100
 # define OSSL_STORE_F_OSSL_STORE_INFO_GET1_CERT           101
 # define OSSL_STORE_F_OSSL_STORE_INFO_GET1_CRL            102
@@ -59,6 +62,7 @@ int ERR_load_OSSL_STORE_strings(void);
 # define OSSL_STORE_R_ERROR_VERIFYING_PKCS12_MAC          113
 # define OSSL_STORE_R_INVALID_SCHEME                      106
 # define OSSL_STORE_R_IS_NOT_A                            112
+# define OSSL_STORE_R_LOADER_INCOMPLETE                   116
 # define OSSL_STORE_R_NOT_A_CERTIFICATE                   100
 # define OSSL_STORE_R_NOT_A_CRL                           101
 # define OSSL_STORE_R_NOT_A_KEY                           102
