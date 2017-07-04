@@ -141,14 +141,10 @@ matrix:
         - os: osx
           compiler: gcc
     allow_failures:
-        - compiler: clang
-          env: CONFIG_OPTS="enable_asan"
-        - compiler: clang
-          env: CONFIG_OPTS="enable_msan"
-        - compiler: clang
-          env: CONFIG_OPTS="no-asm enable-ubsan enable-rc5 enable-md2 enable-ssl3 enable-ssl3-method -fno-sanitize=alignment"
-        - compiler: clang
-          env: CONFIG_OPTS="no-asm enable-asan enable-rc5 enable-md2"
+        - env: CONFIG_OPTS="enable-asan"
+        - env: CONFIG_OPTS="enable-msan"
+        - env: CONFIG_OPTS="no-asm enable-ubsan enable-rc5 enable-md2 enable-ssl3 enable-ssl3-method -fno-sanitize=alignment"
+        - env: CONFIG_OPTS="no-asm enable-asan enable-rc5 enable-md2"
 
 before_script:
     - if [ -n "$DESTDIR" ]; then
