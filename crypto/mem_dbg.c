@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -183,7 +183,7 @@ int CRYPTO_mem_ctrl(int mode)
         break;
     }
     CRYPTO_THREAD_unlock(malloc_lock);
-    return (ret);
+    return ret;
 #endif
 }
 
@@ -206,7 +206,7 @@ static int mem_check_on(void)
 
         CRYPTO_THREAD_unlock(malloc_lock);
     }
-    return (ret);
+    return ret;
 }
 
 static int mem_cmp(const MEM *a, const MEM *b)
@@ -231,7 +231,7 @@ static unsigned long mem_hash(const MEM *a)
     ret = (size_t)a->addr;
 
     ret = ret * 17851 + (ret >> 14) * 7 + (ret >> 4) * 251;
-    return (ret);
+    return ret;
 }
 
 /* returns 1 if there was an info to pop, 0 if the stack was empty. */
@@ -292,7 +292,7 @@ int CRYPTO_mem_debug_push(const char *info, const char *file, int line)
         CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ENABLE);
     }
 
-    return (ret);
+    return ret;
 }
 
 int CRYPTO_mem_debug_pop(void)
@@ -304,7 +304,7 @@ int CRYPTO_mem_debug_pop(void)
         ret = pop_info();
         CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ENABLE);
     }
-    return (ret);
+    return ret;
 }
 
 static unsigned long break_order_num = 0;
@@ -453,8 +453,9 @@ static void print_leak(const MEM *m, MEM_LEAK *l)
 {
     char buf[1024];
     char *bufp = buf;
+    size_t len = sizeof(buf), ami_cnt;
     APP_INFO *amip;
-    int ami_cnt;
+    int n;
     struct tm *lcl = NULL;
     /*
      * Convert between CRYPTO_THREAD_ID (which could be anything at all) and
@@ -468,21 +469,37 @@ static void print_leak(const MEM *m, MEM_LEAK *l)
     CRYPTO_THREAD_ID ti;
 
     lcl = localtime(&m->time);
-    sprintf(bufp, "[%02d:%02d:%02d] ", lcl->tm_hour, lcl->tm_min, lcl->tm_sec);
-    bufp += strlen(bufp);
+    n = BIO_snprintf(bufp, len, "[%02d:%02d:%02d] ",
+                     lcl->tm_hour, lcl->tm_min, lcl->tm_sec);
+    if (n <= 0) {
+        bufp[0] = '\0';
+        return;
+    }
+    bufp += n;
+    len -= n;
 
-    sprintf(bufp, "%5lu file=%s, line=%d, ", m->order, m->file, m->line);
-    bufp += strlen(bufp);
+    n = BIO_snprintf(bufp, len, "%5lu file=%s, line=%d, ",
+                     m->order, m->file, m->line);
+    if (n <= 0)
+        return;
+    bufp += n;
+    len -= n;
 
     tid.ltid = 0;
     tid.tid = m->threadid;
-    sprintf(bufp, "thread=%lu, ", tid.ltid);
-    bufp += strlen(bufp);
+    n = BIO_snprintf(bufp, len, "thread=%lu, ", tid.ltid);
+    if (n <= 0)
+        return;
+    bufp += n;
+    len -= n;
 
-    sprintf(bufp, "number=%d, address=%p\n", m->num, m->addr);
-    bufp += strlen(bufp);
+    n = BIO_snprintf(bufp, len, "number=%d, address=%p\n", m->num, m->addr);
+    if (n <= 0)
+        return;
+    bufp += n;
+    len -= n;
 
-    l->print_cb(buf, strlen(buf), l->print_cb_arg);
+    l->print_cb(buf, (size_t)(bufp - buf), l->print_cb_arg);
 
     l->chunks++;
     l->bytes += m->num;
@@ -498,23 +515,34 @@ static void print_leak(const MEM *m, MEM_LEAK *l)
             int info_len;
 
             ami_cnt++;
+            if (ami_cnt >= sizeof(buf) - 1)
+                break;
             memset(buf, '>', ami_cnt);
+            buf[ami_cnt] = '\0';
             tid.ltid = 0;
             tid.tid = amip->threadid;
-            sprintf(buf + ami_cnt, " thread=%lu, file=%s, line=%d, info=\"",
-                    tid.ltid, amip->file, amip->line);
-            buf_len = strlen(buf);
+            n = BIO_snprintf(buf + ami_cnt, sizeof(buf) - ami_cnt,
+                             " thread=%lu, file=%s, line=%d, info=\"",
+                             tid.ltid, amip->file, amip->line);
+            if (n <= 0)
+                break;
+            buf_len = ami_cnt + n;
             info_len = strlen(amip->info);
             if (128 - buf_len - 3 < info_len) {
                 memcpy(buf + buf_len, amip->info, 128 - buf_len - 3);
                 buf_len = 128 - 3;
             } else {
-                strcpy(buf + buf_len, amip->info);
-                buf_len = strlen(buf);
+                n = BIO_snprintf(buf + buf_len, sizeof(buf) - buf_len, "%s",
+                                 amip->info);
+                if (n < 0)
+                    break;
+                buf_len += n;
             }
-            sprintf(buf + buf_len, "\"\n");
+            n = BIO_snprintf(buf + buf_len, sizeof(buf) - buf_len, "\"\n");
+            if (n <= 0)
+                break;
 
-            l->print_cb(buf, strlen(buf), l->print_cb_arg);
+            l->print_cb(buf, buf_len + n, l->print_cb_arg);
 
             amip = amip->next;
         }

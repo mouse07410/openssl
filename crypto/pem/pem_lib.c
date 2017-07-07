@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -71,6 +71,7 @@ int PEM_def_callback(char *buf, int num, int w, void *key)
 void PEM_proc_type(char *buf, int type)
 {
     const char *str;
+    char *p = buf + strlen(buf);
 
     if (type == PEM_TYPE_ENCRYPTED)
         str = "ENCRYPTED";
@@ -81,27 +82,29 @@ void PEM_proc_type(char *buf, int type)
     else
         str = "BAD-TYPE";
 
-    strcat(buf, "Proc-Type: 4,");
-    strcat(buf, str);
-    strcat(buf, "\n");
+    BIO_snprintf(p, PEM_BUFSIZE - (size_t)(p - buf), "Proc-Type: 4,%s\n", str);
 }
 
 void PEM_dek_info(char *buf, const char *type, int len, char *str)
 {
-    static const unsigned char map[17] = "0123456789ABCDEF";
     long i;
-    int j;
+    char *p = buf + strlen(buf);
+    int j = PEM_BUFSIZE - (size_t)(p - buf), n;
 
-    strcat(buf, "DEK-Info: ");
-    strcat(buf, type);
-    strcat(buf, ",");
-    j = strlen(buf);
-    for (i = 0; i < len; i++) {
-        buf[j + i * 2] = map[(str[i] >> 4) & 0x0f];
-        buf[j + i * 2 + 1] = map[(str[i]) & 0x0f];
+    n = BIO_snprintf(p, j, "DEK-Info: %s,", type);
+    if (n > 0) {
+        j -= n;
+        p += n;
+        for (i = 0; i < len; i++) {
+            n = BIO_snprintf(p, j, "%02X", 0xff & str[i]);
+            if (n <= 0)
+                return;
+            j -= n;
+            p += n;
+        }
+        if (j > 1)
+            strcpy(p, "\n");
     }
-    buf[j + i * 2] = '\n';
-    buf[j + i * 2 + 1] = '\0';
 }
 
 #ifndef OPENSSL_NO_STDIO
@@ -113,12 +116,12 @@ void *PEM_ASN1_read(d2i_of_void *d2i, const char *name, FILE *fp, void **x,
 
     if ((b = BIO_new(BIO_s_file())) == NULL) {
         PEMerr(PEM_F_PEM_ASN1_READ, ERR_R_BUF_LIB);
-        return (0);
+        return 0;
     }
     BIO_set_fp(b, fp, BIO_NOCLOSE);
     ret = PEM_ASN1_read_bio(d2i, name, b, x, cb, u);
     BIO_free(b);
-    return (ret);
+    return ret;
 }
 #endif
 
@@ -298,12 +301,12 @@ int PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp,
 
     if ((b = BIO_new(BIO_s_file())) == NULL) {
         PEMerr(PEM_F_PEM_ASN1_WRITE, ERR_R_BUF_LIB);
-        return (0);
+        return 0;
     }
     BIO_set_fp(b, fp, BIO_NOCLOSE);
     ret = PEM_ASN1_write_bio(i2d, name, b, x, enc, kstr, klen, callback, u);
     BIO_free(b);
-    return (ret);
+    return ret;
 }
 #endif
 
@@ -402,7 +405,7 @@ int PEM_ASN1_write_bio(i2d_of_void *i2d, const char *name, BIO *bp,
     EVP_CIPHER_CTX_free(ctx);
     OPENSSL_cleanse(buf, PEM_BUFSIZE);
     OPENSSL_clear_free(data, (unsigned int)dsize);
-    return (ret);
+    return ret;
 }
 
 int PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *plen,
@@ -570,14 +573,14 @@ static int load_iv(char **fromp, unsigned char *to, int num)
         v = OPENSSL_hexchar2int(*from);
         if (v < 0) {
             PEMerr(PEM_F_LOAD_IV, PEM_R_BAD_IV_CHARS);
-            return (0);
+            return 0;
         }
         from++;
         to[i / 2] |= v << (long)((!(i & 1)) * 4);
     }
 
     *fromp = from;
-    return (1);
+    return 1;
 }
 
 #ifndef OPENSSL_NO_STDIO
@@ -589,12 +592,12 @@ int PEM_write(FILE *fp, const char *name, const char *header,
 
     if ((b = BIO_new(BIO_s_file())) == NULL) {
         PEMerr(PEM_F_PEM_WRITE, ERR_R_BUF_LIB);
-        return (0);
+        return 0;
     }
     BIO_set_fp(b, fp, BIO_NOCLOSE);
     ret = PEM_write_bio(b, name, header, data, len);
     BIO_free(b);
-    return (ret);
+    return ret;
 }
 #endif
 
@@ -651,12 +654,12 @@ int PEM_write_bio(BIO *bp, const char *name, const char *header,
         goto err;
     OPENSSL_clear_free(buf, PEM_BUFSIZE * 8);
     EVP_ENCODE_CTX_free(ctx);
-    return (i + outl);
+    return i + outl;
  err:
     OPENSSL_clear_free(buf, PEM_BUFSIZE * 8);
     EVP_ENCODE_CTX_free(ctx);
     PEMerr(PEM_F_PEM_WRITE_BIO, reason);
-    return (0);
+    return 0;
 }
 
 #ifndef OPENSSL_NO_STDIO
@@ -668,12 +671,12 @@ int PEM_read(FILE *fp, char **name, char **header, unsigned char **data,
 
     if ((b = BIO_new(BIO_s_file())) == NULL) {
         PEMerr(PEM_F_PEM_READ, ERR_R_BUF_LIB);
-        return (0);
+        return 0;
     }
     BIO_set_fp(b, fp, BIO_NOCLOSE);
     ret = PEM_read_bio(b, name, header, data, len);
     BIO_free(b);
-    return (ret);
+    return ret;
 }
 #endif
 
