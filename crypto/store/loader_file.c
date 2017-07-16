@@ -30,8 +30,13 @@
 
 #include "e_os.h"
 
-/*
+#ifdef _WIN32
+# define stat    _stat
+#endif
+
+/*-
  *  Password prompting
+ *  ------------------
  */
 
 static char *file_get_pass(const UI_METHOD *ui_method, char *pass,
@@ -83,6 +88,7 @@ struct pem_pass_data {
     void *data;
     const char *prompt_info;
 };
+
 static int file_fill_pem_pass_data(struct pem_pass_data *pass_data,
                                    const char *prompt_info,
                                    const UI_METHOD *ui_method, void *ui_data)
@@ -94,6 +100,8 @@ static int file_fill_pem_pass_data(struct pem_pass_data *pass_data,
     pass_data->prompt_info = prompt_info;
     return 1;
 }
+
+/* This is used anywhere a pem_password_cb is needed */
 static int file_get_pem_pass(char *buf, int num, int w, void *data)
 {
     struct pem_pass_data *pass_data = data;
@@ -103,8 +111,14 @@ static int file_get_pem_pass(char *buf, int num, int w, void *data)
     return pass == NULL ? 0 : strlen(pass);
 }
 
-/*
- *  The file scheme handlers
+/*-
+ *  The file scheme decoders
+ *  ------------------------
+ *
+ *  Each possible data type has its own decoder, which either operates
+ *  through a given PEM name, or attempts to decode to see if the blob
+ *  it's given is decodable for its data type.  The assumption is that
+ *  only the correct data type will match the content.
  */
 
 /*-
@@ -168,6 +182,11 @@ typedef struct file_handler_st {
     int repeatable;
 } FILE_HANDLER;
 
+/*
+ * PKCS#12 decoder.  It operates by decoding all of the blob content,
+ * extracting all the interesting data from it and storing them internally,
+ * then serving them one piece at a time.
+ */
 static OSSL_STORE_INFO *try_decode_PKCS12(const char *pem_name,
                                           const char *pem_header,
                                           const unsigned char *blob,
@@ -267,12 +286,14 @@ static OSSL_STORE_INFO *try_decode_PKCS12(const char *pem_name,
 
     return store_info;
 }
+
 static int eof_PKCS12(void *ctx_)
 {
     STACK_OF(OSSL_STORE_INFO) *ctx = ctx_;
 
     return ctx == NULL || sk_OSSL_STORE_INFO_num(ctx) == 0;
 }
+
 static void destroy_ctx_PKCS12(void **pctx)
 {
     STACK_OF(OSSL_STORE_INFO) *ctx = *pctx;
@@ -280,6 +301,7 @@ static void destroy_ctx_PKCS12(void **pctx)
     sk_OSSL_STORE_INFO_pop_free(ctx, OSSL_STORE_INFO_free);
     *pctx = NULL;
 }
+
 static FILE_HANDLER PKCS12_handler = {
     "PKCS12",
     try_decode_PKCS12,
@@ -288,6 +310,11 @@ static FILE_HANDLER PKCS12_handler = {
     1                            /* repeatable */
 };
 
+/*
+ * Encrypted PKCS#8 decoder.  It operates by just decrypting the given blob
+ * into a new blob, which is returned as an EMBEDDED STORE_INFO.  The whole
+ * decoding process will then start over with the new blob.
+ */
 static OSSL_STORE_INFO *try_decode_PKCS8Encrypted(const char *pem_name,
                                                   const char *pem_header,
                                                   const unsigned char *blob,
@@ -352,11 +379,17 @@ static OSSL_STORE_INFO *try_decode_PKCS8Encrypted(const char *pem_name,
     BUF_MEM_free(mem);
     return NULL;
 }
+
 static FILE_HANDLER PKCS8Encrypted_handler = {
     "PKCS8Encrypted",
     try_decode_PKCS8Encrypted
 };
 
+/*
+ * Private key decoder.  Decodes all sorts of private keys, both PKCS#8
+ * encoded ones and old style PEM ones (with the key type is encoded into
+ * the PEM name).
+ */
 int pem_check_suffix(const char *pem_str, const char *suffix);
 static OSSL_STORE_INFO *try_decode_PrivateKey(const char *pem_name,
                                               const char *pem_header,
@@ -425,11 +458,15 @@ static OSSL_STORE_INFO *try_decode_PrivateKey(const char *pem_name,
 
     return store_info;
 }
+
 static FILE_HANDLER PrivateKey_handler = {
     "PrivateKey",
     try_decode_PrivateKey
 };
 
+/*
+ * Public key decoder.  Only supports SubjectPublicKeyInfo formated keys.
+ */
 static OSSL_STORE_INFO *try_decode_PUBKEY(const char *pem_name,
                                           const char *pem_header,
                                           const unsigned char *blob,
@@ -455,11 +492,15 @@ static OSSL_STORE_INFO *try_decode_PUBKEY(const char *pem_name,
 
     return store_info;
 }
+
 static FILE_HANDLER PUBKEY_handler = {
     "PUBKEY",
     try_decode_PUBKEY
 };
 
+/*
+ * Key parameter decoder.
+ */
 static OSSL_STORE_INFO *try_decode_params(const char *pem_name,
                                           const char *pem_header,
                                           const unsigned char *blob,
@@ -534,11 +575,15 @@ static OSSL_STORE_INFO *try_decode_params(const char *pem_name,
 
     return store_info;
 }
+
 static FILE_HANDLER params_handler = {
     "params",
     try_decode_params
 };
 
+/*
+ * X.509 certificate decoder.
+ */
 static OSSL_STORE_INFO *try_decode_X509Certificate(const char *pem_name,
                                                    const char *pem_header,
                                                    const unsigned char *blob,
@@ -580,11 +625,15 @@ static OSSL_STORE_INFO *try_decode_X509Certificate(const char *pem_name,
 
     return store_info;
 }
+
 static FILE_HANDLER X509Certificate_handler = {
     "X509Certificate",
     try_decode_X509Certificate
 };
 
+/*
+ * X.509 CRL decoder.
+ */
 static OSSL_STORE_INFO *try_decode_X509CRL(const char *pem_name,
                                            const char *pem_header,
                                            const unsigned char *blob,
@@ -613,11 +662,15 @@ static OSSL_STORE_INFO *try_decode_X509CRL(const char *pem_name,
 
     return store_info;
 }
+
 static FILE_HANDLER X509CRL_handler = {
     "X509CRL",
     try_decode_X509CRL
 };
 
+/*
+ * To finish it all off, we collect all the handlers.
+ */
 static const FILE_HANDLER *file_handlers[] = {
     &PKCS12_handler,
     &PKCS8Encrypted_handler,
@@ -629,8 +682,9 @@ static const FILE_HANDLER *file_handlers[] = {
 };
 
 
-/*
+/*-
  *  The loader itself
+ *  -----------------
  */
 
 struct ossl_store_loader_ctx_st {
@@ -690,46 +744,83 @@ static OSSL_STORE_LOADER_CTX *file_open(const OSSL_STORE_LOADER *loader,
 {
     OSSL_STORE_LOADER_CTX *ctx = NULL;
     struct stat st;
-    const char *path = NULL;
+    struct {
+        const char *path;
+        unsigned int check_absolute:1;
+    } path_data[2];
+    size_t path_data_n = 0, i;
+    const char *path;
 
+    /*
+     * First step, just take the URI as is.
+     */
+    path_data[path_data_n].check_absolute = 0;
+    path_data[path_data_n++].path = uri;
+
+    /*
+     * Second step, if the URI appears to start with the 'file' scheme,
+     * extract the path and make that the second path to check.
+     * There's a special case if the URI also contains an authority, then
+     * the full URI shouldn't be used as a path anywhere.
+     */
     if (strncasecmp(uri, "file:", 5) == 0) {
-        if (strncasecmp(&uri[5], "//localhost/", 12) == 0) {
-            path = &uri[16];
-        } else if (strncmp(&uri[5], "///", 3) == 0) {
-            path = &uri[7];
-        } else if (strncmp(&uri[5], "//", 2) != 0) {
-            path = &uri[5];
-        } else {
-            OSSL_STOREerr(OSSL_STORE_F_FILE_OPEN,
-                          OSSL_STORE_R_URI_AUTHORITY_UNSUPPORED);
-            return NULL;
+        const char *p = &uri[5];
+
+        if (strncmp(&uri[5], "//", 2) == 0) {
+            path_data_n--;           /* Invalidate using the full URI */
+            if (strncasecmp(&uri[7], "localhost/", 10) == 0) {
+                p = &uri[16];
+            } else if (uri[7] == '/') {
+                p = &uri[7];
+            } else {
+                OSSL_STOREerr(OSSL_STORE_F_FILE_OPEN,
+                              OSSL_STORE_R_URI_AUTHORITY_UNSUPPORTED);
+                return NULL;
+            }
         }
 
+        path_data[path_data_n].check_absolute = 1;
+#ifdef _WIN32
+        /* Windows file: URIs with a drive letter start with a / */
+        if (p[0] == '/' && p[2] == ':' && p[3] == '/') {
+            char c = tolower(p[1]);
+
+            if (c >= 'a' && c <= 'z') {
+                p++;
+                /* We know it's absolute, so no need to check */
+                path_data[path_data_n].check_absolute = 0;
+            }
+        }
+#endif
+        path_data[path_data_n++].path = p;
+    }
+
+
+    for (i = 0, path = NULL; path == NULL && i < path_data_n; i++) {
         /*
          * If the scheme "file" was an explicit part of the URI, the path must
          * be absolute.  So says RFC 8089
          */
-        if (path[0] != '/') {
+        if (path_data[i].check_absolute && path_data[i].path[0] != '/') {
             OSSL_STOREerr(OSSL_STORE_F_FILE_OPEN,
                           OSSL_STORE_R_PATH_MUST_BE_ABSOLUTE);
+            ERR_add_error_data(1, path_data[i].path);
             return NULL;
         }
 
-#ifdef _WIN32
-        /* Windows file: URIs with a drive letter start with a / */
-        if (path[0] == '/' && path[2] == ':' && path[3] == '/')
-            path++;
-#endif
-    } else {
-        path = uri;
+        if (stat(path_data[i].path, &st) < 0) {
+            SYSerr(SYS_F_STAT, errno);
+            ERR_add_error_data(1, path_data[i].path);
+        } else {
+            path = path_data[i].path;
+        }
     }
-
-
-    if (stat(path, &st) < 0) {
-        SYSerr(SYS_F_STAT, errno);
-        ERR_add_error_data(1, path);
+    if (path == NULL) {
         return NULL;
     }
+
+    /* Successfully found a working path, clear possible collected errors */
+    ERR_clear_error();
 
     ctx = OPENSSL_zalloc(sizeof(*ctx));
     if (ctx == NULL) {

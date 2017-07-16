@@ -2004,7 +2004,7 @@ OSSL_STORE_R_UI_PROCESS_INTERRUPTED_OR_CANCELLED:109:\
 	ui process interrupted or cancelled
 OSSL_STORE_R_UNREGISTERED_SCHEME:105:unregistered scheme
 OSSL_STORE_R_UNSUPPORTED_CONTENT_TYPE:110:unsupported content type
-OSSL_STORE_R_URI_AUTHORITY_UNSUPPORED:111:uri authority unsuppored
+OSSL_STORE_R_URI_AUTHORITY_UNSUPPORTED:111:uri authority unsupported
 PEM_R_BAD_BASE64_DECODE:100:bad base64 decode
 PEM_R_BAD_DECRYPT:101:bad decrypt
 PEM_R_BAD_END_LINE:102:bad end line
@@ -2301,6 +2301,7 @@ SSL_R_MISSING_RSA_CERTIFICATE:168:missing rsa certificate
 SSL_R_MISSING_RSA_ENCRYPTING_CERT:169:missing rsa encrypting cert
 SSL_R_MISSING_RSA_SIGNING_CERT:170:missing rsa signing cert
 SSL_R_MISSING_SIGALGS_EXTENSION:112:missing sigalgs extension
+SSL_R_MISSING_SIGNING_CERT:221:missing signing cert
 SSL_R_MISSING_SRP_PARAM:358:can't find SRP server param
 SSL_R_MISSING_SUPPORTED_GROUPS_EXTENSION:209:missing supported groups extension
 SSL_R_MISSING_TMP_DH_KEY:171:missing tmp dh key
