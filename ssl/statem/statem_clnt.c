@@ -1571,6 +1571,13 @@ static MSG_PROCESS_RETURN tls_process_hello_retry_request(SSL *s, PACKET *pkt)
 
     s->hello_retry_request = 1;
 
+    /*
+     * If we were sending early_data then the enc_write_ctx is now invalid and
+     * should not be used.
+     */
+    EVP_CIPHER_CTX_free(s->enc_write_ctx);
+    s->enc_write_ctx = NULL;
+
     /* This will fail if it doesn't choose TLSv1.3+ */
     errorcode = ssl_choose_client_version(s, sversion, 0, &al);
     if (errorcode != 0) {
@@ -2422,7 +2429,6 @@ MSG_PROCESS_RETURN tls_process_new_session_ticket(SSL *s, PACKET *pkt)
         || (SSL_IS_TLS13(s)
             && (!PACKET_get_net_4(pkt, &age_add)
                 || !PACKET_get_length_prefixed_1(pkt, &nonce)
-                || PACKET_remaining(&nonce) == 0
                 || !PACKET_memdup(&nonce, &s->session->ext.tick_nonce,
                                   &s->session->ext.tick_nonce_len)))
         || !PACKET_get_net_2(pkt, &ticklen)

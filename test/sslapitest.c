@@ -1536,10 +1536,10 @@ static int test_early_data_read_write(int idx)
 }
 
 /*
- * Test that a server attempting to read early data can handle a connection
- * from a client where the early data is not acceptable.
+ * Helper function to test that a server attempting to read early data can
+ * handle a connection from a client where the early data should be skipped.
  */
-static int test_early_data_skip(int idx)
+static int early_data_skip_helper(int hrr, int idx)
 {
     SSL_CTX *cctx = NULL, *sctx = NULL;
     SSL *clientssl = NULL, *serverssl = NULL;
@@ -1552,13 +1552,19 @@ static int test_early_data_skip(int idx)
                                         &serverssl, &sess, idx)))
         goto end;
 
-    /*
-     * Deliberately corrupt the creation time. We take 20 seconds off the time.
-     * It could be any value as long as it is not within tolerance. This should
-     * mean the ticket is rejected.
-     */
-    if (!TEST_true(SSL_SESSION_set_time(sess, time(NULL) - 20)))
-        goto end;
+    if (hrr) {
+        /* Force an HRR to occur */
+        if (!TEST_true(SSL_set1_groups_list(serverssl, "P-256")))
+            goto end;
+    } else {
+        /*
+         * Deliberately corrupt the creation time. We take 20 seconds off the
+         * time. It could be any value as long as it is not within tolerance.
+         * This should mean the ticket is rejected.
+         */
+        if (!TEST_true(SSL_SESSION_set_time(sess, time(NULL) - 20)))
+            goto end;
+    }
 
     /* Write some early data */
     if (!TEST_true(SSL_write_early_data(clientssl, MSG1, strlen(MSG1),
@@ -1574,6 +1580,18 @@ static int test_early_data_skip(int idx)
             || !TEST_int_eq(SSL_get_early_data_status(serverssl),
                             SSL_EARLY_DATA_REJECTED))
         goto end;
+
+    if (hrr) {
+        /*
+         * Finish off the handshake. We perform the same writes and reads as
+         * further down but we expect them to fail due to the incomplete
+         * handshake.
+         */
+        if (!TEST_false(SSL_write_ex(clientssl, MSG2, strlen(MSG2), &written))
+                || !TEST_false(SSL_read_ex(serverssl, buf, sizeof(buf),
+                               &readbytes)))
+            goto end;
+    }
 
     /* Should be able to send normal data despite rejection of early data */
     if (!TEST_true(SSL_write_ex(clientssl, MSG2, strlen(MSG2), &written))
@@ -1593,6 +1611,24 @@ static int test_early_data_skip(int idx)
     SSL_CTX_free(sctx);
     SSL_CTX_free(cctx);
     return testresult;
+}
+
+/*
+ * Test that a server attempting to read early data can handle a connection
+ * from a client where the early data is not acceptable.
+ */
+static int test_early_data_skip(int idx)
+{
+    return early_data_skip_helper(0, idx);
+}
+
+/*
+ * Test that a server attempting to read early data can handle a connection
+ * from a client where an HRR occurs.
+ */
+static int test_early_data_skip_hrr(int idx)
+{
+    return early_data_skip_helper(1, idx);
 }
 
 /*
@@ -2613,6 +2649,60 @@ static int test_export_key_mat(int tst)
     return testresult;
 }
 
+static int test_ssl_clear(int idx)
+{
+    SSL_CTX *cctx = NULL, *sctx = NULL;
+    SSL *clientssl = NULL, *serverssl = NULL;
+    int testresult = 0;
+
+#ifdef OPENSSL_NO_TLS1_2
+    if (idx == 1)
+        return 1;
+#endif
+
+    /* Create an initial connection */
+    if (!TEST_true(create_ssl_ctx_pair(TLS_server_method(),
+                                       TLS_client_method(), &sctx,
+                                       &cctx, cert, privkey))
+            || (idx == 1
+                && !TEST_true(SSL_CTX_set_max_proto_version(cctx,
+                                                            TLS1_2_VERSION)))
+            || !TEST_true(create_ssl_objects(sctx, cctx, &serverssl,
+                                          &clientssl, NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE)))
+        goto end;
+
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+    SSL_free(serverssl);
+    serverssl = NULL;
+
+    /* Clear clientssl - we're going to reuse the object */
+    if (!TEST_true(SSL_clear(clientssl)))
+        goto end;
+
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                             NULL, NULL))
+            || !TEST_true(create_ssl_connection(serverssl, clientssl,
+                                                SSL_ERROR_NONE))
+            || !TEST_true(SSL_session_reused(clientssl)))
+        goto end;
+
+    SSL_shutdown(clientssl);
+    SSL_shutdown(serverssl);
+
+    testresult = 1;
+
+ end:
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(cctx);
+
+    return testresult;
+}
+
 int test_main(int argc, char *argv[])
 {
     int testresult = 1;
@@ -2652,6 +2742,7 @@ int test_main(int argc, char *argv[])
 #ifndef OPENSSL_NO_TLS1_3
     ADD_ALL_TESTS(test_early_data_read_write, 2);
     ADD_ALL_TESTS(test_early_data_skip, 2);
+    ADD_ALL_TESTS(test_early_data_skip_hrr, 2);
     ADD_ALL_TESTS(test_early_data_not_sent, 2);
     ADD_ALL_TESTS(test_early_data_not_expected, 2);
 # ifndef OPENSSL_NO_TLS1_2
@@ -2667,6 +2758,7 @@ int test_main(int argc, char *argv[])
 #endif
     ADD_ALL_TESTS(test_serverinfo, 8);
     ADD_ALL_TESTS(test_export_key_mat, 4);
+    ADD_ALL_TESTS(test_ssl_clear, 2);
 
     testresult = run_tests(argv[0]);
 
