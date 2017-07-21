@@ -77,7 +77,7 @@ static void ctr_XOR(DRBG_CTR_CTX *cctx, const unsigned char *in, size_t inlen)
         /* Should never happen */
         n = 16;
     }
-    for (i = 0; i < 16; i++)
+    for (i = 0; i < n; i++)
         cctx->V[i] ^= in[i + cctx->keylen];
 }
 
@@ -372,7 +372,7 @@ int ctr_init(DRBG_CTX *dctx)
     }
 
     dctx->max_request = 1 << 16;
-    dctx->reseed_interval = 1 << 24;
+    dctx->reseed_interval = MAX_RESEED;
     return 1;
 }
 
