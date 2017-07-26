@@ -523,12 +523,20 @@ int pkcs12_main(int argc, char **argv)
         const ASN1_INTEGER *tmaciter;
         const X509_ALGOR *macalgid;
         const ASN1_OBJECT *macobj;
-        PKCS12_get0_mac(NULL, &macalgid, NULL, &tmaciter, p12);
+        const ASN1_OCTET_STRING *tmac;
+        const ASN1_OCTET_STRING *tsalt;
+
+        PKCS12_get0_mac(&tmac, &macalgid, &tsalt, &tmaciter, p12);
+        /* current hash algorithms do not use parameters so extract just name,
+           in future alg_print() may be needed */
         X509_ALGOR_get0(&macobj, NULL, NULL, macalgid);
-        BIO_puts(bio_err, "MAC:");
+        BIO_puts(bio_err, "MAC: ");
         i2a_ASN1_OBJECT(bio_err, macobj);
-        BIO_printf(bio_err, " Iteration %ld\n",
-                   tmaciter  != NULL ? ASN1_INTEGER_get(tmaciter) : 1L);
+        BIO_printf(bio_err, ", Iteration %ld\n",
+                   tmaciter != NULL ? ASN1_INTEGER_get(tmaciter) : 1L);
+        BIO_printf(bio_err, "MAC length: %ld, salt length: %ld\n",
+                   tmac != NULL ? ASN1_STRING_length(tmac) : 0L,
+                   tsalt != NULL ? ASN1_STRING_length(tsalt) : 0L);
     }
     if (macver) {
         /* If we enter empty password try no password first */
@@ -782,7 +790,7 @@ static int alg_print(const X509_ALGOR *alg)
         if (aparamtype == V_ASN1_SEQUENCE)
             pbe2 = ASN1_item_unpack(aparam, ASN1_ITEM_rptr(PBE2PARAM));
         if (pbe2 == NULL) {
-            BIO_puts(bio_err, "<unsupported parameters>");
+            BIO_puts(bio_err, ", <unsupported parameters>");
             goto done;
         }
         X509_ALGOR_get0(&aoid, &aparamtype, &aparam, pbe2->keyfunc);
@@ -798,7 +806,7 @@ static int alg_print(const X509_ALGOR *alg)
             if (aparamtype == V_ASN1_SEQUENCE)
                 kdf = ASN1_item_unpack(aparam, ASN1_ITEM_rptr(PBKDF2PARAM));
             if (kdf == NULL) {
-                BIO_puts(bio_err, "<unsupported parameters>");
+                BIO_puts(bio_err, ", <unsupported parameters>");
                 goto done;
             }
 
@@ -811,13 +819,29 @@ static int alg_print(const X509_ALGOR *alg)
             BIO_printf(bio_err, ", Iteration %ld, PRF %s",
                        ASN1_INTEGER_get(kdf->iter), OBJ_nid2sn(prfnid));
             PBKDF2PARAM_free(kdf);
+        } else if (pbenid == NID_id_scrypt) {
+            SCRYPT_PARAMS *kdf = NULL;
+
+            if (aparamtype == V_ASN1_SEQUENCE)
+                kdf = ASN1_item_unpack(aparam, ASN1_ITEM_rptr(SCRYPT_PARAMS));
+            if (kdf == NULL) {
+                BIO_puts(bio_err, ", <unsupported parameters>");
+                goto done;
+            }
+            BIO_printf(bio_err, ", Salt length: %d, Cost(N): %ld, "
+                       "Block size(r): %ld, Paralelizm(p): %ld",
+                       ASN1_STRING_length(kdf->salt),
+                       ASN1_INTEGER_get(kdf->costParameter),
+                       ASN1_INTEGER_get(kdf->blockSize),
+                       ASN1_INTEGER_get(kdf->parallelizationParameter));
+            SCRYPT_PARAMS_free(kdf);
         }
         PBE2PARAM_free(pbe2);
     } else {
         if (aparamtype == V_ASN1_SEQUENCE)
             pbe = ASN1_item_unpack(aparam, ASN1_ITEM_rptr(PBEPARAM));
         if (pbe == NULL) {
-            BIO_puts(bio_err, "<unsupported parameters>");
+            BIO_puts(bio_err, ", <unsupported parameters>");
             goto done;
         }
         BIO_printf(bio_err, ", Iteration %ld", ASN1_INTEGER_get(pbe->iter));
