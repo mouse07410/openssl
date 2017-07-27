@@ -8,10 +8,10 @@ OSSL_STORE_INFO_get0_PKEY, OSSL_STORE_INFO_get0_CERT, OSSL_STORE_INFO_get0_CRL,
 OSSL_STORE_INFO_get1_NAME, OSSL_STORE_INFO_get1_NAME_description,
 OSSL_STORE_INFO_get1_PARAMS, OSSL_STORE_INFO_get1_PKEY,
 OSSL_STORE_INFO_get1_CERT,
-OSSL_STORE_INFO_get1_CRL, OSSL_STORE_INFO_type_string, OSSL_STORE_INFO_free, 
+OSSL_STORE_INFO_get1_CRL, OSSL_STORE_INFO_type_string, OSSL_STORE_INFO_free,
 OSSL_STORE_INFO_new_NAME, OSSL_STORE_INFO_set0_NAME_description,
 OSSL_STORE_INFO_new_PARAMS, OSSL_STORE_INFO_new_PKEY, OSSL_STORE_INFO_new_CERT,
-OSSL_STORE_INFO_new_CRL - Functions to manipulate OSSL_STORE_INFO objects 
+OSSL_STORE_INFO_new_CRL - Functions to manipulate OSSL_STORE_INFO objects
 
 =head1 SYNOPSIS
 
@@ -117,10 +117,10 @@ used by the application to get the objects in that file.
 This can be applied to all schemes that can somehow support a listing
 of object URIs.
 
-For C<file:> URIs that are used without the explicit scheme, or paths
-given to L<OSSL_STORE_open_file(3)>, the returned name will be the path of
-each object, so if C</foo/bar> was given and that path has the file
-C<cookie.pem>, the name C</foo/bar/cookie.pem> will be returned.
+For C<file:> URIs that are used without the explicit scheme, the
+returned name will be the path of each object, so if C</foo/bar> was
+given and that path has the file C<cookie.pem>, the name
+C</foo/bar/cookie.pem> will be returned.
 
 At the discretion of the loader that was used to get these names, an
 extra description may be attached as well.

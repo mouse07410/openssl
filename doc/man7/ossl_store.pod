@@ -59,16 +59,12 @@ only).
 
 =head2 A generic call
 
- /*
-  * There is also a OSSL_STORE_open_file() that can be used for file paths
-  * that can't be represented as URIs, such as Windows backslashes
-  */
  OSSL_STORE_CTX *ctx = OSSL_STORE_open("file:/foo/bar/data.pem");
 
  /*
   * OSSL_STORE_eof() simulates file semantics for any repository to signal
   * that no more data can be expected
-  */ 
+  */
  while (!OSSL_STORE_eof(ctx)) {
      OSSL_STORE_INFO *info = OSSL_STORE_load(ctx);
 
