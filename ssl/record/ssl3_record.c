@@ -11,6 +11,7 @@
 #include "internal/constant_time_locl.h"
 #include <openssl/rand.h>
 #include "record_locl.h"
+#include "internal/cryptlib.h"
 
 static const unsigned char ssl3_pad_1[48] = {
     0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
@@ -891,7 +892,7 @@ int tls1_enc(SSL *s, SSL3_RECORD *recs, size_t n_recs, int sending)
                          */
                         SSLerr(SSL_F_TLS1_ENC, ERR_R_INTERNAL_ERROR);
                         return -1;
-                    } else if (RAND_bytes(recs[ctr].input, ivlen) <= 0) {
+                    } else if (ssl_randbytes(s, recs[ctr].input, ivlen) <= 0) {
                         SSLerr(SSL_F_TLS1_ENC, ERR_R_INTERNAL_ERROR);
                         return -1;
                     }

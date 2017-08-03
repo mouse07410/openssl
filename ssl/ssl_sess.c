@@ -277,12 +277,12 @@ unsigned int SSL_SESSION_get_compress_id(const SSL_SESSION *s)
  */
 
 #define MAX_SESS_ID_ATTEMPTS 10
-static int def_generate_session_id(const SSL *ssl, unsigned char *id,
+static int def_generate_session_id(SSL *ssl, unsigned char *id,
                                    unsigned int *id_len)
 {
     unsigned int retry = 0;
     do
-        if (RAND_bytes(id, *id_len) <= 0)
+        if (ssl_randbytes(ssl, id, *id_len) <= 0)
             return 0;
     while (SSL_has_matching_session_id(ssl, id, *id_len) &&
            (++retry < MAX_SESS_ID_ATTEMPTS)) ;
@@ -545,11 +545,11 @@ int ssl_get_prev_session(SSL *s, CLIENTHELLO_MSG *hello, int *al)
                 (s->session_ctx->session_cache_mode &
                  SSL_SESS_CACHE_NO_INTERNAL_STORE)) {
                 /*
-                 * The following should not return 1, otherwise, things are
-                 * very strange
+                 * Either return value of SSL_CTX_add_session should not
+                 * interrupt the session resumption process. The return
+                 * value is intentionally ignored.
                  */
-                if (SSL_CTX_add_session(s->session_ctx, ret))
-                    goto err;
+                SSL_CTX_add_session(s->session_ctx, ret);
             }
         }
     }
