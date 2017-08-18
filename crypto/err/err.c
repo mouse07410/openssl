@@ -730,8 +730,6 @@ void ERR_set_error_data(char *data, int flags)
         return;
 
     i = es->top;
-    if (i == 0)
-        i = ERR_NUM_ERRORS - 1;
 
     err_clear_data(es, i);
     es->err_data[i] = data;
@@ -802,9 +800,7 @@ int ERR_pop_to_mark(void)
     while (es->bottom != es->top
            && (es->err_flags[es->top] & ERR_FLAG_MARK) == 0) {
         err_clear(es, es->top);
-        es->top -= 1;
-        if (es->top == -1)
-            es->top = ERR_NUM_ERRORS - 1;
+        es->top = es->top > 0 ? es->top - 1 : ERR_NUM_ERRORS - 1;
     }
 
     if (es->bottom == es->top)
@@ -825,9 +821,7 @@ int ERR_clear_last_mark(void)
     top = es->top;
     while (es->bottom != top
            && (es->err_flags[top] & ERR_FLAG_MARK) == 0) {
-        top -= 1;
-        if (top == -1)
-            top = ERR_NUM_ERRORS - 1;
+        top = top > 0 ? top - 1 : ERR_NUM_ERRORS - 1;
     }
 
     if (es->bottom == top)
