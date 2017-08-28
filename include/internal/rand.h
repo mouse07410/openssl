@@ -33,6 +33,7 @@ int RAND_DRBG_generate(RAND_DRBG *drbg, unsigned char *out, size_t outlen,
                        const unsigned char *adin, size_t adinlen);
 int RAND_DRBG_set_reseed_interval(RAND_DRBG *drbg, int interval);
 RAND_DRBG *RAND_DRBG_get0_global(void);
+RAND_DRBG *RAND_DRBG_get0_priv_global(void);
 
 /*
  * EXDATA
@@ -50,11 +51,12 @@ typedef size_t (*RAND_DRBG_get_entropy_fn)(RAND_DRBG *ctx,
                                            int entropy, size_t min_len,
                                            size_t max_len);
 typedef void (*RAND_DRBG_cleanup_entropy_fn)(RAND_DRBG *ctx,
-                                             unsigned char *out);
+                                             unsigned char *out, size_t outlen);
 typedef size_t (*RAND_DRBG_get_nonce_fn)(RAND_DRBG *ctx, unsigned char **pout,
                                          int entropy, size_t min_len,
                                          size_t max_len);
-typedef void (*RAND_DRBG_cleanup_nonce_fn)(RAND_DRBG *ctx, unsigned char *out);
+typedef void (*RAND_DRBG_cleanup_nonce_fn)(RAND_DRBG *ctx,
+                                           unsigned char *out, size_t outlen);
 
 int RAND_DRBG_set_callbacks(RAND_DRBG *dctx,
                             RAND_DRBG_get_entropy_fn get_entropy,
