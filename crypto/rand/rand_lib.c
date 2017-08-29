@@ -42,7 +42,7 @@ int rand_fork_count;
  * it's not sufficient to indicate whether or not the seeding was
  * done.
  */
-void rand_read_tsc(RAND_poll_fn cb, void *arg)
+void rand_read_tsc(RAND_poll_cb rand_add, void *arg)
 {
     unsigned char c;
     int i;
@@ -50,7 +50,7 @@ void rand_read_tsc(RAND_poll_fn cb, void *arg)
     if ((OPENSSL_ia32cap_P[0] & (1 << 4)) != 0) {
         for (i = 0; i < TSC_READ_COUNT; i++) {
             c = (unsigned char)(OPENSSL_rdtsc() & 0xFF);
-            cb(arg, &c, 1, 0.5);
+            rand_add(arg, &c, 1, 0.5);
         }
     }
 }
@@ -62,14 +62,14 @@ size_t OPENSSL_ia32_rdrand_bytes(char *buf, size_t len);
 
 extern unsigned int OPENSSL_ia32cap_P[];
 
-int rand_read_cpu(RAND_poll_fn cb, void *arg)
+int rand_read_cpu(RAND_poll_cb rand_add, void *arg)
 {
     char buff[RANDOMNESS_NEEDED];
 
     /* If RDSEED is available, use that. */
     if ((OPENSSL_ia32cap_P[2] & (1 << 18)) != 0) {
         if (OPENSSL_ia32_rdseed_bytes(buff, sizeof(buff)) == sizeof(buff)) {
-            cb(arg, buff, (int)sizeof(buff), sizeof(buff));
+            rand_add(arg, buff, (int)sizeof(buff), sizeof(buff));
             return 1;
         }
     }
@@ -77,7 +77,7 @@ int rand_read_cpu(RAND_poll_fn cb, void *arg)
     /* Second choice is RDRAND. */
     if ((OPENSSL_ia32cap_P[1] & (1 << (62 - 32))) != 0) {
         if (OPENSSL_ia32_rdrand_bytes(buff, sizeof(buff)) == sizeof(buff)) {
-            cb(arg, buff, (int)sizeof(buff), sizeof(buff));
+            rand_add(arg, buff, (int)sizeof(buff), sizeof(buff));
             return 1;
         }
     }
@@ -105,20 +105,14 @@ size_t drbg_entropy_from_system(RAND_DRBG *drbg,
                                 int entropy, size_t min_len, size_t max_len)
 {
     int i;
-
+    unsigned char *randomness;
 
     if (min_len > (size_t)drbg->size) {
         /* Should not happen.  See comment near RANDOMNESS_NEEDED. */
         min_len = drbg->size;
     }
 
-    if (drbg->filled) {
-        /* Re-use what we have. */
-        *pout = drbg->randomness;
-        return drbg->size;
-    }
-
-    drbg->randomness = drbg->secure ? OPENSSL_secure_malloc(drbg->size)
+    randomness = drbg->secure ? OPENSSL_secure_malloc(drbg->size)
                                     : OPENSSL_malloc(drbg->size);
 
     /* If we don't have enough, try to get more. */
@@ -133,15 +127,14 @@ size_t drbg_entropy_from_system(RAND_DRBG *drbg,
     if (min_len > rand_bytes.curr)
         min_len = rand_bytes.curr;
     if (min_len != 0) {
-        memcpy(drbg->randomness, rand_bytes.buff, min_len);
-        drbg->filled = 1;
+        memcpy(randomness, rand_bytes.buff, min_len);
         /* Update amount left and shift it down. */
         rand_bytes.curr -= min_len;
         if (rand_bytes.curr != 0)
             memmove(rand_bytes.buff, &rand_bytes.buff[min_len], rand_bytes.curr);
     }
     CRYPTO_THREAD_unlock(rand_bytes.lock);
-    *pout = drbg->randomness;
+    *pout = randomness;
     return min_len;
 }
 
@@ -150,60 +143,33 @@ size_t drbg_entropy_from_parent(RAND_DRBG *drbg,
                                 int entropy, size_t min_len, size_t max_len)
 {
     int st;
+    unsigned char *randomness;
 
     if (min_len > (size_t)drbg->size) {
         /* Should not happen.  See comment near RANDOMNESS_NEEDED. */
         min_len = drbg->size;
     }
 
-    drbg->randomness = drbg->secure ? OPENSSL_secure_malloc(drbg->size)
+    randomness = drbg->secure ? OPENSSL_secure_malloc(drbg->size)
                                     : OPENSSL_malloc(drbg->size);
 
     /* Get random from parent, include our state as additional input. */
-    st = RAND_DRBG_generate(drbg->parent, drbg->randomness, min_len, 0,
+    st = RAND_DRBG_generate(drbg->parent, randomness, min_len, 0,
                             (unsigned char *)drbg, sizeof(*drbg));
-    if (st == 0)
+    if (st == 0) {
+        drbg_release_entropy(drbg, randomness, min_len);
         return 0;
-    drbg->filled = 1;
-    *pout = drbg->randomness;
+    }
+    *pout = randomness;
     return min_len;
 }
 
-void drbg_release_entropy(RAND_DRBG *drbg, unsigned char *out)
+void drbg_release_entropy(RAND_DRBG *drbg, unsigned char *out, size_t outlen)
 {
-    drbg->filled = 0;
     if (drbg->secure)
-        OPENSSL_secure_clear_free(drbg->randomness, drbg->size);
+        OPENSSL_secure_clear_free(out, outlen);
     else
-        OPENSSL_clear_free(drbg->randomness, drbg->size);
-    drbg->randomness = NULL;
-}
-
-
-/*
- * Set up a global DRBG.
- */
-static int setup_drbg(RAND_DRBG *drbg)
-{
-    int ret = 1;
-
-    drbg->lock = CRYPTO_THREAD_lock_new();
-    ret &= drbg->lock != NULL;
-    drbg->size = RANDOMNESS_NEEDED;
-    drbg->secure = CRYPTO_secure_malloc_initialized();
-    drbg->randomness = NULL;
-    /* If you change these parameters, see RANDOMNESS_NEEDED */
-    ret &= RAND_DRBG_set(drbg,
-                         NID_aes_128_ctr, RAND_DRBG_FLAG_CTR_USE_DF) == 1;
-    ret &= RAND_DRBG_set_callbacks(drbg, drbg_entropy_from_system,
-                                   drbg_release_entropy, NULL, NULL) == 1;
-    return ret;
-}
-
-static void free_drbg(RAND_DRBG *drbg)
-{
-    CRYPTO_THREAD_lock_free(drbg->lock);
-    RAND_DRBG_uninstantiate(drbg);
+        OPENSSL_clear_free(out, outlen);
 }
 
 void rand_fork()
@@ -231,8 +197,6 @@ DEFINE_RUN_ONCE_STATIC(do_rand_init)
         ? OPENSSL_secure_malloc(rand_bytes.size)
         : OPENSSL_malloc(rand_bytes.size);
     ret &= rand_bytes.buff != NULL;
-    ret &= setup_drbg(&rand_drbg);
-    ret &= setup_drbg(&priv_drbg);
     return ret;
 }
 
@@ -252,8 +216,6 @@ void rand_cleanup_int(void)
         OPENSSL_secure_clear_free(rand_bytes.buff, rand_bytes.size);
     else
         OPENSSL_clear_free(rand_bytes.buff, rand_bytes.size);
-    free_drbg(&rand_drbg);
-    free_drbg(&priv_drbg);
 }
 
 /*
@@ -365,15 +327,16 @@ void RAND_add(const void *buf, int num, double randomness)
 int RAND_priv_bytes(unsigned char *buf, int num)
 {
     const RAND_METHOD *meth = RAND_get_rand_method();
+    RAND_DRBG *drbg;
 
     if (meth != RAND_OpenSSL())
         return RAND_bytes(buf, num);
 
-    if (priv_drbg.state == DRBG_UNINITIALISED
-            && RAND_DRBG_instantiate(&priv_drbg, NULL, 0) == 0)
+    drbg = RAND_DRBG_get0_priv_global();
+    if (drbg == NULL)
         return 0;
-    return RAND_DRBG_generate(&priv_drbg, buf, num, 0, NULL, 0);
 
+    return RAND_DRBG_generate(drbg, buf, num, 0, NULL, 0);
 }
 
 int RAND_bytes(unsigned char *buf, int num)
