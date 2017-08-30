@@ -127,6 +127,10 @@ extern "C" {
 # define SSL_TXT_CAMELLIA        "CAMELLIA"
 # define SSL_TXT_CHACHA20        "CHACHA20"
 # define SSL_TXT_GOST            "GOST89"
+# define SSL_TXT_ARIA            "ARIA"
+# define SSL_TXT_ARIA_GCM        "ARIAGCM"
+# define SSL_TXT_ARIA128         "ARIA128"
+# define SSL_TXT_ARIA256         "ARIA256"
 
 # define SSL_TXT_MD5             "MD5"
 # define SSL_TXT_SHA1            "SHA1"
@@ -1437,6 +1441,7 @@ __owur const char *SSL_CIPHER_get_name(const SSL_CIPHER *c);
 __owur const char *SSL_CIPHER_standard_name(const SSL_CIPHER *c);
 __owur const char *OPENSSL_cipher_name(const char *rfc_name);
 __owur uint32_t SSL_CIPHER_get_id(const SSL_CIPHER *c);
+__owur uint16_t SSL_CIPHER_get_protocol_id(const SSL_CIPHER *c);
 __owur int SSL_CIPHER_get_kx_nid(const SSL_CIPHER *c);
 __owur int SSL_CIPHER_get_auth_nid(const SSL_CIPHER *c);
 __owur const EVP_MD *SSL_CIPHER_get_handshake_digest(const SSL_CIPHER *c);
