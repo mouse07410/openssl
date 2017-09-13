@@ -38,7 +38,8 @@ static RSA_METHOD rsa_pkcs1_ossl_meth = {
     NULL,
     0,                          /* rsa_sign */
     0,                          /* rsa_verify */
-    NULL                        /* rsa_keygen */
+    NULL,			/* rsa_keygen */
+    NULL			/* rsa_sign_evp_pkey_ctx */
 };
 
 static const RSA_METHOD *default_RSA_meth = &rsa_pkcs1_ossl_meth;
