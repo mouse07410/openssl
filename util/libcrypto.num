@@ -4230,4 +4230,6 @@ UINT32_it                               4214	1_1_0f	EXIST:!EXPORT_VAR_AS_FUNCTIO
 UINT32_it                               4214	1_1_0f	EXIST:EXPORT_VAR_AS_FUNCTION:FUNCTION:
 ZINT64_it                               4215	1_1_0f	EXIST:!EXPORT_VAR_AS_FUNCTION:VARIABLE:
 ZINT64_it                               4215	1_1_0f	EXIST:EXPORT_VAR_AS_FUNCTION:FUNCTION:
+RSA_meth_set_sign_evp_pkey_ctx          4216    1_1_0f  EXIST::FUNCTION:RSA
+RSA_sign_evp_pkey_ctx                   4217    1_1_0f  EXIST::FUNCTION:RSA
 CRYPTO_secure_clear_free                4315	1_1_0g	EXIST::FUNCTION:

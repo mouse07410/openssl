@@ -265,6 +265,8 @@ int RSA_sign(int type, const unsigned char *m, unsigned int m_length,
              unsigned char *sigret, unsigned int *siglen, RSA *rsa);
 int RSA_verify(int type, const unsigned char *m, unsigned int m_length,
                const unsigned char *sigbuf, unsigned int siglen, RSA *rsa);
+int RSA_sign_evp_pkey_ctx(int type, const unsigned char *m, unsigned int m_length,
+             unsigned char *sigret, unsigned int *siglen, RSA *rsa, EVP_PKEY_CTX *rctx);
 
 /*
  * The following 2 function sign and verify a ASN1_OCTET_STRING object inside
@@ -435,6 +437,12 @@ int RSA_meth_set_sign(RSA_METHOD *rsa,
                                    unsigned int m_length,
                                    unsigned char *sigret, unsigned int *siglen,
                                    const RSA *rsa));
+int RSA_meth_set_sign_evp_pkey_ctx(RSA_METHOD *rsa,
+                      int (*sign_evp_pkey_ctx) (int type, const unsigned char *m,
+                                   unsigned int m_length,
+                                   unsigned char *sigret, unsigned int *siglen,
+                                   const RSA *rsa, EVP_PKEY_CTX *rctx));
+
 int (*RSA_meth_get_verify(const RSA_METHOD *meth))
     (int dtype, const unsigned char *m,
      unsigned int m_length, const unsigned char *sigbuf,

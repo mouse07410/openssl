@@ -113,6 +113,24 @@ static int pkey_rsa_sign(EVP_PKEY_CTX *ctx, unsigned char *sig,
     RSA_PKEY_CTX *rctx = ctx->data;
     RSA *rsa = ctx->pkey->pkey.rsa;
 
+    /* Allow an engine a chance to do combined padding and sign.
+     * Used for hardware tokens that require padding and sign to be done in
+     * hardware but do not do raw rsa. Pass in EVP_PKEY_CTX  with padding info.
+     * For backward compatibility, if rsa_sign_evp_pkey_ctx is NULL, no md,
+     * or method returns 0, do old way. 
+     */
+    if (rsa->meth->rsa_sign_evp_pkey_ctx && rctx->md) {
+	unsigned int stltmp = *siglen;
+	ret = (*rsa->meth->rsa_sign_evp_pkey_ctx) (EVP_MD_type(rctx->md),
+		tbs, tbslen, sig, &stltmp, rsa, ctx);
+	if (ret < 0)
+		return ret;
+	if (ret > 0) {
+		*siglen = stltmp;
+		return 1;
+	}
+    }
+
     if (rctx->md) {
         if (tbslen != (size_t)EVP_MD_size(rctx->md)) {
             RSAerr(RSA_F_PKEY_RSA_SIGN, RSA_R_INVALID_DIGEST_LENGTH);
