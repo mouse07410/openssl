@@ -75,6 +75,7 @@ struct evp_pkey_method_st {
     int (*digestverify) (EVP_MD_CTX *ctx, const unsigned char *sig,
                          size_t siglen, const unsigned char *tbs,
                          size_t tbslen);
+    int (*check) (EVP_PKEY *pkey);
 } /* EVP_PKEY_METHOD */ ;
 
 DEFINE_STACK_OF_CONST(EVP_PKEY_METHOD)
@@ -392,6 +393,7 @@ struct evp_pkey_st {
 void openssl_add_all_ciphers_int(void);
 void openssl_add_all_digests_int(void);
 void evp_cleanup_int(void);
+void evp_app_cleanup_int(void);
 
 /* Pulling defines out of C soure files */
 

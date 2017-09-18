@@ -679,7 +679,7 @@ EXT_RETURN tls_construct_ctos_early_data(SSL *s, WPACKET *pkt,
                                          unsigned int context, X509 *x,
                                          size_t chainidx, int *al)
 {
-    const unsigned char *id;
+    const unsigned char *id = NULL;
     size_t idlen = 0;
     SSL_SESSION *psksess = NULL;
     SSL_SESSION *edsess = NULL;
@@ -843,7 +843,7 @@ EXT_RETURN tls_construct_ctos_padding(SSL *s, WPACKET *pkt,
          * 1 byte long so as not to have an empty extension last (WebSphere 7.x,
          * 8.x are intolerant of that condition)
          */
-        if (hlen >= 4)
+        if (hlen > 4)
             hlen -= 4;
         else
             hlen = 1;
@@ -851,7 +851,7 @@ EXT_RETURN tls_construct_ctos_padding(SSL *s, WPACKET *pkt,
         if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_padding)
                 || !WPACKET_sub_allocate_bytes_u16(pkt, hlen, &padbytes)) {
             SSLerr(SSL_F_TLS_CONSTRUCT_CTOS_PADDING, ERR_R_INTERNAL_ERROR);
-            return 0;
+            return EXT_RETURN_FAIL;
         }
         memset(padbytes, 0, hlen);
     }
@@ -1052,7 +1052,7 @@ EXT_RETURN tls_construct_ctos_psk(SSL *s, WPACKET *pkt, unsigned int context,
  err:
     return ret;
 #else
-    return 1;
+    return EXT_RETURN_NOT_SENT;
 #endif
 }
 

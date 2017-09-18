@@ -2140,10 +2140,14 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
         return ssl_check_allowed_versions(larg, s->max_proto_version)
                && ssl_set_version_bound(s->ctx->method->version, (int)larg,
                                         &s->min_proto_version);
+    case SSL_CTRL_GET_MIN_PROTO_VERSION:
+        return s->min_proto_version;
     case SSL_CTRL_SET_MAX_PROTO_VERSION:
         return ssl_check_allowed_versions(s->min_proto_version, larg)
                && ssl_set_version_bound(s->ctx->method->version, (int)larg,
                                         &s->max_proto_version);
+    case SSL_CTRL_GET_MAX_PROTO_VERSION:
+        return s->max_proto_version;
     default:
         return (s->method->ssl_ctrl(s, cmd, larg, parg));
     }
@@ -2276,10 +2280,14 @@ long SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
         return ssl_check_allowed_versions(larg, ctx->max_proto_version)
                && ssl_set_version_bound(ctx->method->version, (int)larg,
                                         &ctx->min_proto_version);
+    case SSL_CTRL_GET_MIN_PROTO_VERSION:
+        return ctx->min_proto_version;
     case SSL_CTRL_SET_MAX_PROTO_VERSION:
         return ssl_check_allowed_versions(ctx->min_proto_version, larg)
                && ssl_set_version_bound(ctx->method->version, (int)larg,
                                         &ctx->max_proto_version);
+    case SSL_CTRL_GET_MAX_PROTO_VERSION:
+        return ctx->max_proto_version;
     default:
         return (ctx->method->ssl_ctx_ctrl(ctx, cmd, larg, parg));
     }
@@ -2471,7 +2479,7 @@ char *SSL_get_shared_ciphers(const SSL *s, char *buf, int len)
             *p = '\0';
             return buf;
         }
-        memcpy(p, c->name, n + 1);
+        strcpy(p, c->name);
         p += n;
         *(p++) = ':';
         len -= n + 1;
@@ -3301,8 +3309,8 @@ int SSL_get_error(const SSL *s, int i)
         return SSL_ERROR_WANT_ASYNC;
     if (SSL_want_async_job(s))
         return SSL_ERROR_WANT_ASYNC_JOB;
-    if (SSL_want_early(s))
-        return SSL_ERROR_WANT_EARLY;
+    if (SSL_want_client_hello_cb(s))
+        return SSL_ERROR_WANT_CLIENT_HELLO_CB;
 
     if ((s->shutdown & SSL_RECEIVED_SHUTDOWN) &&
         (s->s3->warn_alert == SSL_AD_CLOSE_NOTIFY))
@@ -4700,27 +4708,28 @@ const CTLOG_STORE *SSL_CTX_get0_ctlog_store(const SSL_CTX *ctx)
 
 #endif  /* OPENSSL_NO_CT */
 
-void SSL_CTX_set_early_cb(SSL_CTX *c, SSL_early_cb_fn cb, void *arg)
+void SSL_CTX_set_client_hello_cb(SSL_CTX *c, SSL_client_hello_cb_fn cb,
+                                 void *arg)
 {
-    c->early_cb = cb;
-    c->early_cb_arg = arg;
+    c->client_hello_cb = cb;
+    c->client_hello_cb_arg = arg;
 }
 
-int SSL_early_isv2(SSL *s)
+int SSL_client_hello_isv2(SSL *s)
 {
     if (s->clienthello == NULL)
         return 0;
     return s->clienthello->isv2;
 }
 
-unsigned int SSL_early_get0_legacy_version(SSL *s)
+unsigned int SSL_client_hello_get0_legacy_version(SSL *s)
 {
     if (s->clienthello == NULL)
         return 0;
     return s->clienthello->legacy_version;
 }
 
-size_t SSL_early_get0_random(SSL *s, const unsigned char **out)
+size_t SSL_client_hello_get0_random(SSL *s, const unsigned char **out)
 {
     if (s->clienthello == NULL)
         return 0;
@@ -4729,7 +4738,7 @@ size_t SSL_early_get0_random(SSL *s, const unsigned char **out)
     return SSL3_RANDOM_SIZE;
 }
 
-size_t SSL_early_get0_session_id(SSL *s, const unsigned char **out)
+size_t SSL_client_hello_get0_session_id(SSL *s, const unsigned char **out)
 {
     if (s->clienthello == NULL)
         return 0;
@@ -4738,7 +4747,7 @@ size_t SSL_early_get0_session_id(SSL *s, const unsigned char **out)
     return s->clienthello->session_id_len;
 }
 
-size_t SSL_early_get0_ciphers(SSL *s, const unsigned char **out)
+size_t SSL_client_hello_get0_ciphers(SSL *s, const unsigned char **out)
 {
     if (s->clienthello == NULL)
         return 0;
@@ -4747,7 +4756,7 @@ size_t SSL_early_get0_ciphers(SSL *s, const unsigned char **out)
     return PACKET_remaining(&s->clienthello->ciphersuites);
 }
 
-size_t SSL_early_get0_compression_methods(SSL *s, const unsigned char **out)
+size_t SSL_client_hello_get0_compression_methods(SSL *s, const unsigned char **out)
 {
     if (s->clienthello == NULL)
         return 0;
@@ -4756,7 +4765,7 @@ size_t SSL_early_get0_compression_methods(SSL *s, const unsigned char **out)
     return s->clienthello->compressions_len;
 }
 
-int SSL_early_get1_extensions_present(SSL *s, int **out, size_t *outlen)
+int SSL_client_hello_get1_extensions_present(SSL *s, int **out, size_t *outlen)
 {
     RAW_EXTENSION *ext;
     int *present;
@@ -4788,7 +4797,7 @@ int SSL_early_get1_extensions_present(SSL *s, int **out, size_t *outlen)
     return 0;
 }
 
-int SSL_early_get0_ext(SSL *s, unsigned int type, const unsigned char **out,
+int SSL_client_hello_get0_ext(SSL *s, unsigned int type, const unsigned char **out,
                        size_t *outlen)
 {
     size_t i;

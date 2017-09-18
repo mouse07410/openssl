@@ -219,6 +219,8 @@ void EVP_PKEY_meth_copy(EVP_PKEY_METHOD *dst, const EVP_PKEY_METHOD *src)
 
     dst->ctrl = src->ctrl;
     dst->ctrl_str = src->ctrl_str;
+
+    dst->check = src->check;
 }
 
 void EVP_PKEY_meth_free(EVP_PKEY_METHOD *pmeth)
@@ -292,6 +294,21 @@ int EVP_PKEY_meth_add0(const EVP_PKEY_METHOD *pmeth)
         return 0;
     sk_EVP_PKEY_METHOD_sort(app_pkey_methods);
     return 1;
+}
+
+void evp_app_cleanup_int(void)
+{
+    if (app_pkey_methods != NULL)
+        sk_EVP_PKEY_METHOD_pop_free(app_pkey_methods, EVP_PKEY_meth_free);
+}
+
+int EVP_PKEY_meth_remove(const EVP_PKEY_METHOD *pmeth)
+{
+    const EVP_PKEY_METHOD *ret;
+
+    ret = sk_EVP_PKEY_METHOD_delete_ptr(app_pkey_methods, pmeth);
+
+    return ret == NULL ? 0 : 1;
 }
 
 size_t EVP_PKEY_meth_get_count(void)
@@ -603,6 +620,12 @@ void EVP_PKEY_meth_set_ctrl(EVP_PKEY_METHOD *pmeth,
     pmeth->ctrl_str = ctrl_str;
 }
 
+void EVP_PKEY_meth_set_check(EVP_PKEY_METHOD *pmeth,
+                             int (*check) (EVP_PKEY *pkey))
+{
+    pmeth->check = check;
+}
+
 void EVP_PKEY_meth_get_init(EVP_PKEY_METHOD *pmeth,
                             int (**pinit) (EVP_PKEY_CTX *ctx))
 {
@@ -768,4 +791,11 @@ void EVP_PKEY_meth_get_ctrl(EVP_PKEY_METHOD *pmeth,
         *pctrl = pmeth->ctrl;
     if (pctrl_str)
         *pctrl_str = pmeth->ctrl_str;
+}
+
+void EVP_PKEY_meth_get_check(EVP_PKEY_METHOD *pmeth,
+                             int (**pcheck) (EVP_PKEY *pkey))
+{
+    if (*pcheck)
+        *pcheck = pmeth->check;
 }

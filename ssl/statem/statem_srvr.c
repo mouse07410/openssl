@@ -1353,7 +1353,7 @@ MSG_PROCESS_RETURN tls_process_client_hello(SSL *s, PACKET *pkt)
              */
             if (SSL_get_options(s) & SSL_OP_COOKIE_EXCHANGE) {
                 if (clienthello->dtls_cookie_len == 0)
-                    return 1;
+                    return MSG_PROCESS_FINISHED_READING;
             }
         }
 
@@ -1430,16 +1430,18 @@ static int tls_early_post_process_client_hello(SSL *s, int *pal)
     DOWNGRADE dgrd = DOWNGRADE_NONE;
 
     /* Finished parsing the ClientHello, now we can start processing it */
-    /* Give the early callback a crack at things */
-    if (s->ctx->early_cb != NULL) {
-        int code;
-        /* A failure in the early callback terminates the connection. */
-        code = s->ctx->early_cb(s, &al, s->ctx->early_cb_arg);
-        if (code == 0)
+    /* Give the ClientHello callback a crack at things */
+    if (s->ctx->client_hello_cb != NULL) {
+        /* A failure in the ClientHello callback terminates the connection. */
+        switch (s->ctx->client_hello_cb(s, &al, s->ctx->client_hello_cb_arg)) {
+        case SSL_CLIENT_HELLO_SUCCESS:
+            break;
+        case SSL_CLIENT_HELLO_RETRY:
+            s->rwstate = SSL_CLIENT_HELLO_CB;
+            return -1;
+        case SSL_CLIENT_HELLO_ERROR:
+        default:
             goto err;
-        if (code < 0) {
-            s->rwstate = SSL_EARLY_WORK;
-            return code;
         }
     }
 
@@ -3251,7 +3253,8 @@ WORK_STATE tls_post_process_client_key_exchange(SSL *s, WORK_STATE wst)
 
 MSG_PROCESS_RETURN tls_process_client_certificate(SSL *s, PACKET *pkt)
 {
-    int i, al = SSL_AD_INTERNAL_ERROR, ret = MSG_PROCESS_ERROR;
+    int i, al = SSL_AD_INTERNAL_ERROR;
+    MSG_PROCESS_RETURN ret = MSG_PROCESS_ERROR;
     X509 *x = NULL;
     unsigned long l, llen;
     const unsigned char *certstart, *certbytes;

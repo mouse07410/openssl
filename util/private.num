@@ -18,6 +18,7 @@ BIO_lookup_type                         datatype
 CRYPTO_EX_dup                           datatype
 CRYPTO_EX_free                          datatype
 CRYPTO_EX_new                           datatype
+DTLS_timer_cb                           datatype
 EVP_PKEY_gen_cb                         datatype
 EVP_PKEY_METHOD                         datatype
 GEN_SESSION_CB                          datatype
@@ -35,7 +36,7 @@ OSSL_STORE_open_fn                      datatype
 OSSL_STORE_post_process_info_fn         datatype
 RAND_poll_cb                            datatype
 SSL_CTX_keylog_cb_func                  datatype
-SSL_early_cb_fn                         datatype
+SSL_client_hello_cb_fn                  datatype
 SSL_psk_client_cb_func                  datatype
 SSL_psk_find_session_cb_func            datatype
 SSL_psk_server_cb_func                  datatype
@@ -232,6 +233,8 @@ SSL_CTX_disable_ct                      define
 SSL_CTX_get0_chain_certs                define
 SSL_CTX_get_default_read_ahead          define
 SSL_CTX_get_max_cert_list               define
+SSL_CTX_get_max_proto_version           define
+SSL_CTX_get_min_proto_version           define
 SSL_CTX_get_mode                        define
 SSL_CTX_get_read_ahead                  define
 SSL_CTX_get_session_cache_mode          define
@@ -301,6 +304,8 @@ SSL_get_cipher_name                     define
 SSL_get_cipher_version                  define
 SSL_get_extms_support                   define
 SSL_get_max_cert_list                   define
+SSL_get_max_proto_version               define
+SSL_get_min_proto_version               define
 SSL_get_mode                            define
 SSL_get_peer_signature_nid              define
 SSL_get_secure_renegotiation_support    define
@@ -348,7 +353,7 @@ SSL_set_tlsext_status_type              define
 SSL_set_tmp_dh                          define
 SSL_want_async                          define
 SSL_want_async_job                      define
-SSL_want_early                          define
+SSL_want_client_hello_cb                define
 SSL_want_nothing                        define
 SSL_want_read                           define
 SSL_want_write                          define

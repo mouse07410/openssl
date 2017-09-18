@@ -137,7 +137,7 @@ static int select_server_ctx(SSL *s, void *arg, int ignore)
     }
 }
 
-static int early_select_server_ctx(SSL *s, void *arg, int ignore)
+static int client_hello_select_server_ctx(SSL *s, void *arg, int ignore)
 {
     const char *servername;
     const unsigned char *p;
@@ -149,11 +149,12 @@ static int early_select_server_ctx(SSL *s, void *arg, int ignore)
      * The server_name extension was given too much extensibility when it
      * was written, so parsing the normal case is a bit complex.
      */
-    if (!SSL_early_get0_ext(s, TLSEXT_TYPE_server_name, &p, &remaining) ||
+    if (!SSL_client_hello_get0_ext(s, TLSEXT_TYPE_server_name, &p,
+                                   &remaining) ||
         remaining <= 2)
         return 0;
     /* Extract the length of the supplied list of names. */
-    len = (*(p++) << 1);
+    len = (*(p++) << 8);
     len += *(p++);
     if (len + 2 != remaining)
         return 0;
@@ -168,7 +169,7 @@ static int early_select_server_ctx(SSL *s, void *arg, int ignore)
     /* Now we can finally pull out the byte array with the actual hostname. */
     if (remaining <= 2)
         return 0;
-    len = (*(p++) << 1);
+    len = (*(p++) << 8);
     len += *(p++);
     if (len + 2 > remaining)
         return 0;
@@ -219,48 +220,50 @@ static int servername_reject_cb(SSL *s, int *ad, void *arg)
     return select_server_ctx(s, arg, 0);
 }
 
-static int early_ignore_cb(SSL *s, int *al, void *arg)
+static int client_hello_ignore_cb(SSL *s, int *al, void *arg)
 {
-    if (!early_select_server_ctx(s, arg, 1)) {
+    if (!client_hello_select_server_ctx(s, arg, 1)) {
         *al = SSL_AD_UNRECOGNIZED_NAME;
-        return 0;
+        return SSL_CLIENT_HELLO_ERROR;
     }
-    return 1;
+    return SSL_CLIENT_HELLO_SUCCESS;
 }
 
-static int early_reject_cb(SSL *s, int *al, void *arg)
+static int client_hello_reject_cb(SSL *s, int *al, void *arg)
 {
-    if (!early_select_server_ctx(s, arg, 0)) {
+    if (!client_hello_select_server_ctx(s, arg, 0)) {
         *al = SSL_AD_UNRECOGNIZED_NAME;
-        return 0;
+        return SSL_CLIENT_HELLO_ERROR;
     }
-    return 1;
+    return SSL_CLIENT_HELLO_SUCCESS;
 }
 
-static int early_nov12_cb(SSL *s, int *al, void *arg)
+static int client_hello_nov12_cb(SSL *s, int *al, void *arg)
 {
     int ret;
     unsigned int v;
     const unsigned char *p;
 
-    v = SSL_early_get0_legacy_version(s);
+    v = SSL_client_hello_get0_legacy_version(s);
     if (v > TLS1_2_VERSION || v < SSL3_VERSION) {
         *al = SSL_AD_PROTOCOL_VERSION;
-        return 0;
+        return SSL_CLIENT_HELLO_ERROR;
     }
-    (void)SSL_early_get0_session_id(s, &p);
+    (void)SSL_client_hello_get0_session_id(s, &p);
     if (p == NULL ||
-        SSL_early_get0_random(s, &p) == 0 ||
-        SSL_early_get0_ciphers(s, &p) == 0 ||
-        SSL_early_get0_compression_methods(s, &p) == 0) {
+        SSL_client_hello_get0_random(s, &p) == 0 ||
+        SSL_client_hello_get0_ciphers(s, &p) == 0 ||
+        SSL_client_hello_get0_compression_methods(s, &p) == 0) {
         *al = SSL_AD_INTERNAL_ERROR;
-        return 0;
+        return SSL_CLIENT_HELLO_ERROR;
     }
-    ret = early_select_server_ctx(s, arg, 0);
+    ret = client_hello_select_server_ctx(s, arg, 0);
     SSL_set_max_proto_version(s, TLS1_1_VERSION);
-    if (!ret)
+    if (!ret) {
         *al = SSL_AD_UNRECOGNIZED_NAME;
-    return ret;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+    return SSL_CLIENT_HELLO_SUCCESS;
 }
 
 static unsigned char dummy_ocsp_resp_good_val = 0xff;
@@ -489,7 +492,8 @@ static int configure_handshake_ctx(SSL_CTX *server_ctx, SSL_CTX *server2_ctx,
 
     /*
      * Link the two contexts for SNI purposes.
-     * Also do early callbacks here, as setting both early and SNI is bad.
+     * Also do ClientHello callbacks here, as setting both ClientHello and SNI
+     * is bad.
      */
     switch (extra->server.servername_callback) {
     case SSL_TEST_SERVERNAME_IGNORE_MISMATCH:
@@ -502,14 +506,14 @@ static int configure_handshake_ctx(SSL_CTX *server_ctx, SSL_CTX *server2_ctx,
         break;
     case SSL_TEST_SERVERNAME_CB_NONE:
         break;
-    case SSL_TEST_SERVERNAME_EARLY_IGNORE_MISMATCH:
-        SSL_CTX_set_early_cb(server_ctx, early_ignore_cb, server2_ctx);
+    case SSL_TEST_SERVERNAME_CLIENT_HELLO_IGNORE_MISMATCH:
+        SSL_CTX_set_client_hello_cb(server_ctx, client_hello_ignore_cb, server2_ctx);
         break;
-    case SSL_TEST_SERVERNAME_EARLY_REJECT_MISMATCH:
-        SSL_CTX_set_early_cb(server_ctx, early_reject_cb, server2_ctx);
+    case SSL_TEST_SERVERNAME_CLIENT_HELLO_REJECT_MISMATCH:
+        SSL_CTX_set_client_hello_cb(server_ctx, client_hello_reject_cb, server2_ctx);
         break;
-    case SSL_TEST_SERVERNAME_EARLY_NO_V12:
-        SSL_CTX_set_early_cb(server_ctx, early_nov12_cb, server2_ctx);
+    case SSL_TEST_SERVERNAME_CLIENT_HELLO_NO_V12:
+        SSL_CTX_set_client_hello_cb(server_ctx, client_hello_nov12_cb, server2_ctx);
     }
 
     if (extra->server.cert_status != SSL_TEST_CERT_STATUS_NONE) {

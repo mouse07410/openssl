@@ -8,12 +8,13 @@ EVP_PKEY_meth_set_init, EVP_PKEY_meth_set_copy, EVP_PKEY_meth_set_cleanup,
 EVP_PKEY_meth_set_paramgen, EVP_PKEY_meth_set_keygen, EVP_PKEY_meth_set_sign,
 EVP_PKEY_meth_set_verify, EVP_PKEY_meth_set_verify_recover, EVP_PKEY_meth_set_signctx,
 EVP_PKEY_meth_set_verifyctx, EVP_PKEY_meth_set_encrypt, EVP_PKEY_meth_set_decrypt,
-EVP_PKEY_meth_set_derive, EVP_PKEY_meth_set_ctrl,
+EVP_PKEY_meth_set_derive, EVP_PKEY_meth_set_ctrl, EVP_PKEY_meth_set_check,
 EVP_PKEY_meth_get_init, EVP_PKEY_meth_get_copy, EVP_PKEY_meth_get_cleanup,
 EVP_PKEY_meth_get_paramgen, EVP_PKEY_meth_get_keygen, EVP_PKEY_meth_get_sign,
 EVP_PKEY_meth_get_verify, EVP_PKEY_meth_get_verify_recover, EVP_PKEY_meth_get_signctx,
 EVP_PKEY_meth_get_verifyctx, EVP_PKEY_meth_get_encrypt, EVP_PKEY_meth_get_decrypt,
-EVP_PKEY_meth_get_derive, EVP_PKEY_meth_get_ctrl
+EVP_PKEY_meth_get_derive, EVP_PKEY_meth_get_ctrl, EVP_PKEY_meth_get_check,
+EVP_PKEY_meth_remove
 - manipulating EVP_PKEY_METHOD structure
 
 =head1 SYNOPSIS
@@ -27,6 +28,7 @@ EVP_PKEY_meth_get_derive, EVP_PKEY_meth_get_ctrl
  void EVP_PKEY_meth_copy(EVP_PKEY_METHOD *dst, const EVP_PKEY_METHOD *src);
  const EVP_PKEY_METHOD *EVP_PKEY_meth_find(int type);
  int EVP_PKEY_meth_add0(const EVP_PKEY_METHOD *pmeth);
+ int EVP_PKEY_meth_remove(const EVP_PKEY_METHOD *pmeth);
 
  void EVP_PKEY_meth_set_init(EVP_PKEY_METHOD *pmeth,
                              int (*init) (EVP_PKEY_CTX *ctx));
@@ -106,6 +108,8 @@ EVP_PKEY_meth_get_derive, EVP_PKEY_meth_get_ctrl
                              int (*ctrl_str) (EVP_PKEY_CTX *ctx,
                                               const char *type,
                                               const char *value));
+ void EVP_PKEY_meth_set_check(EVP_PKEY_METHOD *pmeth,
+                              int (*check) (EVP_PKEY *pkey));
 
  void EVP_PKEY_meth_get_init(EVP_PKEY_METHOD *pmeth,
                              int (**pinit) (EVP_PKEY_CTX *ctx));
@@ -185,6 +189,8 @@ EVP_PKEY_meth_get_derive, EVP_PKEY_meth_get_ctrl
                              int (**pctrl_str) (EVP_PKEY_CTX *ctx,
                                                 const char *type,
                                                 const char *value));
+ void EVP_PKEY_meth_get_check(EVP_PKEY_METHOD *pmeth,
+                              int (**pcheck) (EVP_PKEY *pkey));
 
 =head1 DESCRIPTION
 
@@ -309,6 +315,11 @@ The digestsign() and digestverify() methods are used to generate or verify
 a signature in a one-shot mode. They could be called by L<EVP_DigetSign(3)>
 and L<EVP_DigestVerify(3)>.
 
+ int (*check) (EVP_PKEY *pkey);
+
+The check() method is used to validate a key-pair for a given B<pkey>. It
+could be called by L<EVP_PKEY_check(3)>.
+
 =head2 Functions
 
 EVP_PKEY_meth_new() creates and returns a new B<EVP_PKEY_METHOD> object,
@@ -341,6 +352,9 @@ then the built-in objects.
 
 EVP_PKEY_meth_add0() adds B<pmeth> to the user defined stack of methods.
 
+EVP_PKEY_meth_remove() removes an B<EVP_PKEY_METHOD> object added by
+EVP_PKEY_meth_add0().
+
 The EVP_PKEY_meth_set functions set the corresponding fields of
 B<EVP_PKEY_METHOD> structure with the arguments passed.
 
@@ -359,6 +373,9 @@ object or returns NULL if not found.
 
 EVP_PKEY_meth_add0() returns 1 if method is added successfully or 0
 if an error occurred.
+
+EVP_PKEY_meth_remove() returns 1 if method is removed successfully or
+0 if an error occurred.
 
 All EVP_PKEY_meth_set and EVP_PKEY_meth_get functions have no return
 values. For the 'get' functions, function pointers are returned by

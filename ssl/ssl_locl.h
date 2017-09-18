@@ -11,15 +11,12 @@
 
 #ifndef HEADER_SSL_LOCL_H
 # define HEADER_SSL_LOCL_H
-# include "e_os.h"              /* struct timeval for Windows */
+
+# include "e_os.h"              /* struct timeval for DTLS */
 # include <stdlib.h>
 # include <time.h>
 # include <string.h>
 # include <errno.h>
-
-# if defined(__unix) || defined(__unix__)
-#  include <sys/time.h>         /* struct timeval for DTLS */
-# endif
 
 # include <openssl/buffer.h>
 # include <openssl/comp.h>
@@ -880,9 +877,9 @@ struct ssl_ctx_st {
     ENGINE *client_cert_engine;
 # endif
 
-    /* Early callback.  Mostly for extensions, but not entirely. */
-    SSL_early_cb_fn early_cb;
-    void *early_cb_arg;
+    /* ClientHello callback.  Mostly for extensions, but not entirely. */
+    SSL_client_hello_cb_fn client_hello_cb;
+    void *client_hello_cb_arg;
 
     /* TLS extensions. */
     struct {
@@ -1255,7 +1252,10 @@ struct ssl_st {
         size_t tls13_cookie_len;
     } ext;
 
-    /* Parsed form of the ClientHello, kept around across early_cb calls. */
+    /*
+     * Parsed form of the ClientHello, kept around across client_hello_cb
+     * calls.
+     */
     CLIENTHELLO_MSG *clienthello;
 
     /*-
@@ -1627,11 +1627,15 @@ typedef struct dtls1_state_st {
      */
     struct timeval next_timeout;
     /* Timeout duration */
-    unsigned short timeout_duration;
+    unsigned int timeout_duration_us;
+
     unsigned int retransmitting;
 # ifndef OPENSSL_NO_SCTP
     int shutdown_received;
 # endif
+
+    DTLS_timer_cb timer_cb;
+
 } DTLS1_STATE;
 
 # ifndef OPENSSL_NO_EC
