@@ -799,6 +799,7 @@ static const SIGALG_LOOKUP legacy_rsa_sigalg = {
  */
 static const uint16_t tls_default_sigalg[] = {
     TLSEXT_SIGALG_rsa_pkcs1_sha1, /* SSL_PKEY_RSA */
+    0, /* SSL_PKEY_RSA_PSS_SIGN */
     TLSEXT_SIGALG_dsa_sha1, /* SSL_PKEY_DSA_SIGN */
     TLSEXT_SIGALG_ecdsa_sha1, /* SSL_PKEY_ECC */
     TLSEXT_SIGALG_gostr34102001_gostr3411, /* SSL_PKEY_GOST01 */
@@ -2126,6 +2127,7 @@ int tls1_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) *chain,
 void tls1_set_cert_validity(SSL *s)
 {
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_RSA);
+    tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_RSA_PSS_SIGN);
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_DSA_SIGN);
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_ECC);
     tls1_check_chain(s, NULL, NULL, NULL, SSL_PKEY_GOST01);
@@ -2266,18 +2268,23 @@ int ssl_security_cert_chain(SSL *s, STACK_OF(X509) *sk, X509 *x, int vfy)
 
 /*
  * For TLS 1.2 servers check if we have a certificate which can be used
- * with the signature algorithm "lu".
+ * with the signature algorithm "lu" and return index of certificate.
  */
 
-static int tls12_check_cert_sigalg(const SSL *s, const SIGALG_LOOKUP *lu)
+static int tls12_get_cert_sigalg_idx(const SSL *s, const SIGALG_LOOKUP *lu)
 {
-    const SSL_CERT_LOOKUP *clu = ssl_cert_lookup_by_idx(lu->sig_idx);
+    int sig_idx = lu->sig_idx;
+    const SSL_CERT_LOOKUP *clu = ssl_cert_lookup_by_idx(sig_idx);
 
     /* If not recognised or not supported by cipher mask it is not suitable */
     if (clu == NULL || !(clu->amask & s->s3->tmp.new_cipher->algorithm_auth))
-        return 0;
+        return -1;
 
-    return s->s3->tmp.valid_flags[lu->sig_idx] & CERT_PKEY_VALID ? 1 : 0;
+    /* If PSS and we have no PSS cert use RSA */
+    if (sig_idx == SSL_PKEY_RSA_PSS_SIGN && !ssl_has_cert(s, sig_idx))
+        sig_idx = SSL_PKEY_RSA;
+
+    return s->s3->tmp.valid_flags[sig_idx] & CERT_PKEY_VALID ? sig_idx : -1;
 }
 
 /*
@@ -2294,6 +2301,7 @@ static int tls12_check_cert_sigalg(const SSL *s, const SIGALG_LOOKUP *lu)
 int tls_choose_sigalg(SSL *s, int *al)
 {
     const SIGALG_LOOKUP *lu = NULL;
+    int sig_idx = -1;
 
     s->s3->tmp.cert = NULL;
     s->s3->tmp.sigalg = NULL;
@@ -2316,8 +2324,12 @@ int tls_choose_sigalg(SSL *s, int *al)
                 continue;
             if (!tls1_lookup_md(lu, NULL))
                 continue;
-            if (!ssl_has_cert(s, lu->sig_idx))
+            if (!ssl_has_cert(s, lu->sig_idx)) {
+                if (lu->sig_idx != SSL_PKEY_RSA_PSS_SIGN
+                        || !ssl_has_cert(s, SSL_PKEY_RSA))
                     continue;
+                    sig_idx = SSL_PKEY_RSA;
+            }
             if (lu->sig == EVP_PKEY_EC) {
 #ifndef OPENSSL_NO_EC
                 if (curve == -1) {
@@ -2374,10 +2386,18 @@ int tls_choose_sigalg(SSL *s, int *al)
                     lu = s->cert->shared_sigalgs[i];
 
                     if (s->server) {
-                        if (!tls12_check_cert_sigalg(s, lu))
+                        if ((sig_idx = tls12_get_cert_sigalg_idx(s, lu)) == -1)
                             continue;
-                    } else if (lu->sig_idx != s->cert->key - s->cert->pkeys) {
-                            continue;
+                    } else {
+                        int cc_idx = s->cert->key - s->cert->pkeys;
+
+                        sig_idx = lu->sig_idx;
+                        if (cc_idx != sig_idx) {
+                            if (sig_idx != SSL_PKEY_RSA_PSS_SIGN
+                                || cc_idx != SSL_PKEY_RSA)
+                                continue;
+                            sig_idx = SSL_PKEY_RSA;
+                        }
                     }
 #ifndef OPENSSL_NO_EC
                     if (curve == -1 || lu->curve == curve)
@@ -2430,7 +2450,9 @@ int tls_choose_sigalg(SSL *s, int *al)
             }
         }
     }
-    s->s3->tmp.cert = &s->cert->pkeys[lu->sig_idx];
+    if (sig_idx == -1)
+        sig_idx = lu->sig_idx;
+    s->s3->tmp.cert = &s->cert->pkeys[sig_idx];
     s->cert->key = s->s3->tmp.cert;
     s->s3->tmp.sigalg = lu;
     return 1;
