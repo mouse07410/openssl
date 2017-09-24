@@ -294,23 +294,28 @@ static int pkey_rsa_encrypt(EVP_PKEY_CTX *ctx,
     int ret;
     RSA_PKEY_CTX *rctx = ctx->data;
 
+#if defined(DEBUG)
 fprintf(stderr, "pkey_rsa_encrypt(): out=%p outlen=%lu in=%p inlen=%lu\n",
 	out, outlen, in, inlen);
-
+#endif
     if (rctx->pad_mode == RSA_PKCS1_OAEP_PADDING) {
         int klen = RSA_size(ctx->pkey->pkey.rsa);
         if (!setup_tbuf(rctx, ctx))
             return -1;
+#if defined(DEBUG)
 fprintf(stderr, "...RSA_PKCS1_PAEP_PADDING tbuf=%p klen=%d md=%s mgf1md=%s\n",
 	rctx->tbuf, klen, OBJ_nid2sn(EVP_MD_type(rctx->md)), 
 	OBJ_nid2sn(EVP_MD_type(rctx->md)));
+#endif
         if (!RSA_padding_add_PKCS1_OAEP_mgf1(rctx->tbuf, klen,
                                              in, inlen,
                                              rctx->oaep_label,
                                              rctx->oaep_labellen,
                                              rctx->md, rctx->mgf1md))
             return -1;
+#if defined(DEBUG)
 fprintf(stderr, "...before RSA_public_encypt klen=%d tbuf=%p out=%p rsa=%p\n",
+#endif
 	klen, rctx->tbuf, out, ctx->pkey->pkey.rsa);
 	if (out == NULL) {
 		*outlen = klen;
@@ -327,8 +332,10 @@ fprintf(stderr, "...before RSA_public_encypt klen=%d tbuf=%p out=%p rsa=%p\n",
         ret = RSA_public_encrypt(inlen, in, out, ctx->pkey->pkey.rsa,
                                  rctx->pad_mode);
     }
+#if defined(DEBUG)
 fprintf(stderr, "...RSA_public_encrypt() returned %d\n", ret);
-    if (ret < 0 || out == NULL)
+#endif
+    if (ret < 0)
         return ret;
     *outlen = ret;
     return 1;
