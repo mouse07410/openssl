@@ -315,8 +315,8 @@ fprintf(stderr, "...RSA_PKCS1_PAEP_PADDING tbuf=%p klen=%d md=%s mgf1md=%s\n",
             return -1;
 #if defined(DEBUG)
 fprintf(stderr, "...before RSA_public_encypt klen=%d tbuf=%p out=%p rsa=%p\n",
-#endif
 	klen, rctx->tbuf, out, ctx->pkey->pkey.rsa);
+#endif
 	if (out == NULL) {
 		*outlen = klen;
 		return 1;
