@@ -440,8 +440,8 @@ static int ssl_check_allowed_versions(int min_version, int max_version)
         if (min_version == DTLS1_VERSION)
             min_version = DTLS1_2_VERSION;
 #endif
-	/* Done massaging versions; do the check. */
-	if (0
+        /* Done massaging versions; do the check. */
+        if (0
 #ifdef OPENSSL_NO_DTLS1
             || (DTLS_VERSION_GE(min_version, DTLS1_VERSION)
                 && DTLS_VERSION_GE(DTLS1_VERSION, max_version))
@@ -454,44 +454,44 @@ static int ssl_check_allowed_versions(int min_version, int max_version)
             return 0;
     } else {
         /* Regular TLS version checks. */
-	if (min_version == 0)
-	    min_version = SSL3_VERSION;
-	if (max_version == 0)
-	    max_version = TLS1_3_VERSION;
+        if (min_version == 0)
+            min_version = SSL3_VERSION;
+        if (max_version == 0)
+            max_version = TLS1_3_VERSION;
 #ifdef OPENSSL_NO_TLS1_3
-	if (max_version == TLS1_3_VERSION)
-	    max_version = TLS1_2_VERSION;
+        if (max_version == TLS1_3_VERSION)
+            max_version = TLS1_2_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1_2
-	if (max_version == TLS1_2_VERSION)
-	    max_version = TLS1_1_VERSION;
+        if (max_version == TLS1_2_VERSION)
+            max_version = TLS1_1_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1_1
-	if (max_version == TLS1_1_VERSION)
-	    max_version = TLS1_VERSION;
+        if (max_version == TLS1_1_VERSION)
+            max_version = TLS1_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1
-	if (max_version == TLS1_VERSION)
-	    max_version = SSL3_VERSION;
+        if (max_version == TLS1_VERSION)
+            max_version = SSL3_VERSION;
 #endif
 #ifdef OPENSSL_NO_SSL3
-	if (min_version == SSL3_VERSION)
-	    min_version = TLS1_VERSION;
+        if (min_version == SSL3_VERSION)
+            min_version = TLS1_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1
-	if (min_version == TLS1_VERSION)
-	    min_version = TLS1_1_VERSION;
+        if (min_version == TLS1_VERSION)
+            min_version = TLS1_1_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1_1
-	if (min_version == TLS1_1_VERSION)
-	    min_version = TLS1_2_VERSION;
+        if (min_version == TLS1_1_VERSION)
+            min_version = TLS1_2_VERSION;
 #endif
 #ifdef OPENSSL_NO_TLS1_2
-	if (min_version == TLS1_2_VERSION)
-	    min_version = TLS1_3_VERSION;
+        if (min_version == TLS1_2_VERSION)
+            min_version = TLS1_3_VERSION;
 #endif
-	/* Done massaging versions; do the check. */
-	if (0
+        /* Done massaging versions; do the check. */
+        if (0
 #ifdef OPENSSL_NO_SSL3
             || (min_version <= SSL3_VERSION && SSL3_VERSION <= max_version)
 #endif
@@ -719,7 +719,8 @@ SSL *SSL_new(SSL_CTX *ctx)
     if (ctx->ext.supportedgroups) {
         s->ext.supportedgroups =
             OPENSSL_memdup(ctx->ext.supportedgroups,
-                           ctx->ext.supportedgroups_len);
+                           ctx->ext.supportedgroups_len
+                                * sizeof(*ctx->ext.supportedgroups));
         if (!s->ext.supportedgroups)
             goto err;
         s->ext.supportedgroups_len = ctx->ext.supportedgroups_len;
@@ -3090,9 +3091,15 @@ void ssl_set_masks(SSL *s)
     if (dh_tmp)
         mask_k |= SSL_kDHE;
 
-    if (rsa_enc || rsa_sign) {
+    /*
+     * If we only have an RSA-PSS certificate allow RSA authentication
+     * if TLS 1.2 and peer supports it.
+     */
+
+    if (rsa_enc || rsa_sign || (ssl_has_cert(s, SSL_PKEY_RSA_PSS_SIGN)
+                && pvalid[SSL_PKEY_RSA_PSS_SIGN] & CERT_PKEY_EXPLICIT_SIGN
+                && TLS1_get_version(s) == TLS1_2_VERSION))
         mask_a |= SSL_aRSA;
-    }
 
     if (dsa_sign) {
         mask_a |= SSL_aDSS;
