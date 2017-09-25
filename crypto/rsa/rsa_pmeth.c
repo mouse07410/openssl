@@ -296,7 +296,7 @@ static int pkey_rsa_encrypt(EVP_PKEY_CTX *ctx,
 
 #if defined(DEBUG)
 fprintf(stderr, "pkey_rsa_encrypt(): out=%p outlen=%lu in=%p inlen=%lu\n",
-	out, outlen, in, inlen);
+	out, *outlen, in, inlen);
 #endif
     if (rctx->pad_mode == RSA_PKCS1_OAEP_PADDING) {
         int klen = RSA_size(ctx->pkey->pkey.rsa);
