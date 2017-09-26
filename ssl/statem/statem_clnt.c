@@ -2041,9 +2041,6 @@ static int tls_process_ske_ecdhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey, int *al)
 #ifndef OPENSSL_NO_EC
     PACKET encoded_pt;
     const unsigned char *ecparams;
-    int curve_nid;
-    unsigned int curve_flags;
-    EVP_PKEY_CTX *pctx = NULL;
 
     /*
      * Extract elliptic curve parameters and the server's ephemeral ECDH
@@ -2065,39 +2062,11 @@ static int tls_process_ske_ecdhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey, int *al)
         return 0;
     }
 
-    curve_nid = tls1_ec_curve_id2nid(*(ecparams + 2), &curve_flags);
-
-    if (curve_nid == 0) {
+    if ((s->s3->peer_tmp = ssl_generate_param_group(ecparams[2])) == NULL) {
         *al = SSL_AD_INTERNAL_ERROR;
         SSLerr(SSL_F_TLS_PROCESS_SKE_ECDHE,
                SSL_R_UNABLE_TO_FIND_ECDH_PARAMETERS);
         return 0;
-    }
-
-    if ((curve_flags & TLS_CURVE_TYPE) == TLS_CURVE_CUSTOM) {
-        EVP_PKEY *key = EVP_PKEY_new();
-
-        if (key == NULL || !EVP_PKEY_set_type(key, curve_nid)) {
-            *al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_SKE_ECDHE, ERR_R_EVP_LIB);
-            EVP_PKEY_free(key);
-            return 0;
-        }
-        s->s3->peer_tmp = key;
-    } else {
-        /* Set up EVP_PKEY with named curve as parameters */
-        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-        if (pctx == NULL
-            || EVP_PKEY_paramgen_init(pctx) <= 0
-            || EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, curve_nid) <= 0
-            || EVP_PKEY_paramgen(pctx, &s->s3->peer_tmp) <= 0) {
-            *al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_SKE_ECDHE, ERR_R_EVP_LIB);
-            EVP_PKEY_CTX_free(pctx);
-            return 0;
-        }
-        EVP_PKEY_CTX_free(pctx);
-        pctx = NULL;
     }
 
     if (!PACKET_get_length_prefixed_1(pkt, &encoded_pt)) {
