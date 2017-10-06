@@ -44,7 +44,6 @@ static RSA_METHOD rsa_null_meth = {
     NULL,
     NULL,
     NULL,
-    NULL,
     NULL
 };
 

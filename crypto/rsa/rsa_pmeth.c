@@ -18,7 +18,6 @@
 #include <openssl/cms.h>
 #include "internal/evp_int.h"
 #include "rsa_locl.h"
-#include <openssl/objects.h>
 
 /* RSA pkey context structure */
 
@@ -113,24 +112,6 @@ static int pkey_rsa_sign(EVP_PKEY_CTX *ctx, unsigned char *sig,
     int ret;
     RSA_PKEY_CTX *rctx = ctx->data;
     RSA *rsa = ctx->pkey->pkey.rsa;
-
-    /* Allow an engine a chance to do combined padding and sign.
-     * Used for hardware tokens that require padding and sign to be done in
-     * hardware but do not do raw rsa. Pass in EVP_PKEY_CTX  with padding info.
-     * For backward compatibility, if rsa_sign_evp_pkey_ctx is NULL, no md,
-     * or method returns 0, do old way. 
-     */
-    if (rsa->meth->rsa_sign_evp_pkey_ctx && rctx->md) {
-	unsigned int stltmp = *siglen;
-	ret = (*rsa->meth->rsa_sign_evp_pkey_ctx) (EVP_MD_type(rctx->md),
-		tbs, tbslen, sig, &stltmp, rsa, ctx);
-	if (ret < 0)
-		return ret;
-	if (ret > 0) {
-		*siglen = stltmp;
-		return 1;
-	}
-    }
 
     if (rctx->md) {
         if (tbslen != (size_t)EVP_MD_size(rctx->md)) {
@@ -293,48 +274,21 @@ static int pkey_rsa_encrypt(EVP_PKEY_CTX *ctx,
 {
     int ret;
     RSA_PKEY_CTX *rctx = ctx->data;
-
-#if defined(DEBUG)
-fprintf(stderr, "pkey_rsa_encrypt(): out=%p outlen=%lu in=%p inlen=%lu\n",
-	out, *outlen, in, inlen);
-#endif
     if (rctx->pad_mode == RSA_PKCS1_OAEP_PADDING) {
         int klen = RSA_size(ctx->pkey->pkey.rsa);
         if (!setup_tbuf(rctx, ctx))
             return -1;
-#if defined(DEBUG)
-fprintf(stderr, "...RSA_PKCS1_PAEP_PADDING tbuf=%p klen=%d md=%s mgf1md=%s\n",
-	rctx->tbuf, klen, OBJ_nid2sn(EVP_MD_type(rctx->md)), 
-	OBJ_nid2sn(EVP_MD_type(rctx->md)));
-#endif
         if (!RSA_padding_add_PKCS1_OAEP_mgf1(rctx->tbuf, klen,
                                              in, inlen,
                                              rctx->oaep_label,
                                              rctx->oaep_labellen,
                                              rctx->md, rctx->mgf1md))
             return -1;
-#if defined(DEBUG)
-fprintf(stderr, "...before RSA_public_encypt klen=%d tbuf=%p out=%p rsa=%p\n",
-	klen, rctx->tbuf, out, ctx->pkey->pkey.rsa);
-#endif
-	if (out == NULL) {
-		*outlen = klen;
-		return 1;
-	}
         ret = RSA_public_encrypt(klen, rctx->tbuf, out,
                                  ctx->pkey->pkey.rsa, RSA_NO_PADDING);
-    } else {
-	if (out == NULL) {
-		int klen = RSA_size(ctx->pkey->pkey.rsa);
-		*outlen = klen;
-		return 1;
-	}
+    } else
         ret = RSA_public_encrypt(inlen, in, out, ctx->pkey->pkey.rsa,
                                  rctx->pad_mode);
-    }
-#if defined(DEBUG)
-fprintf(stderr, "...RSA_public_encrypt() returned %d\n", ret);
-#endif
     if (ret < 0)
         return ret;
     *outlen = ret;
@@ -354,7 +308,6 @@ static int pkey_rsa_decrypt(EVP_PKEY_CTX *ctx,
                                   ctx->pkey->pkey.rsa, RSA_NO_PADDING);
         if (ret <= 0)
             return ret;
-
         ret = RSA_padding_check_PKCS1_OAEP_mgf1(out, ret, rctx->tbuf,
                                                 ret, ret,
                                                 rctx->oaep_label,

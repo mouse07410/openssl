@@ -88,21 +88,6 @@ struct rsa_meth_st {
      * things as "builtin software" implementations.
      */
     int (*rsa_keygen) (RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
-
-    /*
-     * This callback can be set by an engine that needs to look at the
-     * padding parameters. Useful for RSA_PKCS_PSS when a smart card
-     * can not RSA RAW but can do PSS on the card.
-     * The parameters in the EVP_PKEY_CTX.
-     * return:
-     *  < 0 error
-     *  0 looked at it, but did nothing
-     *  1 The full padding and RSA operation was done by the engine.
-     */
-    int (*rsa_sign_evp_pkey_ctx) (int type,
-                     const unsigned char *m, unsigned int m_length,
-                     unsigned char *sigret, unsigned int *siglen,
-                     const RSA *rsa, EVP_PKEY_CTX *rctx);
 };
 
 extern int int_rsa_verify(int dtype, const unsigned char *m,

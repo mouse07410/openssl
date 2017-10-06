@@ -229,15 +229,6 @@ int (*RSA_meth_get_sign(const RSA_METHOD *meth))
     return meth->rsa_sign;
 }
 
-int (*RSA_meth_get_sign_evp_pkey_ctx(const RSA_METHOD *meth))
-    (int type,
-     const unsigned char *m, unsigned int m_length,
-     unsigned char *sigret, unsigned int *siglen,
-     const RSA *rsa, EVP_PKEY_CTX *rctx)
-{
-    return meth->rsa_sign_evp_pkey_ctx;
-}
-
 int RSA_meth_set_sign(RSA_METHOD *meth,
                       int (*sign) (int type, const unsigned char *m,
                                    unsigned int m_length,
@@ -245,16 +236,6 @@ int RSA_meth_set_sign(RSA_METHOD *meth,
                                    const RSA *rsa))
 {
     meth->rsa_sign = sign;
-    return 1;
-}
-
-int RSA_meth_set_sign_evp_pkey_ctx(RSA_METHOD *meth,
-                      int (*sign_evp_pkey_ctx) (int type, const unsigned char *m,
-                                   unsigned int m_length,
-                                   unsigned char *sigret, unsigned int *siglen,
-                                   const RSA *rsa, EVP_PKEY_CTX *rctx))
-{
-    meth->rsa_sign_evp_pkey_ctx = sign_evp_pkey_ctx;
     return 1;
 }
 
