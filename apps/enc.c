@@ -547,8 +547,8 @@ int enc_main(int argc, char **argv)
 
     ret = 0;
     if (verbose) {
-        BIO_printf(bio_err, "bytes read   :%8llu"BIO_PRI64"u\n", BIO_number_read(in));
-        BIO_printf(bio_err, "bytes written:%8llu"BIO_PRI64"u\n", BIO_number_written(out));
+        BIO_printf(bio_err, "bytes read   :%8lu"BIO_PRI64"u\n", BIO_number_read(in));
+        BIO_printf(bio_err, "bytes written:%8lu"BIO_PRI64"u\n", BIO_number_written(out));
     }
  end:
     ERR_print_errors(bio_err);
