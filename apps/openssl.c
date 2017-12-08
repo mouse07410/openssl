@@ -80,8 +80,8 @@ static int apps_startup()
 #endif
 
     /* Set non-default library initialisation settings */
-    if (!OPENSSL_init_crypto(OPENSSL_INIT_ENGINE_ALL_BUILTIN
-                             | OPENSSL_INIT_LOAD_CONFIG, NULL))
+    if (!OPENSSL_init_ssl(OPENSSL_INIT_ENGINE_ALL_BUILTIN
+                          | OPENSSL_INIT_LOAD_CONFIG, NULL))
         return 0;
 
     setup_ui_method();
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
     for (;;) {
         ret = 0;
         /* Read a line, continue reading if line ends with \ */
-        for (p = buf, n = sizeof buf, i = 0, first = 1; n > 0; first = 0) {
+        for (p = buf, n = sizeof(buf), i = 0, first = 1; n > 0; first = 0) {
             prompt = first ? "OpenSSL> " : "> ";
             p[0] = '\0';
 #ifndef READLINE
