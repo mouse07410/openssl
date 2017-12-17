@@ -20,8 +20,17 @@
 /* How many times to read the TSC as a randomness source. */
 # define TSC_READ_COUNT                 4
 
-/* Maximum count allowed in reseeding */
-# define MAX_RESEED                     (1 << 24)
+/* Maximum reseed intervals */
+# define MAX_RESEED_INTERVAL                     (1 << 24)
+# define MAX_RESEED_TIME_INTERVAL                (1 << 20) /* approx. 12 days */
+
+/* Default reseed intervals */
+# define MASTER_RESEED_INTERVAL                  (1 << 8)
+# define SLAVE_RESEED_INTERVAL                   (1 << 16)
+# define MASTER_RESEED_TIME_INTERVAL             (60*60)   /* 1 hour */
+# define SLAVE_RESEED_TIME_INTERVAL              (7*60)    /* 7 minutes */
+
+
 
 /* Max size of additional input and personalization string. */
 # define DRBG_MAX_LENGTH                4096
@@ -106,8 +115,33 @@ struct rand_drbg_st {
     size_t min_entropylen, max_entropylen;
     size_t min_noncelen, max_noncelen;
     size_t max_perslen, max_adinlen;
-    unsigned int reseed_counter;
+
+    /* Counts the number of generate requests since the last reseed. */
+    unsigned int generate_counter;
+    /*
+     * Maximum number of generate requests until a reseed is required.
+     * This value is ignored if it is zero.
+     */
     unsigned int reseed_interval;
+    /* Stores the time when the last reseeding occurred */
+    time_t reseed_time;
+    /*
+     * Specifies the maximum time interval (in seconds) between reseeds.
+     * This value is ignored if it is zero.
+     */
+    time_t reseed_time_interval;
+    /*
+     * Counts the number of reseeds since instantiation.
+     * This value is ignored if it is zero.
+     *
+     * This counter is used only for seed propagation from the <master> DRBG
+     * to its two children, the <public> and <private> DRBG. This feature is
+     * very special and its sole purpose is to ensure that any randomness which
+     * is added by RAND_add() or RAND_seed() will have an immediate effect on
+     * the output of RAND_bytes() resp. RAND_priv_bytes().
+     */
+    unsigned int reseed_counter;
+
     size_t seedlen;
     DRBG_STATUS state;
 
