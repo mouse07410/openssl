@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2001-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -32,21 +32,6 @@ NON_EMPTY_TRANSLATION_UNIT
 # include <openssl/evp.h>
 # include <openssl/bn.h>
 # include <openssl/x509v3.h>
-
-# if defined(NETWARE_CLIB)
-#  ifdef NETWARE_BSDSOCK
-#   include <sys/socket.h>
-#   include <sys/bsdskt.h>
-#  else
-#   include <novsock2.h>
-#  endif
-# elif defined(NETWARE_LIBC)
-#  ifdef NETWARE_BSDSOCK
-#   include <sys/select.h>
-#  else
-#   include <novsock2.h>
-#  endif
-# endif
 
 /* Maximum leeway in validity period: default 5 minutes */
 # define MAX_VALIDITY_PERIOD    (5 * 60)

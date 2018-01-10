@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2012-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -1244,6 +1244,10 @@ static int ssl_print_cert_request(BIO *bio, int indent, const SSL *ssl,
     if (SSL_IS_TLS13(ssl)) {
         if (!ssl_print_hexbuf(bio, indent, "request_context", 1, &msg, &msglen))
             return 0;
+        if (!ssl_print_extensions(bio, indent, 1,
+                                  SSL3_MT_CERTIFICATE_REQUEST, &msg, &msglen))
+            return 0;
+        return 1;
     } else {
         if (msglen < 1)
             return 0;
