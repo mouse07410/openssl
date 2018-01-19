@@ -94,7 +94,33 @@ sub new
         }
     }
 
+    # Create the Proxy socket
+    my $proxaddr = $self->{proxy_addr};
+    $proxaddr =~ s/[\[\]]//g; # Remove [ and ]
+    my @proxyargs = (
+        LocalHost   => $proxaddr,
+        LocalPort   => $self->{proxy_port},
+        Proto       => "tcp",
+        Listen      => SOMAXCONN,
+       );
+    push @proxyargs, ReuseAddr => 1
+        unless $^O eq "MSWin32";
+    $self->{proxy_sock} = $IP_factory->(@proxyargs);
+
+    if ($self->{proxy_sock}) {
+        print "Proxy started on port ".$self->{proxy_port}."\n";
+    } else {
+        warn "Failed creating proxy socket (".$proxaddr.",".$self->{proxy_port}."): $!\n";
+    }
+
     return bless $self, $class;
+}
+
+sub DESTROY
+{
+    my $self = shift;
+
+    $self->{proxy_sock}->close() if $self->{proxy_sock};
 }
 
 sub clearClient
@@ -145,17 +171,19 @@ sub start
     my ($self) = shift;
     my $pid;
 
+    if ($self->{proxy_sock} == 0) {
+        return 0;
+    }
+
     $pid = fork();
     if ($pid == 0) {
-        if (!$self->debug) {
-            open(STDOUT, ">", File::Spec->devnull())
-                or die "Failed to redirect stdout: $!";
-            open(STDERR, ">&STDOUT");
-        }
         my $execcmd = $self->execute
             ." s_server -no_comp -rev -engine ossltest -accept "
             .($self->server_port)
             ." -cert ".$self->cert." -naccept ".$self->serverconnects;
+        unless ($self->supports_IPv6) {
+            $execcmd .= " -4";
+        }
         if ($self->ciphers ne "") {
             $execcmd .= " -cipher ".$self->ciphers;
         }
@@ -177,37 +205,9 @@ sub clientstart
     my ($self) = shift;
     my $oldstdout;
 
-    if(!$self->debug) {
-        open DEVNULL, ">", File::Spec->devnull();
-        $oldstdout = select(DEVNULL);
-    }
-
-    # Create the Proxy socket
-    my $proxaddr = $self->proxy_addr;
-    $proxaddr =~ s/[\[\]]//g; # Remove [ and ]
-    my $proxy_sock = $IP_factory->(
-        LocalHost   => $proxaddr,
-        LocalPort   => $self->proxy_port,
-        Proto       => "tcp",
-        Listen      => SOMAXCONN,
-        ReuseAddr   => 1
-    );
-
-    if ($proxy_sock) {
-        print "Proxy started on port ".$self->proxy_port."\n";
-    } else {
-        warn "Failed creating proxy socket (".$proxaddr.",".$self->proxy_port."): $!\n";
-        return 0;
-    }
-
     if ($self->execute) {
         my $pid = fork();
         if ($pid == 0) {
-            if (!$self->debug) {
-                open(STDOUT, ">", File::Spec->devnull())
-                    or die "Failed to redirect stdout: $!";
-                open(STDERR, ">&STDOUT");
-            }
             my $echostr;
             if ($self->reneg()) {
                 $echostr = "R";
@@ -217,6 +217,9 @@ sub clientstart
             my $execcmd = "echo ".$echostr." | ".$self->execute
                  ." s_client -engine ossltest -connect "
                  .($self->proxy_addr).":".($self->proxy_port);
+            unless ($self->supports_IPv6) {
+                $execcmd .= " -4";
+            }
             if ($self->cipherc ne "") {
                 $execcmd .= " -cipher ".$self->cipherc;
             }
@@ -233,7 +236,7 @@ sub clientstart
 
     # Wait for incoming connection from client
     my $client_sock;
-    if(!($client_sock = $proxy_sock->accept())) {
+    if(!($client_sock = $self->{proxy_sock}->accept())) {
         warn "Failed accepting incoming connection: $!\n";
         return 0;
     }
@@ -241,7 +244,7 @@ sub clientstart
     print "Connection opened\n";
 
     # Now connect to the server
-    my $retry = 10;
+    my $retry = 50;
     my $server_sock;
     #We loop over this a few times because sometimes s_server can take a while
     #to start up
@@ -279,6 +282,7 @@ sub clientstart
 
     #Wait for either the server socket or the client socket to become readable
     my @ready;
+    local $SIG{PIPE} = "IGNORE";
     while(!(TLSProxy::Message->end) && (@ready = $sel->can_read)) {
         foreach my $hand (@ready) {
             if ($hand == $server_sock) {
@@ -304,9 +308,6 @@ sub clientstart
     if($client_sock) {
         #Closing this also kills the child process
         $client_sock->close();
-    }
-    if($proxy_sock) {
-        $proxy_sock->close();
     }
     if(!$self->debug) {
         select($oldstdout);
@@ -417,24 +418,18 @@ sub supports_IPv6
     my $self = shift;
     return $have_IPv6;
 }
-
-#Read/write accessors
 sub proxy_addr
 {
     my $self = shift;
-    if (@_) {
-      $self->{proxy_addr} = shift;
-    }
     return $self->{proxy_addr};
 }
 sub proxy_port
 {
     my $self = shift;
-    if (@_) {
-      $self->{proxy_port} = shift;
-    }
     return $self->{proxy_port};
 }
+
+#Read/write accessors
 sub server_addr
 {
     my $self = shift;
