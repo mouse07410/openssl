@@ -1,4 +1,4 @@
-# Copyright 1999-2017 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 1999-2018 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the OpenSSL license (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -735,6 +735,7 @@ OBJ_F_OBJ_NID2SN:104:OBJ_nid2sn
 OCSP_F_D2I_OCSP_NONCE:102:d2i_ocsp_nonce
 OCSP_F_OCSP_BASIC_ADD1_STATUS:103:OCSP_basic_add1_status
 OCSP_F_OCSP_BASIC_SIGN:104:OCSP_basic_sign
+OCSP_F_OCSP_BASIC_SIGN_CTX:119:OCSP_basic_sign_ctx
 OCSP_F_OCSP_BASIC_VERIFY:105:OCSP_basic_verify
 OCSP_F_OCSP_CERT_ID_NEW:101:OCSP_cert_id_new
 OCSP_F_OCSP_CHECK_DELEGATED:106:ocsp_check_delegated
@@ -1275,6 +1276,7 @@ SSL_F_TLS_CONSTRUCT_SERVER_HELLO:491:tls_construct_server_hello
 SSL_F_TLS_CONSTRUCT_SERVER_KEY_EXCHANGE:492:tls_construct_server_key_exchange
 SSL_F_TLS_CONSTRUCT_STOC_ALPN:451:tls_construct_stoc_alpn
 SSL_F_TLS_CONSTRUCT_STOC_CERTIFICATE:374:*
+SSL_F_TLS_CONSTRUCT_STOC_COOKIE:613:tls_construct_stoc_cookie
 SSL_F_TLS_CONSTRUCT_STOC_CRYPTOPRO_BUG:452:tls_construct_stoc_cryptopro_bug
 SSL_F_TLS_CONSTRUCT_STOC_DONE:375:*
 SSL_F_TLS_CONSTRUCT_STOC_EARLY_DATA:531:tls_construct_stoc_early_data
@@ -1307,6 +1309,7 @@ SSL_F_TLS_HANDLE_STATUS_REQUEST:563:tls_handle_status_request
 SSL_F_TLS_PARSE_CERTIFICATE_AUTHORITIES:566:tls_parse_certificate_authorities
 SSL_F_TLS_PARSE_CLIENTHELLO_TLSEXT:449:*
 SSL_F_TLS_PARSE_CTOS_ALPN:567:tls_parse_ctos_alpn
+SSL_F_TLS_PARSE_CTOS_COOKIE:614:tls_parse_ctos_cookie
 SSL_F_TLS_PARSE_CTOS_EARLY_DATA:568:tls_parse_ctos_early_data
 SSL_F_TLS_PARSE_CTOS_EC_PT_FORMATS:569:tls_parse_ctos_ec_pt_formats
 SSL_F_TLS_PARSE_CTOS_EMS:570:tls_parse_ctos_ems
