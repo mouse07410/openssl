@@ -880,6 +880,10 @@ int MAIN(int argc, char **argv)
             }
             p++;
         }
+        if (pp[DB_name][0] == '\0') {
+            BIO_printf(bio_err, "entry %d: bad Subject\n", i + 1);
+            goto err;
+        }
     }
     if (verbose) {
         BIO_set_fp(out, stdout, BIO_NOCLOSE | BIO_FP_TEXT); /* cannot fail */
@@ -1672,6 +1676,10 @@ static int do_body(X509 **xret, EVP_PKEY *pkey, X509 *x509,
                    "The Subject's Distinguished Name is as follows\n");
 
     name = X509_REQ_get_subject_name(req);
+    if (X509_NAME_entry_count(name) == 0) {
+        BIO_printf(bio_err, "Error: The supplied Subject is empty\n");
+        goto err;
+    }
     for (i = 0; i < X509_NAME_entry_count(name); i++) {
         ne = X509_NAME_get_entry(name, i);
         str = X509_NAME_ENTRY_get_data(ne);
@@ -1834,6 +1842,12 @@ static int do_body(X509 **xret, EVP_PKEY *pkey, X509 *x509,
         subject = X509_NAME_dup(name);
         if (subject == NULL)
             goto err;
+    }
+
+    if (X509_NAME_entry_count(subject) == 0) {
+        BIO_printf(bio_err,
+                   "Error: After applying policy the Subject is empty\n");
+        goto err;
     }
 
     if (verbose)
