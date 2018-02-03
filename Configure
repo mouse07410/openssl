@@ -508,8 +508,6 @@ while ((my $first, my $second) = (shift @list, shift @list)) {
 # To remove something from %disabled, use "enable-foo".
 # For symmetry, "disable-foo" is a synonym for "no-foo".
 
-my $no_sse2=0;
-
 &usage if ($#ARGV < 0);
 
 my $user_cflags="";
@@ -859,7 +857,7 @@ foreach (sort (keys %disabled))
 	elsif (/^zlib-dynamic$/)
 		{ }
 	elsif (/^sse2$/)
-		{ $no_sse2 = 1; }
+		{ }
 	elsif (/^engine$/)
 		{
 		@{$config{dirs}} = grep !/^engines$/, @{$config{dirs}};
@@ -892,8 +890,6 @@ foreach (sort (keys %disabled))
 			{
 			push @{$config{openssl_other_defines}}, "OPENSSL_NO_$WHAT";
 			print " OPENSSL_NO_$WHAT";
-
-			if (/^err$/)	{ push @user_defines, "OPENSSL_NO_ERR"; }
 			}
 		}
 
@@ -1147,7 +1143,7 @@ unless ($disabled{asm}) {
 
     # bn-586 is the only one implementing bn_*_part_words
     push @{$config{defines}}, "OPENSSL_BN_ASM_PART_WORDS" if ($target{bn_asm_src} =~ /bn-586/);
-    push @{$config{defines}}, "OPENSSL_IA32_SSE2" if (!$no_sse2 && $target{bn_asm_src} =~ /86/);
+    push @{$config{defines}}, "OPENSSL_IA32_SSE2" if (!$disabled{sse2} && $target{bn_asm_src} =~ /86/);
 
     push @{$config{defines}}, "OPENSSL_BN_ASM_MONT" if ($target{bn_asm_src} =~ /-mont/);
     push @{$config{defines}}, "OPENSSL_BN_ASM_MONT5" if ($target{bn_asm_src} =~ /-mont5/);
@@ -1179,7 +1175,7 @@ unless ($disabled{asm}) {
 	push @{$config{defines}}, "AES_CTR_ASM" if ($target{aes_asm_src} =~ s/\s*aes-ctr\.fake//);
 	# aes-xts.fake indicates presence of AES_xts_[en|de]crypt...
 	push @{$config{defines}}, "AES_XTS_ASM" if ($target{aes_asm_src} =~ s/\s*aes-xts\.fake//);
-	$target{aes_asm_src} =~ s/\s*(vpaes|aesni)-x86\.s//g if ($no_sse2);
+	$target{aes_asm_src} =~ s/\s*(vpaes|aesni)-x86\.s//g if ($disabled{sse2});
 	push @{$config{defines}}, "VPAES_ASM" if ($target{aes_asm_src} =~ m/vpaes/);
 	push @{$config{defines}}, "BSAES_ASM" if ($target{aes_asm_src} =~ m/bsaes/);
     }
@@ -1847,13 +1843,6 @@ EOF
                     $d = $unified_info{rename}->{$d};
                 }
                 $unified_info{depends}->{$ddest}->{$d} = 1;
-                # If we depend on a header file or a perl module, let's make
-                # sure it can get included
-                if ($dest ne "" && $d =~ /\.(h|pm)$/) {
-                    my $i = dirname($d);
-                    push @{$unified_info{includes}->{$ddest}->{source}}, $i
-                        unless grep { $_ eq $i } @{$unified_info{includes}->{$ddest}->{source}};
-                }
             }
         }
 
@@ -1880,6 +1869,47 @@ EOF
         }
     }
 
+    # Massage the result
+
+    # If we depend on a header file or a perl module, add an inclusion of
+    # its directory to allow smoothe inclusion
+    foreach my $dest (keys %{$unified_info{depends}}) {
+        next if $dest eq "";
+        foreach my $d (keys %{$unified_info{depends}->{$dest}}) {
+            next unless $d =~ /\.(h|pm)$/;
+            if ($d eq "configdata.pm"
+                    || defined($unified_info{generate}->{$d})) {
+                my $i = cleandir($blddir, dirname($d));
+                push @{$unified_info{includes}->{$dest}->{build}}, $i
+                    unless grep { $_ eq $i } @{$unified_info{includes}->{$dest}->{build}};
+            } else {
+                my $i = cleandir($srcdir, dirname($d));
+                push @{$unified_info{includes}->{$dest}->{source}}, $i
+                    unless grep { $_ eq $i } @{$unified_info{includes}->{$dest}->{source}};
+            }
+        }
+    }
+
+    # Trickle down includes placed on libraries, engines and programs to
+    # their sources (i.e. object files)
+    foreach my $dest (keys %{$unified_info{engines}},
+                      keys %{$unified_info{libraries}},
+                      keys %{$unified_info{programs}}) {
+        foreach my $k (("source", "build")) {
+            next unless defined($unified_info{includes}->{$dest}->{$k});
+            my @incs = reverse @{$unified_info{includes}->{$dest}->{$k}};
+            foreach my $obj (grep /\.o$/,
+                             (keys %{$unified_info{sources}->{$dest}},
+                              keys %{$unified_info{shared_sources}->{$dest}})) {
+                foreach my $inc (@incs) {
+                    unshift @{$unified_info{includes}->{$obj}->{$k}}, $inc
+                        unless grep { $_ eq $inc } @{$unified_info{includes}->{$obj}->{$k}};
+                }
+            }
+        }
+        delete $unified_info{includes}->{$dest};
+    }
+
     ### Make unified_info a bit more efficient
     # One level structures
     foreach (("programs", "libraries", "engines", "scripts", "extra", "overrides")) {
@@ -1895,8 +1925,9 @@ EOF
     # Includes
     foreach my $dest (sort keys %{$unified_info{includes}}) {
         if (defined($unified_info{includes}->{$dest}->{build})) {
-            my @source_includes =
-                ( @{$unified_info{includes}->{$dest}->{source}} );
+            my @source_includes = ();
+            @source_includes = ( @{$unified_info{includes}->{$dest}->{source}} )
+                if defined($unified_info{includes}->{$dest}->{source});
             $unified_info{includes}->{$dest} =
                 [ @{$unified_info{includes}->{$dest}->{build}} ];
             foreach my $inc (@source_includes) {

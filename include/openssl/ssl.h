@@ -323,6 +323,9 @@ typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
         SSL_OP_NO_TLSv1|SSL_OP_NO_TLSv1_1|SSL_OP_NO_TLSv1_2)
 # define SSL_OP_NO_DTLS_MASK (SSL_OP_NO_DTLSv1|SSL_OP_NO_DTLSv1_2)
 
+/* Disallow all renegotiation */
+# define SSL_OP_NO_RENEGOTIATION                         0x40000000U
+
 /*
  * Make server add server-hello extension from early version of cryptopro
  * draft, when GOST ciphersuite is negotiated. Required for interoperability
@@ -1294,17 +1297,17 @@ DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
 #define SSL_CTX_set_max_proto_version(ctx, version) \
         SSL_CTX_ctrl(ctx, SSL_CTRL_SET_MAX_PROTO_VERSION, version, NULL)
 #define SSL_CTX_get_min_proto_version(ctx) \
-        SSL_CTX_ctrl(ctx, SSL_CTRL_GET_MIN_PROTO_VERSION, NULL, NULL)
+        SSL_CTX_ctrl(ctx, SSL_CTRL_GET_MIN_PROTO_VERSION, 0, NULL)
 #define SSL_CTX_get_max_proto_version(ctx) \
-        SSL_CTX_ctrl(ctx, SSL_CTRL_GET_MAX_PROTO_VERSION, NULL, NULL)
+        SSL_CTX_ctrl(ctx, SSL_CTRL_GET_MAX_PROTO_VERSION, 0, NULL)
 #define SSL_set_min_proto_version(s, version) \
         SSL_ctrl(s, SSL_CTRL_SET_MIN_PROTO_VERSION, version, NULL)
 #define SSL_set_max_proto_version(s, version) \
         SSL_ctrl(s, SSL_CTRL_SET_MAX_PROTO_VERSION, version, NULL)
 #define SSL_get_min_proto_version(s) \
-        SSL_ctrl(s, SSL_CTRL_GET_MIN_PROTO_VERSION, NULL, NULL)
+        SSL_ctrl(s, SSL_CTRL_GET_MIN_PROTO_VERSION, 0, NULL)
 #define SSL_get_max_proto_version(s) \
-        SSL_ctrl(s, SSL_CTRL_GET_MAX_PROTO_VERSION, NULL, NULL)
+        SSL_ctrl(s, SSL_CTRL_GET_MAX_PROTO_VERSION, 0, NULL)
 
 #if OPENSSL_API_COMPAT < 0x10100000L
 /* Provide some compatibility macros for removed functionality. */
@@ -2201,6 +2204,8 @@ int ERR_load_SSL_strings(void);
 # define SSL_F_SSL_PARSE_SERVERHELLO_USE_SRTP_EXT         311
 # define SSL_F_SSL_PEEK                                   270
 # define SSL_F_SSL_READ                                   223
+# define SSL_F_SSL_RENEGOTIATE                            516
+# define SSL_F_SSL_RENEGOTIATE_ABBREVIATED                546
 # define SSL_F_SSL_SCAN_CLIENTHELLO_TLSEXT                320
 # define SSL_F_SSL_SCAN_SERVERHELLO_TLSEXT                321
 # define SSL_F_SSL_SESSION_DUP                            348
