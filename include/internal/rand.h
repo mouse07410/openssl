@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2017-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -10,8 +10,8 @@
 #ifndef HEADER_DRBG_RAND_H
 # define HEADER_DRBG_RAND_H
 
-/* In CTR mode, use derivation function ctr_df */
-#define RAND_DRBG_FLAG_CTR_USE_DF            0x2
+/* In CTR mode, disable derivation function ctr_df */
+#define RAND_DRBG_FLAG_CTR_NO_DF            0x1
 
 /*
  * Default security strength (in the sense of [NIST SP 800-90Ar1])
@@ -28,6 +28,7 @@
  * Object lifetime functions.
  */
 RAND_DRBG *RAND_DRBG_new(int type, unsigned int flags, RAND_DRBG *parent);
+RAND_DRBG *RAND_DRBG_secure_new(int type, unsigned int flags, RAND_DRBG *parent);
 int RAND_DRBG_set(RAND_DRBG *drbg, int type, unsigned int flags);
 int RAND_DRBG_instantiate(RAND_DRBG *drbg,
                           const unsigned char *pers, size_t perslen);
@@ -46,6 +47,10 @@ int RAND_DRBG_bytes(RAND_DRBG *drbg, unsigned char *out, size_t outlen);
 
 int RAND_DRBG_set_reseed_interval(RAND_DRBG *drbg, unsigned int interval);
 int RAND_DRBG_set_reseed_time_interval(RAND_DRBG *drbg, time_t interval);
+
+int RAND_DRBG_lock(RAND_DRBG *drbg);
+int RAND_DRBG_unlock(RAND_DRBG *drbg);
+int RAND_DRBG_enable_locking(RAND_DRBG *drbg);
 
 RAND_DRBG *RAND_DRBG_get0_master(void);
 RAND_DRBG *RAND_DRBG_get0_public(void);
