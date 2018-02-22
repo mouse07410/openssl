@@ -372,7 +372,7 @@ uninstall_html_docs:
 
 configdata.pm: "$(SRCDIR)\Configure" {- join(" ", map { '"'.$_.'"' } @{$config{build_file_templates}}, @{$config{build_infos}}, @{$config{conf_files}}) -}
 	@echo "Detected changed: $?"
-	"$(PERL)" configdata.pm -r -v
+	"$(PERL)" configdata.pm -r
 	@echo "**************************************************"
 	@echo "***                                            ***"
 	@echo "***   Please run the same make command again   ***"
@@ -381,7 +381,7 @@ configdata.pm: "$(SRCDIR)\Configure" {- join(" ", map { '"'.$_.'"' } @{$config{b
 	@exit 1
 
 reconfigure reconf:
-	"$(PERL)" configdata.pm -r -v
+	"$(PERL)" configdata.pm -r
 
 {-
  use File::Basename;
@@ -436,9 +436,11 @@ EOF
           }
 
           my $cppflags = $incs;
-          $cppflags .= { lib => '$(LIB_CPPFLAGS)',
-                         dso => '$(DSO_CPPFLAGS)',
-                         bin => '$(BIN_CPPFLAGS)' } -> {$args{intent}};
+          $cppflags .= {
+              lib => ' $(LIB_CFLAGS) $(LIB_CPPFLAGS)',
+              dso => ' $(DSO_CFLAGS) $(DSO_CPPFLAGS)',
+              bin => ' $(BIN_CFLAGS) $(BIN_CPPFLAGS)'
+          } -> {$args{intent}};
           if (defined($generator)) {
               # If the target is named foo.S in build.info, we want to
               # end up generating foo.s in two steps.
