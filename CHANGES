@@ -9,8 +9,8 @@
 
  Changes between 1.1.0g and 1.1.1 [xx XXX xxxx]
 
-  *) Added support for X448 and Ed448. Currently this is only supported in
-     libcrypto (not libssl). Heavily based on original work by Mike Hamburg.
+  *) Added support for X448 and Ed448. Heavily based on original work by
+     Mike Hamburg.
      [Matt Caswell]
 
   *) Extend OSSL_STORE with capabilities to search and to narrow the set of
@@ -3260,8 +3260,11 @@
      to work with OPENSSL_NO_SSL_INTERN defined.
      [Steve Henson]
 
-  *) Add SRP support.
-     [Tom Wu <tjw@cs.stanford.edu> and Ben Laurie]
+  *) A long standing patch to add support for SRP from EdelWeb (Peter
+     Sylvester and Christophe Renou) was integrated.
+     [Christophe Renou <christophe.renou@edelweb.fr>, Peter Sylvester
+     <peter.sylvester@edelweb.fr>, Tom Wu <tjw@cs.stanford.edu>, and
+     Ben Laurie]
 
   *) Add functions to copy EVP_PKEY_METHOD and retrieve flags and id.
      [Steve Henson]
