@@ -14,6 +14,12 @@
 # include "internal/nelem.h"
 # include <assert.h>
 
+# include <sys/types.h>
+# ifndef OPENSSL_NO_POSIX_IO
+#  include <sys/stat.h>
+#  include <fcntl.h>
+# endif
+
 # include <openssl/e_os2.h>
 # include <openssl/ossl_typ.h>
 # include <openssl/bio.h>
@@ -509,6 +515,10 @@ typedef struct db_attr_st {
 typedef struct ca_db_st {
     DB_ATTR attributes;
     TXT_DB *db;
+    char *dbfname;
+# ifndef OPENSSL_NO_POSIX_IO
+    struct stat dbst;
+# endif
 } CA_DB;
 
 void* app_malloc(int sz, const char *what);
