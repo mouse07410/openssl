@@ -516,11 +516,20 @@ int extension_is_relevant(SSL *s, unsigned int extctx, unsigned int thisctx)
                 && (extctx & SSL_EXT_TLS_IMPLEMENTATION_ONLY) != 0)
             || (s->version == SSL3_VERSION
                     && (extctx & SSL_EXT_SSL3_ALLOWED) == 0)
+            /*
+             * Note that SSL_IS_TLS13() means "TLS 1.3 has been negotiated",
+             * which is never true when generating the ClientHello.
+             * However, version negotiation *has* occurred by the time the
+             * ClientHello extensions are being parsed.
+             * Be careful to allow TLS 1.3-only extensions when generating
+             * the ClientHello.
+             */
             || (is_tls13 && (extctx & SSL_EXT_TLS1_2_AND_BELOW_ONLY) != 0)
-            || (!is_tls13 && (extctx & SSL_EXT_TLS1_3_ONLY) != 0)
+            || (!is_tls13 && (extctx & SSL_EXT_TLS1_3_ONLY) != 0
+                && (thisctx & SSL_EXT_CLIENT_HELLO) == 0)
+            || (s->server && !is_tls13 && (extctx & SSL_EXT_TLS1_3_ONLY) != 0)
             || (s->hit && (extctx & SSL_EXT_IGNORE_ON_RESUMPTION) != 0))
         return 0;
-
     return 1;
 }
 
@@ -762,14 +771,7 @@ int should_add_extension(SSL *s, unsigned int extctx, unsigned int thisctx,
         return 0;
 
     /* Check if this extension is defined for our protocol. If not, skip */
-    if ((SSL_IS_DTLS(s) && (extctx & SSL_EXT_TLS_IMPLEMENTATION_ONLY) != 0)
-            || (s->version == SSL3_VERSION
-                    && (extctx & SSL_EXT_SSL3_ALLOWED) == 0)
-            || (SSL_IS_TLS13(s)
-                && (extctx & SSL_EXT_TLS1_2_AND_BELOW_ONLY) != 0)
-            || (!SSL_IS_TLS13(s)
-                && (extctx & SSL_EXT_TLS1_3_ONLY) != 0
-                && (thisctx & SSL_EXT_CLIENT_HELLO) == 0)
+    if (!extension_is_relevant(s, extctx, thisctx)
             || ((extctx & SSL_EXT_TLS1_3_ONLY) != 0
                 && (thisctx & SSL_EXT_CLIENT_HELLO) != 0
                 && (SSL_IS_DTLS(s) || max_version < TLS1_3_VERSION)))
@@ -1426,7 +1428,7 @@ int tls_psk_do_binder(SSL *s, const EVP_MD *md, const unsigned char *msgstart,
     const char external_label[] = "ext binder";
     const char nonce_label[] = "resumption";
     const char *label;
-    size_t bindersize, labelsize, hashsize = EVP_MD_size(md);
+    size_t bindersize, labelsize, psklen, hashsize = EVP_MD_size(md);
     int ret = -1;
     int usepskfored = 0;
 
@@ -1444,16 +1446,12 @@ int tls_psk_do_binder(SSL *s, const EVP_MD *md, const unsigned char *msgstart,
         labelsize = sizeof(resumption_label) - 1;
     }
 
-    if (sess->master_key_length != hashsize) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_PSK_DO_BINDER,
-                 SSL_R_BAD_PSK);
-        goto err;
-    }
-
     if (external) {
         psk = sess->master_key;
+        psklen = sess->master_key_length;
     } else {
         psk = tmppsk;
+        psklen = hashsize;
         if (!tls13_hkdf_expand(s, md, sess->master_key,
                                (const unsigned char *)nonce_label,
                                sizeof(nonce_label) - 1, sess->ext.tick_nonce,
@@ -1475,7 +1473,7 @@ int tls_psk_do_binder(SSL *s, const EVP_MD *md, const unsigned char *msgstart,
         early_secret = (unsigned char *)s->early_secret;
     else
         early_secret = (unsigned char *)sess->early_secret;
-    if (!tls13_generate_secret(s, md, NULL, psk, hashsize, early_secret)) {
+    if (!tls13_generate_secret(s, md, NULL, psk, psklen, early_secret)) {
         /* SSLfatal() already called */
         goto err;
     }
