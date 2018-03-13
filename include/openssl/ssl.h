@@ -546,8 +546,8 @@ typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
 # define SSL_CONF_TYPE_DIR               0x3
 # define SSL_CONF_TYPE_NONE              0x4
 
-/* Length of a TLSv1.3 cookie */
-# define SSL_COOKIE_LENGTH                       255
+/* Maximum length of the application-controlled segment of a a TLSv1.3 cookie */
+# define SSL_COOKIE_LENGTH                       4096
 
 /*
  * Note: SSL[_CTX]_set_{options,mode} use |= op on the previous value, they
@@ -726,6 +726,17 @@ void SSL_CTX_set_cookie_verify_cb(SSL_CTX *ctx,
                                                                *cookie,
                                                                unsigned int
                                                                cookie_len));
+
+void SSL_CTX_set_stateless_cookie_generate_cb(
+    SSL_CTX *ctx,
+    int (*gen_stateless_cookie_cb) (SSL *ssl,
+                                    unsigned char *cookie,
+                                    size_t *cookie_len));
+void SSL_CTX_set_stateless_cookie_verify_cb(
+    SSL_CTX *ctx,
+    int (*verify_stateless_cookie_cb) (SSL *ssl,
+                                       const unsigned char *cookie,
+                                       size_t cookie_len));
 # ifndef OPENSSL_NO_NEXTPROTONEG
 
 typedef int (*SSL_CTX_npn_advertised_cb_func)(SSL *ssl,
@@ -2293,6 +2304,38 @@ __owur const struct openssl_ssl_test_functions *SSL_test_functions(void);
 
 __owur int SSL_free_buffers(SSL *ssl);
 __owur int SSL_alloc_buffers(SSL *ssl);
+
+/* Return codes for tls_get_ticket_from_client() and tls_decrypt_ticket() */
+typedef int SSL_TICKET_RETURN;
+
+/* Support for ticket appdata */
+/* fatal error, malloc failure */
+# define SSL_TICKET_FATAL_ERR_MALLOC 0
+/* fatal error, either from parsing or decrypting the ticket */
+# define SSL_TICKET_FATAL_ERR_OTHER  1
+/* No ticket present */
+# define SSL_TICKET_NONE             2
+/* Empty ticket present */
+# define SSL_TICKET_EMPTY            3
+/* the ticket couldn't be decrypted */
+# define SSL_TICKET_NO_DECRYPT       4
+/* a ticket was successfully decrypted */
+# define SSL_TICKET_SUCCESS          5
+/* same as above but the ticket needs to be renewed */
+# define SSL_TICKET_SUCCESS_RENEW    6
+
+typedef int (*SSL_CTX_generate_session_ticket_fn)(SSL *s, void *arg);
+typedef SSL_TICKET_RETURN (*SSL_CTX_decrypt_session_ticket_fn)(SSL *s, SSL_SESSION *ss,
+                                                               const unsigned char *keyname,
+                                                               size_t keyname_length,
+                                                               SSL_TICKET_RETURN retv,
+                                                               void *arg);
+int SSL_CTX_set_session_ticket_cb(SSL_CTX *ctx,
+                                  SSL_CTX_generate_session_ticket_fn gen_cb,
+                                  SSL_CTX_decrypt_session_ticket_fn dec_cb,
+                                  void *arg);
+int SSL_SESSION_set1_ticket_appdata(SSL_SESSION *ss, const void *data, size_t len);
+int SSL_SESSION_get0_ticket_appdata(SSL_SESSION *ss, void **data, size_t *len);
 
 extern const char SSL_version_str[];
 
