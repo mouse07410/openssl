@@ -1256,7 +1256,7 @@ int n_ssl3_mac(SSL *ssl, SSL3_RECORD *rec, unsigned char *md, int sending)
             || EVP_DigestUpdate(md_ctx, ssl3_pad_2, npad) <= 0
             || EVP_DigestUpdate(md_ctx, md, md_size) <= 0
             || EVP_DigestFinal_ex(md_ctx, md, &md_size_u) <= 0) {
-            EVP_MD_CTX_reset(md_ctx);
+            EVP_MD_CTX_free(md_ctx);
             return 0;
         }
 
@@ -1297,8 +1297,10 @@ int tls1_mac(SSL *ssl, SSL3_RECORD *rec, unsigned char *md, int sending)
         mac_ctx = hash;
     } else {
         hmac = EVP_MD_CTX_new();
-        if (hmac == NULL || !EVP_MD_CTX_copy(hmac, hash))
+        if (hmac == NULL || !EVP_MD_CTX_copy(hmac, hash)) {
+            EVP_MD_CTX_free(hmac);
             return 0;
+        }
         mac_ctx = hmac;
     }
 
