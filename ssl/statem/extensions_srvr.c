@@ -1047,6 +1047,7 @@ int tls_parse_ctos_psk(SSL *s, PACKET *pkt, unsigned int context, X509 *x,
             return 0;
         }
 
+#ifndef OPENSSL_NO_PSK
         if(sess == NULL
                 && s->psk_server_callback != NULL
                 && idlen <= PSK_MAX_IDENTITY_LEN) {
@@ -1097,6 +1098,7 @@ int tls_parse_ctos_psk(SSL *s, PACKET *pkt, unsigned int context, X509 *x,
                 OPENSSL_cleanse(pskdata, pskdatalen);
             }
         }
+#endif /* OPENSSL_NO_PSK */
 
         if (sess != NULL) {
             /* We found a PSK */
@@ -1133,6 +1135,14 @@ int tls_parse_ctos_psk(SSL *s, PACKET *pkt, unsigned int context, X509 *x,
             }
             if (ret == SSL_TICKET_NO_DECRYPT)
                 continue;
+
+            /* Check for replay */
+            if (s->max_early_data > 0
+                    && !SSL_CTX_remove_session(s->session_ctx, sess)) {
+                SSL_SESSION_free(sess);
+                sess = NULL;
+                continue;
+            }
 
             ticket_age = (uint32_t)ticket_agel;
             now = (uint32_t)time(NULL);

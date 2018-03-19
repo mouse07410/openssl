@@ -733,7 +733,13 @@ DEFINE_LHASH_OF(SSL_SESSION);
 /* Needed in ssl_cert.c */
 DEFINE_LHASH_OF(X509_NAME);
 
-# define TLSEXT_KEYNAME_LENGTH 16
+# define TLSEXT_KEYNAME_LENGTH  16
+# define TLSEXT_TICK_KEY_LENGTH 32
+
+typedef struct ssl_ctx_ext_secure_st {
+    unsigned char tick_hmac_key[TLSEXT_TICK_KEY_LENGTH];
+    unsigned char tick_aes_key[TLSEXT_TICK_KEY_LENGTH];
+} SSL_CTX_EXT_SECURE;
 
 struct ssl_ctx_st {
     const SSL_METHOD *method;
@@ -927,8 +933,7 @@ struct ssl_ctx_st {
         void *servername_arg;
         /* RFC 4507 session ticket keys */
         unsigned char tick_key_name[TLSEXT_KEYNAME_LENGTH];
-        unsigned char tick_hmac_key[32];
-        unsigned char tick_aes_key[32];
+        SSL_CTX_EXT_SECURE *secure;
         /* Callback to support customisation of ticket key setting */
         int (*ticket_key_cb) (SSL *ssl,
                               unsigned char *name, unsigned char *iv,
@@ -1407,7 +1412,6 @@ struct ssl_st {
     size_t block_padding;
 
     CRYPTO_RWLOCK *lock;
-    RAND_DRBG *drbg;
 };
 
 /*
@@ -2238,7 +2242,6 @@ __owur int ssl_build_cert_chain(SSL *s, SSL_CTX *ctx, int flags);
 __owur int ssl_cert_set_cert_store(CERT *c, X509_STORE *store, int chain,
                                    int ref);
 
-__owur int ssl_randbytes(SSL *s, unsigned char *buf, size_t num);
 __owur int ssl_security(const SSL *s, int op, int bits, int nid, void *other);
 __owur int ssl_ctx_security(const SSL_CTX *ctx, int op, int bits, int nid,
                             void *other);
@@ -2588,6 +2591,9 @@ __owur int custom_exts_copy_flags(custom_ext_methods *dst,
 void custom_exts_free(custom_ext_methods *exts);
 
 void ssl_comp_free_compression_methods_int(void);
+
+/* ssl_mcnf.c */
+void ssl_ctx_system_config(SSL_CTX *ctx);
 
 # else /* OPENSSL_UNIT_TEST */
 

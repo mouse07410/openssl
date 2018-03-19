@@ -1349,11 +1349,11 @@ SSL_TICKET_RETURN tls_decrypt_ticket(SSL *s, const unsigned char *etick,
             ret = SSL_TICKET_NO_DECRYPT;
             goto err;
         }
-        if (HMAC_Init_ex(hctx, tctx->ext.tick_hmac_key,
-                         sizeof(tctx->ext.tick_hmac_key),
+        if (HMAC_Init_ex(hctx, tctx->ext.secure->tick_hmac_key,
+                         sizeof(tctx->ext.secure->tick_hmac_key),
                          EVP_sha256(), NULL) <= 0
             || EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL,
-                                  tctx->ext.tick_aes_key,
+                                  tctx->ext.secure->tick_aes_key,
                                   etick + TLSEXT_KEYNAME_LENGTH) <= 0) {
             goto err;
         }
@@ -1409,7 +1409,7 @@ SSL_TICKET_RETURN tls_decrypt_ticket(SSL *s, const unsigned char *etick,
     OPENSSL_free(sdec);
     if (sess) {
         /* Some additional consistency checks */
-        if (slen != 0 || sess->session_id_length != 0) {
+        if (slen != 0) {
             SSL_SESSION_free(sess);
             return SSL_TICKET_NO_DECRYPT;
         }
@@ -1419,9 +1419,10 @@ SSL_TICKET_RETURN tls_decrypt_ticket(SSL *s, const unsigned char *etick,
          * structure. If it is empty set length to zero as required by
          * standard.
          */
-        if (sesslen)
+        if (sesslen) {
             memcpy(sess->session_id, sess_id, sesslen);
-        sess->session_id_length = sesslen;
+            sess->session_id_length = sesslen;
+        }
         *psess = sess;
         if (renew_ticket)
             return SSL_TICKET_SUCCESS_RENEW;
