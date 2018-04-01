@@ -423,7 +423,7 @@ my %deprecated_disablables = (
     "ui" => "ui-console",
     );
 
-# All of the following is disabled by default (RC5 was enabled before 0.9.8):
+# All of the following are disabled by default:
 
 our %disabled = ( # "what"         => "comment"
                   "asan"		=> "default",
@@ -1476,7 +1476,6 @@ if ($strict_warnings)
 
 	die "ERROR --strict-warnings requires gcc[>=4] or gcc-alike"
             unless $gccver >= 4;
-	$gcc_devteam_warn .= " -Wmisleading-indentation" if $gccver >= 6;
 	foreach $wopt (split /\s+/, $gcc_devteam_warn)
 		{
 		push @{$config{cflags}}, $wopt
