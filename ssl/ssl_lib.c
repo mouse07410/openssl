@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -3030,6 +3030,18 @@ void ssl_update_cache(SSL *s, int mode)
      * would be rather hard to do anyway :-)
      */
     if (s->session->session_id_length == 0)
+        return;
+
+    /*
+     * If sid_ctx_length is 0 there is no specific application context
+     * associated with this session, so when we try to resume it and
+     * SSL_VERIFY_PEER is requested, we have no indication that this is
+     * actually a session for the proper application context, and the
+     * *handshake* will fail, not just the resumption attempt.
+     * Do not cache these sessions that are not resumable.
+     */
+    if (s->session->sid_ctx_length == 0
+            && (s->verify_mode & SSL_VERIFY_PEER) != 0)
         return;
 
     i = s->session_ctx->session_cache_mode;

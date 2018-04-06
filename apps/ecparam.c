@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2002-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -393,6 +393,9 @@ int ecparam_main(int argc, char **argv)
                         "}\n");
     }
 
+    if (outformat == FORMAT_ASN1 && genkey)
+        noout = 1;
+
     if (!noout) {
         if (outformat == FORMAT_ASN1)
             i = i2d_ECPKParameters_bio(out, group);
@@ -427,6 +430,9 @@ int ecparam_main(int argc, char **argv)
             ERR_print_errors(bio_err);
             goto end;
         }
+
+        if (new_form)
+            EC_KEY_set_conv_form(eckey, form);
 
         if (!EC_KEY_generate_key(eckey)) {
             BIO_printf(bio_err, "unable to generate key\n");
