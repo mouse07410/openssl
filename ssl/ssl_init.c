@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -195,7 +195,9 @@ int OPENSSL_init_ssl(uint64_t opts, const OPENSSL_INIT_SETTINGS * settings)
     }
 
     if (!OPENSSL_init_crypto(opts
+#ifndef OPENSSL_NO_AUTOLOAD_CONFIG
                              | OPENSSL_INIT_LOAD_CONFIG
+#endif
                              | OPENSSL_INIT_ADD_ALL_CIPHERS
                              | OPENSSL_INIT_ADD_ALL_DIGESTS,
                              settings))
