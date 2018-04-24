@@ -1073,9 +1073,6 @@ WORK_STATE tls_finish_handshake(SSL *s, WORK_STATE wst, int clearbufs, int stop)
                               &discard, s->session_ctx->lock);
         }
 
-        if (cb != NULL)
-            cb(s, SSL_CB_HANDSHAKE_DONE, 1);
-
         if (SSL_IS_DTLS(s)) {
             /* done with handshaking */
             s->d1->handshake_read_seq = 0;
@@ -2006,6 +2003,13 @@ int ssl_get_min_max_version(const SSL *s, int *min_version, int *max_version)
 int ssl_set_client_hello_version(SSL *s)
 {
     int ver_min, ver_max, ret;
+
+    /*
+     * In a renegotiation we always send the same client_version that we sent
+     * last time, regardless of which version we eventually negotiated.
+     */
+    if (!SSL_IS_FIRST_HANDSHAKE(s))
+        return 0;
 
     ret = ssl_get_min_max_version(s, &ver_min, &ver_max);
 
