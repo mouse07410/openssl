@@ -1865,10 +1865,11 @@ int X509_cmp_time(const ASN1_TIME *ctm, time_t *cmp_time)
             return 1;
     }
     i = strcmp(buff1, buff2);
-    if (i == 0)                 /* wait a second then return younger :-) */
-        return -1;
-    else
-        return i;
+    /*
+     * X509_cmp_time comparison is <=.
+     * The return value 0 is reserved for errors.
+     */
+    return i > 0 ? 1 : -1;
 }
 
 ASN1_TIME *X509_gmtime_adj(ASN1_TIME *s, long adj)
@@ -3263,6 +3264,10 @@ static int check_sig_level(X509_STORE_CTX *ctx, X509 *cert)
         return 1;
     if (level > NUM_AUTH_LEVELS)
         level = NUM_AUTH_LEVELS;
+
+    /* We are not able to look up the CA MD for RSA PSS in this version */
+    if (nid == NID_rsassaPss)
+        return 1;
 
     /* Lookup signature algorithm digest */
     if (nid && OBJ_find_sigid_algs(nid, &mdnid, NULL)) {

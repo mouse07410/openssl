@@ -408,7 +408,7 @@ int tls1_set_curves(unsigned char **pext, size_t *pextlen,
     return 1;
 }
 
-# define MAX_CURVELIST   28
+# define MAX_CURVELIST   OSSL_NELEM(nid_list)
 
 typedef struct {
     size_t nidcnt;
@@ -2156,6 +2156,10 @@ static int ssl_scan_clienthello_tlsext(SSL *s, PACKET *pkt, int *al)
                 }
             }
         } else if (type == TLSEXT_TYPE_status_request) {
+            /* Ignore this if resuming */
+            if (s->hit)
+                continue;
+
             if (!PACKET_get_1(&extension,
                               (unsigned int *)&s->tlsext_status_type)) {
                 return 0;
@@ -2796,7 +2800,7 @@ int tls1_set_server_sigalgs(SSL *s)
         if (!s->cert->shared_sigalgs) {
             SSLerr(SSL_F_TLS1_SET_SERVER_SIGALGS,
                    SSL_R_NO_SHARED_SIGNATURE_ALGORITHMS);
-            al = SSL_AD_ILLEGAL_PARAMETER;
+            al = SSL_AD_HANDSHAKE_FAILURE;
             goto err;
         }
     } else {
@@ -4184,6 +4188,9 @@ static int ssl_security_cert_sig(SSL *s, SSL_CTX *ctx, X509 *x, int op)
     if ((X509_get_extension_flags(x) & EXFLAG_SS) != 0)
         return 1;
     sig_nid = X509_get_signature_nid(x);
+    /* We are not able to look up the CA MD for RSA PSS in this version */
+    if (sig_nid == NID_rsassaPss)
+        return 1;
     if (sig_nid && OBJ_find_sigid_algs(sig_nid, &md_nid, NULL)) {
         const EVP_MD *md;
         if (md_nid && (md = EVP_get_digestbynid(md_nid)))
