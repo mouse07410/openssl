@@ -8,13 +8,20 @@
  release branch.
 
  Changes between 1.1.0h and 1.1.1 [xx XXX xxxx]
+  *) Make ec_group_do_inverse_ord() more robust and available to other
+     EC cryptosystems, so that irrespective of BN_FLG_CONSTTIME, SCA
+     mitigations are applied to the fallback BN_mod_inverse().
+     When using this function rather than BN_mod_inverse() directly, new
+     EC cryptosystem implementations are then safer-by-default.
+     [Billy Bob Brumley]
+
   *) Add coordinate blinding for EC_POINT and implement projective
      coordinate blinding for generic prime curves as a countermeasure to
      chosen point SCA attacks.
      [Sohaib ul Hassan, Nicola Tuveri, Billy Bob Brumley]
 
-  *) Add blinding to an ECDSA signature to protect against side channel attacks
-     discovered by Keegan Ryan (NCC Group).
+  *) Add blinding to ECDSA and DSA signatures to protect against side channel
+     attacks discovered by Keegan Ryan (NCC Group).
      [Matt Caswell]
 
   *) Enforce checking in the pkeyutl command line app to ensure that the input
