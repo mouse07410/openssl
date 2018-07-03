@@ -3129,14 +3129,13 @@ static int tls_process_cke_dhe(SSL *s, PACKET *pkt)
                  SSL_R_BN_LIB);
         goto err;
     }
+
     cdh = EVP_PKEY_get0_DH(ckey);
     pub_key = BN_bin2bn(data, i, NULL);
-
-    if (pub_key == NULL || !DH_set0_key(cdh, pub_key, NULL)) {
+    if (pub_key == NULL || cdh == NULL || !DH_set0_key(cdh, pub_key, NULL)) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_PROCESS_CKE_DHE,
                  ERR_R_INTERNAL_ERROR);
-        if (pub_key != NULL)
-            BN_free(pub_key);
+        BN_free(pub_key);
         goto err;
     }
 
@@ -4087,8 +4086,10 @@ int tls_construct_new_session_ticket(SSL *s, WPACKET *pkt)
      * SSL_OP_NO_TICKET is set - we are caching tickets anyway so there
      * is no point in using full stateless tickets.
      */
-    if (((s->options & SSL_OP_NO_TICKET) != 0 || s->max_early_data > 0)
-            && SSL_IS_TLS13(s)) {
+    if (SSL_IS_TLS13(s)
+            && ((s->options & SSL_OP_NO_TICKET) != 0
+                || (s->max_early_data > 0
+                    && (s->options & SSL_OP_NO_ANTI_REPLAY) == 0))) {
         if (!construct_stateful_ticket(s, pkt, age_add_u.age_add, tick_nonce)) {
             /* SSLfatal() already called */
             goto err;
