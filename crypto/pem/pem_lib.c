@@ -447,7 +447,7 @@ int PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *plen,
         klen = PEM_def_callback(buf, PEM_BUFSIZE, 0, u);
     else
         klen = callback(buf, PEM_BUFSIZE, 0, u);
-    if (klen <= 0) {
+    if (klen < 0) {
         PEMerr(PEM_F_PEM_DO_HEADER, PEM_R_BAD_PASSWORD_READ);
         return (0);
     }
@@ -487,6 +487,7 @@ int PEM_get_EVP_CIPHER_INFO(char *header, EVP_CIPHER_INFO *cipher)
     char **header_pp = &header;
 
     cipher->cipher = NULL;
+    memset(cipher->iv, 0, sizeof(cipher->iv));
     if ((header == NULL) || (*header == '\0') || (*header == '\n'))
         return (1);
     if (strncmp(header, "Proc-Type: ", 11) != 0) {
