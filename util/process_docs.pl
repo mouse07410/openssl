@@ -101,7 +101,7 @@ foreach my $subdir (keys %{$options{subdir}}) {
         my $suffix = { man  => ".$podinfo{section}".($options{suffix} // ""),
                        html => ".html" } -> {$options{type}};
         my $generate = { man  => "pod2man --name=$name --section=$podinfo{section} --center=OpenSSL --release=$config{version} \"$podpath\"",
-                         html => "pod2html \"--podroot=$options{sourcedir}\" --htmldir=$updir --podpath=apps:crypto:ssl \"--infile=$podpath\" \"--title=$podname\""
+                         html => "pod2html \"--podroot=$options{sourcedir}\" --htmldir=$updir --podpath=apps:crypto:ssl \"--infile=$podpath\" \"--title=$podname\" --quiet"
                          } -> {$options{type}};
         my $output_dir = catdir($options{destdir}, "man$podinfo{section}");
         my $output_file = $podname . $suffix;
@@ -115,6 +115,32 @@ foreach my $subdir (keys %{$options{subdir}}) {
                 @output = `$generate`;
                 map { s|href="http://man\.he\.net/(man\d/[^"]+)(?:\.html)?"|href="../$1.html|g; } @output
                     if $options{type} eq "html";
+                if ($options{type} eq "man") {
+                    # Because some *roff parsers are more strict than others,
+                    # multiple lines in the NAME section must be merged into
+                    # one.
+                    my $in_name = 0;
+                    my $name_line = "";
+                    my @newoutput = ();
+                    foreach (@output) {
+                        if ($in_name) {
+                            if (/^\.SH "/) {
+                                $in_name = 0;
+                                push @newoutput, $name_line."\n";
+                            } else {
+                                chomp (my $x = $_);
+                                $name_line .= " " if $name_line;
+                                $name_line .= $x;
+                                next;
+                            }
+                        }
+                        if (/^\.SH +"NAME" *$/) {
+                            $in_name = 1;
+                        }
+                        push @newoutput, $_;
+                    }
+                    @output = @newoutput;
+                }
             }
             print STDERR "DEBUG: Done processing\n" if $options{debug};
 
