@@ -298,7 +298,7 @@ static int opt_found(const char *name, unsigned int *result,
 
 typedef enum OPTION_choice {
     OPT_ERR = -1, OPT_EOF = 0, OPT_HELP,
-    OPT_ELAPSED, OPT_EVP, OPT_DECRYPT, OPT_ENGINE, OPT_MULTI,
+    OPT_ELAPSED, OPT_EVP, OPT_HMAC, OPT_DECRYPT, OPT_ENGINE, OPT_MULTI,
     OPT_MR, OPT_MB, OPT_MISALIGN, OPT_ASYNCJOBS, OPT_R_ENUM,
     OPT_PRIMES, OPT_SECONDS, OPT_BYTES, OPT_AEAD
 } OPTION_CHOICE;
@@ -308,6 +308,7 @@ const OPTIONS speed_options[] = {
     {OPT_HELP_STR, 1, '-', "Valid options are:\n"},
     {"help", OPT_HELP, '-', "Display this summary"},
     {"evp", OPT_EVP, 's', "Use EVP-named cipher or digest"},
+    {"hmac", OPT_HMAC, 's', "HMAC using EVP-named digest"},
     {"decrypt", OPT_DECRYPT, '-',
      "Time decryption instead of encryption (only EVP)"},
     {"aead", OPT_AEAD, '-',
@@ -369,6 +370,8 @@ const OPTIONS speed_options[] = {
 #define D_IGE_256_AES   28
 #define D_GHASH         29
 #define D_RAND          30
+#define D_EVP_HMAC      31
+
 /* name of algorithms to test */
 static const char *names[] = {
     "md2", "mdc2", "md4", "md5", "hmac(md5)", "sha1", "rmd160", "rc4",
@@ -378,7 +381,7 @@ static const char *names[] = {
     "camellia-128 cbc", "camellia-192 cbc", "camellia-256 cbc",
     "evp", "sha256", "sha512", "whirlpool",
     "aes-128 ige", "aes-192 ige", "aes-256 ige", "ghash",
-    "rand"
+    "rand", "hmac"
 };
 #define ALGOR_NUM       OSSL_NELEM(names)
 
@@ -600,6 +603,7 @@ typedef struct loopargs_st {
     unsigned char *buf2_malloc;
     unsigned char *key;
     unsigned int siglen;
+    size_t sigsize;
 #ifndef OPENSSL_NO_RSA
     RSA *rsa_key[RSA_NUM];
 #endif
@@ -1031,6 +1035,26 @@ static int EVP_Digest_loop(void *args)
     return count;
 }
 
+static const EVP_MD *evp_hmac_md = NULL;
+static char *evp_hmac_name = NULL;
+static int EVP_HMAC_loop(void *args)
+{
+    loopargs_t *tempargs = *(loopargs_t **) args;
+    unsigned char *buf = tempargs->buf;
+    unsigned char no_key[32];
+    int count;
+#ifndef SIGALRM
+    int nb_iter = save_count * 4 * lengths[0] / lengths[testnum];
+#endif
+
+    for (count = 0; COND(nb_iter); count++) {
+        if (HMAC(evp_hmac_md, no_key, sizeof(no_key), buf, lengths[testnum],
+                 NULL, NULL) == NULL)
+            return -1;
+    }
+    return count;
+}
+
 #ifndef OPENSSL_NO_RSA
 static long rsa_c[RSA_NUM][2];  /* # RSA iteration test */
 
@@ -1185,11 +1209,11 @@ static int EdDSA_sign_loop(void *args)
     unsigned char *buf = tempargs->buf;
     EVP_MD_CTX **edctx = tempargs->eddsa_ctx;
     unsigned char *eddsasig = tempargs->buf2;
-    unsigned int *eddsasiglen = &tempargs->siglen;
+    size_t *eddsasigsize = &tempargs->sigsize;
     int ret, count;
 
     for (count = 0; COND(eddsa_c[testnum][0]); count++) {
-        ret = EVP_DigestSign(edctx[testnum], eddsasig, (size_t *)eddsasiglen, buf, 20);
+        ret = EVP_DigestSign(edctx[testnum], eddsasig, eddsasigsize, buf, 20);
         if (ret == 0) {
             BIO_printf(bio_err, "EdDSA sign failure\n");
             ERR_print_errors(bio_err);
@@ -1206,11 +1230,11 @@ static int EdDSA_verify_loop(void *args)
     unsigned char *buf = tempargs->buf;
     EVP_MD_CTX **edctx = tempargs->eddsa_ctx;
     unsigned char *eddsasig = tempargs->buf2;
-    unsigned int eddsasiglen = tempargs->siglen;
+    size_t eddsasigsize = tempargs->sigsize;
     int ret, count;
 
     for (count = 0; COND(eddsa_c[testnum][1]); count++) {
-        ret = EVP_DigestVerify(edctx[testnum], eddsasig, eddsasiglen, buf, 20);
+        ret = EVP_DigestVerify(edctx[testnum], eddsasig, eddsasigsize, buf, 20);
         if (ret != 1) {
             BIO_printf(bio_err, "EdDSA verify failure\n");
             ERR_print_errors(bio_err);
@@ -1525,7 +1549,7 @@ int speed_main(int argc, char **argv)
         const char *name;
         unsigned int nid;
         unsigned int bits;
-        unsigned int siglen;
+        size_t sigsize;
     } test_ed_curves[] = {
         /* EdDSA */
         {"Ed25519", NID_ED25519, 253, 64},
@@ -1565,6 +1589,15 @@ int speed_main(int argc, char **argv)
                 goto end;
             }
             doit[D_EVP] = 1;
+            break;
+        case OPT_HMAC:
+            evp_hmac_md = EVP_get_digestbyname(opt_arg());
+            if (evp_hmac_md == NULL) {
+                BIO_printf(bio_err, "%s: %s is an unknown digest\n",
+                           prog, opt_arg());
+                goto end;
+            }
+            doit[D_EVP_HMAC] = 1;
             break;
         case OPT_DECRYPT:
             decrypt = 1;
@@ -1804,9 +1837,9 @@ int speed_main(int argc, char **argv)
     e = setup_engine(engine_id, 0);
 
     /* No parameters; turn on everything. */
-    if ((argc == 0) && !doit[D_EVP]) {
+    if (argc == 0 && !doit[D_EVP] && !doit[D_EVP_HMAC]) {
         for (i = 0; i < ALGOR_NUM; i++)
-            if (i != D_EVP)
+            if (i != D_EVP && i != D_EVP_HMAC)
                 doit[i] = 1;
 #ifndef OPENSSL_NO_RSA
         for (i = 0; i < RSA_NUM; i++)
@@ -2648,6 +2681,25 @@ int speed_main(int argc, char **argv)
         }
     }
 
+    if (doit[D_EVP_HMAC]) {
+        if (evp_hmac_md != NULL) {
+            const char *md_name = OBJ_nid2ln(EVP_MD_type(evp_hmac_md));
+            evp_hmac_name = app_malloc(sizeof("HMAC()") + strlen(md_name),
+                                       "HMAC name");
+            sprintf(evp_hmac_name, "HMAC(%s)", md_name);
+            names[D_EVP_HMAC] = evp_hmac_name;
+
+            for (testnum = 0; testnum < size_num; testnum++) {
+                print_message(names[D_EVP_HMAC], save_count, lengths[testnum],
+                              seconds.sym);
+                Time_F(START);
+                count = run_benchmark(async_jobs, EVP_HMAC_loop, loopargs);
+                d = Time_F(STOP);
+                print_result(D_EVP_HMAC, testnum, count, d);
+            }
+        }
+    }
+
     for (i = 0; i < loopargs_len; i++)
         if (RAND_bytes(loopargs[i].buf, 36) <= 0)
             goto end;
@@ -3101,9 +3153,9 @@ int speed_main(int argc, char **argv)
         } else {
             for (i = 0; i < loopargs_len; i++) {
                 /* Perform EdDSA signature test */
-                loopargs[i].siglen = test_ed_curves[testnum].siglen;
+                loopargs[i].sigsize = test_ed_curves[testnum].sigsize;
                 st = EVP_DigestSign(loopargs[i].eddsa_ctx[testnum],
-                                    loopargs[i].buf2, (size_t *)&loopargs[i].siglen,
+                                    loopargs[i].buf2, &loopargs[i].sigsize,
                                     loopargs[i].buf, 20);
                 if (st == 0)
                     break;
@@ -3133,7 +3185,7 @@ int speed_main(int argc, char **argv)
             /* Perform EdDSA verification test */
             for (i = 0; i < loopargs_len; i++) {
                 st = EVP_DigestVerify(loopargs[i].eddsa_ctx[testnum],
-                                      loopargs[i].buf2, loopargs[i].siglen,
+                                      loopargs[i].buf2, loopargs[i].sigsize,
                                       loopargs[i].buf, 20);
                 if (st != 1)
                     break;
@@ -3346,6 +3398,7 @@ int speed_main(int argc, char **argv)
         OPENSSL_free(loopargs[i].secret_b);
 #endif
     }
+    OPENSSL_free(evp_hmac_name);
 
     if (async_jobs > 0) {
         for (i = 0; i < loopargs_len; i++)
