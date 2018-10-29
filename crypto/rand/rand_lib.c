@@ -174,6 +174,8 @@ size_t rand_drbg_get_entropy(RAND_DRBG *drbg,
                                    prediction_resistance,
                                    NULL, 0) != 0)
                 bytes = bytes_needed;
+            drbg->reseed_next_counter
+                = tsan_load(&drbg->parent->reseed_prop_counter);
             rand_drbg_unlock(drbg->parent);
 
             rand_pool_add_end(pool, bytes, 8 * bytes);
@@ -202,11 +204,8 @@ size_t rand_drbg_get_entropy(RAND_DRBG *drbg,
     }
 
  err:
-    /* we need to reset drbg->pool in the error case */
-    if (ret == 0 && drbg->pool != NULL)
-        drbg->pool = NULL;
-
-    rand_pool_free(pool);
+    if (drbg->pool == NULL)
+        rand_pool_free(pool);
     return ret;
 }
 
@@ -219,8 +218,6 @@ void rand_drbg_cleanup_entropy(RAND_DRBG *drbg,
 {
     if (drbg->pool == NULL)
         OPENSSL_secure_clear_free(out, outlen);
-    else
-        drbg->pool = NULL;
 }
 
 
@@ -545,6 +542,8 @@ unsigned char *rand_pool_detach(RAND_POOL *pool)
 {
     unsigned char *ret = pool->buffer;
     pool->buffer = NULL;
+    pool->len = 0;
+    pool->entropy = 0;
     return ret;
 }
 
