@@ -415,15 +415,6 @@ int RAND_DRBG_instantiate(RAND_DRBG *drbg,
         drbg->cleanup_entropy(drbg, entropy, entropylen);
     if (nonce != NULL && drbg->cleanup_nonce != NULL)
         drbg->cleanup_nonce(drbg, nonce, noncelen);
-    if (drbg->pool != NULL) {
-        if (drbg->state == DRBG_READY) {
-            RANDerr(RAND_F_RAND_DRBG_INSTANTIATE,
-                    RAND_R_ERROR_ENTROPY_POOL_WAS_IGNORED);
-            drbg->state = DRBG_ERROR;
-        }
-        rand_pool_free(drbg->pool);
-        drbg->pool = NULL;
-    }
     if (drbg->state == DRBG_READY)
         return 1;
     return 0;
@@ -630,14 +621,8 @@ int rand_drbg_restart(RAND_DRBG *drbg,
         }
     }
 
-    /* check whether a given entropy pool was cleared properly during reseed */
-    if (drbg->pool != NULL) {
-        drbg->state = DRBG_ERROR;
-        RANDerr(RAND_F_RAND_DRBG_RESTART, ERR_R_INTERNAL_ERROR);
-        rand_pool_free(drbg->pool);
-        drbg->pool = NULL;
-        return 0;
-    }
+    rand_pool_free(drbg->pool);
+    drbg->pool = NULL;
 
     return drbg->state == DRBG_READY;
 }
@@ -1086,13 +1071,15 @@ static int drbg_add(const void *buf, int num, double randomness)
     int ret = 0;
     RAND_DRBG *drbg = RAND_DRBG_get0_master();
     size_t buflen;
-    size_t seedlen = rand_drbg_seedlen(drbg);
+    size_t seedlen;
 
     if (drbg == NULL)
         return 0;
 
     if (num < 0 || randomness < 0.0)
         return 0;
+
+    seedlen = rand_drbg_seedlen(drbg);
 
     buflen = (size_t)num;
 
