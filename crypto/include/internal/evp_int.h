@@ -128,6 +128,10 @@ struct evp_mac_st {
     int (*ctrl_str) (EVP_MAC_IMPL *macctx, const char *type, const char *value);
 };
 
+extern const EVP_MAC cmac_meth;
+extern const EVP_MAC hmac_meth;
+extern const EVP_MAC siphash_meth;
+
 /*
  * This function is internal for now, but can be made external when needed.
  * The documentation would read:

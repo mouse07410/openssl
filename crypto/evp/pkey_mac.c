@@ -327,15 +327,74 @@ static int pkey_mac_ctrl_str(EVP_PKEY_CTX *ctx,
     return EVP_MAC_ctrl_str(hctx->ctx, type, value);
 }
 
-/*
- * When this is actually used, the following will be replaced with real
- * EVP_PKEY_METHODs, all exactly the same apart from the type and possibly
- * the flags.
- */
+const EVP_PKEY_METHOD cmac_pkey_meth = {
+    EVP_PKEY_CMAC,
+    EVP_PKEY_FLAG_SIGCTX_CUSTOM,
+    pkey_mac_init,
+    pkey_mac_copy,
+    pkey_mac_cleanup,
 
-extern const EVP_PKEY_METHOD FAKE_pkey_meth;
-const EVP_PKEY_METHOD FAKE_pkey_meth = {
-    20870442 /* EVP_PKEY_FAKE, a beast times 31337 (you do the math) */,
+    0, 0,
+
+    0,
+    pkey_mac_keygen,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    pkey_mac_signctx_init,
+    pkey_mac_signctx,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    pkey_mac_ctrl,
+    pkey_mac_ctrl_str
+};
+
+const EVP_PKEY_METHOD hmac_pkey_meth = {
+    EVP_PKEY_HMAC,
+    0,
+    pkey_mac_init,
+    pkey_mac_copy,
+    pkey_mac_cleanup,
+
+    0, 0,
+
+    0,
+    pkey_mac_keygen,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    pkey_mac_signctx_init,
+    pkey_mac_signctx,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    0, 0,
+
+    pkey_mac_ctrl,
+    pkey_mac_ctrl_str
+};
+
+const EVP_PKEY_METHOD siphash_pkey_meth = {
+    EVP_PKEY_SIPHASH,
     EVP_PKEY_FLAG_SIGCTX_CUSTOM,
     pkey_mac_init,
     pkey_mac_copy,
