@@ -109,16 +109,27 @@ int RAND_DRBG_set(RAND_DRBG *drbg, int type, unsigned int flags)
         flags = rand_drbg_flags;
     }
 
+    /* If set is called multiple times - clear the old one */
+    if (drbg->type != 0 && (type != drbg->type || flags != drbg->flags)) {
+        drbg->meth->uninstantiate(drbg);
+        rand_pool_free(drbg->adin_pool);
+        drbg->adin_pool = NULL;
+    }
+
     drbg->state = DRBG_UNINITIALISED;
     drbg->flags = flags;
     drbg->type = type;
 
     switch (type) {
     default:
+        drbg->type = 0;
+        drbg->flags = 0;
+        drbg->meth = NULL;
         RANDerr(RAND_F_RAND_DRBG_SET, RAND_R_UNSUPPORTED_DRBG_TYPE);
         return 0;
     case 0:
         /* Uninitialized; that's okay. */
+        drbg->meth = NULL;
         return 1;
     case NID_aes_128_ctr:
     case NID_aes_192_ctr:
@@ -127,8 +138,10 @@ int RAND_DRBG_set(RAND_DRBG *drbg, int type, unsigned int flags)
         break;
     }
 
-    if (ret == 0)
+    if (ret == 0) {
+        drbg->state = DRBG_ERROR;
         RANDerr(RAND_F_RAND_DRBG_SET, RAND_R_ERROR_INITIALISING_DRBG);
+    }
     return ret;
 }
 
@@ -229,10 +242,7 @@ static RAND_DRBG *rand_drbg_new(int secure,
     return drbg;
 
  err:
-    if (drbg->secure)
-        OPENSSL_secure_free(drbg);
-    else
-        OPENSSL_free(drbg);
+    RAND_DRBG_free(drbg);
 
     return NULL;
 }
@@ -257,6 +267,7 @@ void RAND_DRBG_free(RAND_DRBG *drbg)
 
     if (drbg->meth != NULL)
         drbg->meth->uninstantiate(drbg);
+    rand_pool_free(drbg->adin_pool);
     CRYPTO_THREAD_lock_free(drbg->lock);
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_DRBG, drbg, &drbg->ex_data);
 
@@ -372,6 +383,7 @@ int RAND_DRBG_instantiate(RAND_DRBG *drbg,
 int RAND_DRBG_uninstantiate(RAND_DRBG *drbg)
 {
     if (drbg->meth == NULL) {
+        drbg->state = DRBG_ERROR;
         RANDerr(RAND_F_RAND_DRBG_UNINSTANTIATE,
                 RAND_R_NO_DRBG_IMPLEMENTATION_SELECTED);
         return 0;
@@ -647,9 +659,18 @@ int RAND_DRBG_bytes(RAND_DRBG *drbg, unsigned char *out, size_t outlen)
     unsigned char *additional = NULL;
     size_t additional_len;
     size_t chunk;
-    size_t ret;
+    size_t ret = 0;
 
-    additional_len = rand_drbg_get_additional_data(&additional, drbg->max_adinlen);
+    if (drbg->adin_pool == NULL) {
+        if (drbg->type == 0)
+            goto err;
+        drbg->adin_pool = rand_pool_new(0, 0, drbg->max_adinlen);
+        if (drbg->adin_pool == NULL)
+            goto err;
+    }
+
+    additional_len = rand_drbg_get_additional_data(drbg->adin_pool,
+                                                   &additional);
 
     for ( ; outlen > 0; outlen -= chunk, out += chunk) {
         chunk = outlen;
@@ -661,9 +682,9 @@ int RAND_DRBG_bytes(RAND_DRBG *drbg, unsigned char *out, size_t outlen)
     }
     ret = 1;
 
-err:
-    if (additional_len != 0)
-        OPENSSL_secure_clear_free(additional, additional_len);
+ err:
+    if (additional != NULL)
+        rand_drbg_cleanup_additional_data(drbg->adin_pool, additional);
 
     return ret;
 }
