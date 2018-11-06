@@ -180,12 +180,17 @@ int RAND_DRBG_set(RAND_DRBG *drbg, int type, unsigned int flags)
         else
             ret = drbg_hash_init(drbg);
     } else {
+        drbg->type = 0;
+        drbg->flags = 0;
+        drbg->meth = NULL;
         RANDerr(RAND_F_RAND_DRBG_SET, RAND_R_UNSUPPORTED_DRBG_TYPE);
         return 0;
     }
 
-    if (ret == 0)
+    if (ret == 0) {
+        drbg->state = DRBG_ERROR;
         RANDerr(RAND_F_RAND_DRBG_SET, RAND_R_ERROR_INITIALISING_DRBG);
+    }
     return ret;
 }
 
@@ -290,10 +295,7 @@ static RAND_DRBG *rand_drbg_new(int secure,
     return drbg;
 
  err:
-    if (drbg->secure)
-        OPENSSL_secure_free(drbg);
-    else
-        OPENSSL_free(drbg);
+    RAND_DRBG_free(drbg);
 
     return NULL;
 }
@@ -435,6 +437,7 @@ int RAND_DRBG_uninstantiate(RAND_DRBG *drbg)
 {
     int index = -1, type, flags;
     if (drbg->meth == NULL) {
+        drbg->state = DRBG_ERROR;
         RANDerr(RAND_F_RAND_DRBG_UNINSTANTIATE,
                 RAND_R_NO_DRBG_IMPLEMENTATION_SELECTED);
         return 0;
