@@ -7,7 +7,11 @@
  https://github.com/openssl/openssl/commits/ and pick the appropriate
  release branch.
 
- Changes between 1.0.2p and 1.0.2q [xx XXX xxxx]
+ Changes between 1.0.2q and 1.0.2r [xx XXX xxxx]
+
+  *)
+
+ Changes between 1.0.2p and 1.0.2q [20 Nov 2018]
 
   *) Microarchitecture timing vulnerability in ECC scalar multiplication
 
@@ -21,6 +25,16 @@
      Nicola Tuveri.
      (CVE-2018-5407)
      [Billy Brumley]
+
+  *) Timing vulnerability in DSA signature generation
+
+     The OpenSSL DSA signature algorithm has been shown to be vulnerable to a
+     timing side channel attack. An attacker could use variations in the signing
+     algorithm to recover the private key.
+
+     This issue was reported to OpenSSL on 16th October 2018 by Samuel Weiser.
+     (CVE-2018-0734)
+     [Paul Dale]
 
   *) Resolve a compatibility issue in EC_GROUP handling with the FIPS Object
      Module, accidentally introduced while backporting security fixes from the
