@@ -798,7 +798,7 @@ $target : $args{generator}->[0] $deps
         \$(PERL) -ne "/^#(\\s*line)?\\s*[0-9]+\\s+""/ or print" > \$\@-i
         \@ $incs_off
         RENAME \$\@-i \$\@
-        DELETE \$\@-S
+        DELETE \$\@-S;
 EOF
               }
               # Otherwise....
@@ -820,7 +820,7 @@ EOF
 
   sub src2obj {
       my %args = @_;
-      my @srcs = map { (my $x = $_) =~ s/\.s$/.asm/; $x
+      my @srcs = map { (my $x = $_) =~ s/\.[sS]$/.asm/; $x
                      } ( @{$args{srcs}} );
       (my $obj = $args{obj}) =~ s|\.o$||;
       my $deps = join(", -\n\t\t", @srcs, @{$args{deps}});
