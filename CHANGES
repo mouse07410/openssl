@@ -9,6 +9,9 @@
 
  Changes between 1.1.1 and 3.0.0 [xx XXX xxxx]
 
+  *) Move strictness check from EVP_PKEY_asn1_new() to EVP_PKEY_asn1_add0().
+     [Richard Levitte]
+
   *) Change the license to the Apache License v2.0.
      [Richard Levitte]
 
@@ -83,6 +86,11 @@
   *) Added new option for 'openssl list', '-objects', which will display the
      list of built in objects, i.e. OIDs with names.
      [Richard Levitte]
+
+  *) Added support for Linux Kernel TLS data-path. The Linux Kernel data-path
+     improves application performance by removing data copies and providing
+     applications with zero-copy system calls such as sendfile and splice.
+     [Boris Pismenny]
 
  Changes between 1.1.1 and 1.1.1a [20 Nov 2018]
 
