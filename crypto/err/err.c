@@ -19,6 +19,7 @@
 #include <openssl/bio.h>
 #include <openssl/opensslconf.h>
 #include <internal/thread_once.h>
+#include "internal/constant_time_locl.h"
 
 static void err_load_strings(int lib, ERR_STRING_DATA *str);
 
@@ -821,4 +822,43 @@ int ERR_pop_to_mark(void)
         return 0;
     es->err_flags[es->top] &= ~ERR_FLAG_MARK;
     return 1;
+}
+
+#ifdef UINTPTR_T
+# undef UINTPTR_T
+#endif
+/*
+ * uintptr_t is the answer, but unfortunately C89, current "least common
+ * denominator" doesn't define it. Most legacy platforms typedef it anyway,
+ * so that attempt to fill the gaps means that one would have to identify
+ * that track these gaps, which would be undesirable. Macro it is...
+ */
+#if defined(__VMS) && __INITIAL_POINTER_SIZE==64
+/*
+ * But we can't use size_t on VMS, because it adheres to sizeof(size_t)==4
+ * even in 64-bit builds, which means that it won't work as mask.
+ */
+# define UINTPTR_T unsigned long long
+#else
+# define UINTPTR_T size_t
+#endif
+
+void err_clear_last_constant_time(int clear)
+{
+    ERR_STATE *es;
+    int top;
+
+    es = ERR_get_state();
+    if (es == NULL)
+        return;
+
+    top = es->top;
+
+    es->err_flags[top] &= ~(0 - clear);
+    es->err_buffer[top] &= ~(0UL - clear);
+    es->err_file[top] = (const char *)((UINTPTR_T)es->err_file[top] &
+                                       ~((UINTPTR_T)0 - clear));
+    es->err_line[top] |= 0 - clear;
+
+    es->top = (top + ERR_NUM_ERRORS - clear) % ERR_NUM_ERRORS;
 }
