@@ -579,6 +579,51 @@ end:
 
     return testresult;
 }
+
+static int test_no_ems(void)
+{
+    SSL_CTX *cctx = NULL, *sctx = NULL;
+    SSL *clientssl = NULL, *serverssl = NULL;
+    int testresult = 0;
+
+    if (!create_ssl_ctx_pair(TLS_server_method(), TLS_client_method(),
+                             TLS1_VERSION, TLS1_2_VERSION,
+                             &sctx, &cctx, cert, privkey)) {
+        printf("Unable to create SSL_CTX pair\n");
+        goto end;
+    }
+
+    SSL_CTX_set_options(sctx, SSL_OP_NO_EXTENDED_MASTER_SECRET);
+
+    if (!create_ssl_objects(sctx, cctx, &serverssl, &clientssl, NULL, NULL)) {
+        printf("Unable to create SSL objects\n");
+        goto end;
+    }
+
+    if (!create_ssl_connection(serverssl, clientssl, SSL_ERROR_NONE)) {
+        printf("Creating SSL connection failed\n");
+        goto end;
+    }
+
+    if (SSL_get_extms_support(serverssl)) {
+        printf("Server reports Extended Master Secret support\n");
+        goto end;
+    }
+
+    if (SSL_get_extms_support(clientssl)) {
+        printf("Client reports Extended Master Secret support\n");
+        goto end;
+    }
+    testresult = 1;
+
+end:
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(cctx);
+
+    return testresult;
+}
 #endif
 
 static int execute_test_large_message(const SSL_METHOD *smeth,
@@ -4919,18 +4964,14 @@ static struct info_cb_states_st {
         {SSL_CB_LOOP, "TWCCS"}, {SSL_CB_LOOP, "TWEE"}, {SSL_CB_LOOP, "TWSC"},
         {SSL_CB_LOOP, "TRSCV"}, {SSL_CB_LOOP, "TWFIN"}, {SSL_CB_LOOP, "TED"},
         {SSL_CB_EXIT, NULL}, {SSL_CB_LOOP, "TED"}, {SSL_CB_LOOP, "TRFIN"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "TWST"}, {SSL_CB_HANDSHAKE_DONE, NULL},
-        {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "TWST"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_EXIT, NULL},
-        {SSL_CB_ALERT, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "PINIT "}, {SSL_CB_LOOP, "PINIT "}, {SSL_CB_LOOP, "TRCH"},
-        {SSL_CB_LOOP, "TWSH"}, {SSL_CB_LOOP, "TWCCS"}, {SSL_CB_LOOP, "TWEE"},
-        {SSL_CB_LOOP, "TWFIN"}, {SSL_CB_LOOP, "TED"}, {SSL_CB_EXIT, NULL},
-        {SSL_CB_LOOP, "TED"}, {SSL_CB_LOOP, "TRFIN"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "TWST"}, {SSL_CB_HANDSHAKE_DONE, NULL},
-        {SSL_CB_EXIT, NULL}, {0, NULL},
+        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_LOOP, "TWST"},
+        {SSL_CB_LOOP, "TWST"}, {SSL_CB_EXIT, NULL}, {SSL_CB_ALERT, NULL},
+        {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "PINIT "},
+        {SSL_CB_LOOP, "PINIT "}, {SSL_CB_LOOP, "TRCH"}, {SSL_CB_LOOP, "TWSH"},
+        {SSL_CB_LOOP, "TWCCS"}, {SSL_CB_LOOP, "TWEE"}, {SSL_CB_LOOP, "TWFIN"},
+        {SSL_CB_LOOP, "TED"}, {SSL_CB_EXIT, NULL}, {SSL_CB_LOOP, "TED"},
+        {SSL_CB_LOOP, "TRFIN"}, {SSL_CB_HANDSHAKE_DONE, NULL},
+        {SSL_CB_LOOP, "TWST"}, {SSL_CB_EXIT, NULL}, {0, NULL},
     }, {
         /* TLSv1.3 client followed by resumption */
         {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "PINIT "},
@@ -4938,20 +4979,16 @@ static struct info_cb_states_st {
         {SSL_CB_LOOP, "TRSH"}, {SSL_CB_LOOP, "TREE"}, {SSL_CB_LOOP, "TRSC"},
         {SSL_CB_LOOP, "TRSCV"}, {SSL_CB_LOOP, "TRFIN"}, {SSL_CB_LOOP, "TWCCS"},
         {SSL_CB_LOOP, "TWFIN"},  {SSL_CB_HANDSHAKE_DONE, NULL},
-        {SSL_CB_EXIT, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"},
-        {SSL_CB_HANDSHAKE_DONE, NULL},  {SSL_CB_EXIT, NULL},
-        {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "SSLOK "},
-        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"},
-        {SSL_CB_HANDSHAKE_DONE, NULL},  {SSL_CB_EXIT, NULL},
+        {SSL_CB_EXIT, NULL}, {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "SSLOK "},
+        {SSL_CB_LOOP, "TRST"}, {SSL_CB_EXIT, NULL}, {SSL_CB_LOOP, "SSLOK "},
+        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"}, {SSL_CB_EXIT, NULL},
         {SSL_CB_ALERT, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
         {SSL_CB_LOOP, "PINIT "}, {SSL_CB_LOOP, "TWCH"}, {SSL_CB_EXIT, NULL},
         {SSL_CB_LOOP, "TWCH"}, {SSL_CB_LOOP, "TRSH"},  {SSL_CB_LOOP, "TREE"},
         {SSL_CB_LOOP, "TRFIN"}, {SSL_CB_LOOP, "TWCCS"}, {SSL_CB_LOOP, "TWFIN"},
         {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_EXIT, NULL},
-        {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "SSLOK "},
-        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_EXIT, NULL}, {0, NULL},
+        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"},
+        {SSL_CB_EXIT, NULL}, {0, NULL},
     }, {
         /* TLSv1.3 server, early_data */
         {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "PINIT "},
@@ -4960,8 +4997,7 @@ static struct info_cb_states_st {
         {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_EXIT, NULL},
         {SSL_CB_HANDSHAKE_START, NULL}, {SSL_CB_LOOP, "TED"},
         {SSL_CB_LOOP, "TED"}, {SSL_CB_LOOP, "TWEOED"}, {SSL_CB_LOOP, "TRFIN"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "TWST"}, {SSL_CB_HANDSHAKE_DONE, NULL},
+        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_LOOP, "TWST"},
         {SSL_CB_EXIT, NULL}, {0, NULL},
     }, {
         /* TLSv1.3 client, early_data */
@@ -4972,9 +5008,8 @@ static struct info_cb_states_st {
         {SSL_CB_LOOP, "TED"}, {SSL_CB_LOOP, "TRSH"}, {SSL_CB_LOOP, "TREE"},
         {SSL_CB_LOOP, "TRFIN"}, {SSL_CB_LOOP, "TPEDE"}, {SSL_CB_LOOP, "TWEOED"},
         {SSL_CB_LOOP, "TWFIN"}, {SSL_CB_HANDSHAKE_DONE, NULL},
-        {SSL_CB_EXIT, NULL}, {SSL_CB_HANDSHAKE_START, NULL},
-        {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "TRST"},
-        {SSL_CB_HANDSHAKE_DONE, NULL}, {SSL_CB_EXIT, NULL}, {0, NULL},
+        {SSL_CB_EXIT, NULL}, {SSL_CB_LOOP, "SSLOK "}, {SSL_CB_LOOP, "SSLOK "},
+        {SSL_CB_LOOP, "TRST"}, {SSL_CB_EXIT, NULL}, {0, NULL},
     }, {
         {0, NULL},
     }
@@ -5013,8 +5048,11 @@ static void sslapi_info_callback(const SSL *s, int where, int ret)
         return;
     }
 
-    /* Check that, if we've got SSL_CB_HANDSHAKE_DONE we are not in init */
-    if ((where & SSL_CB_HANDSHAKE_DONE) && SSL_in_init((SSL *)s) != 0) {
+    /*
+     * Check that, if we've got SSL_CB_HANDSHAKE_DONE we are not in init
+     */
+    if ((where & SSL_CB_HANDSHAKE_DONE)
+            && SSL_in_init((SSL *)s) != 0) {
         info_cb_failed = 1;
         return;
     }
@@ -6094,6 +6132,7 @@ int setup_tests(void)
 #endif
 #ifndef OPENSSL_NO_TLS1_2
     ADD_TEST(test_client_hello_cb);
+    ADD_TEST(test_no_ems);
 #endif
 #ifndef OPENSSL_NO_TLS1_3
     ADD_ALL_TESTS(test_early_data_read_write, 3);
