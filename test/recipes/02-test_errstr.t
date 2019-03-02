@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2018 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2018-2019 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the OpenSSL license (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -30,6 +30,12 @@ setup('test_errstr');
 # The safest is not to test under such circumstances.
 plan skip_all => 'This is unsupported for cross compiled configurations'
     if config('CROSS_COMPILE');
+
+# The same can be said when compiling OpenSSL with mingw configuration
+# on Windows when built with msys perl.  Similar problems are also observed
+# in MSVC builds, depending on the perl implementation used.
+plan skip_all => 'This is unsupported on MSYS/MinGW or MSWin32'
+    if $^O eq 'msys' or $^O eq 'MSWin32';
 
 plan skip_all => 'OpenSSL is configured "no-autoerrinit" or "no-err"'
     if disabled('autoerrinit') || disabled('err');

@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2010-2016 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2010-2019 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the OpenSSL license (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -1155,6 +1155,7 @@ ___
 } else {
 $code.=<<___;
 	jmp	.L_init_clmul
+.cfi_endproc
 .size	gcm_init_avx,.-gcm_init_avx
 ___
 }
@@ -1594,6 +1595,7 @@ ___
 } else {
 $code.=<<___;
 	jmp	.L_ghash_clmul
+.cfi_endproc
 .size	gcm_ghash_avx,.-gcm_ghash_avx
 ___
 }
