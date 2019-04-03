@@ -9,6 +9,9 @@
 
  Changes between 1.1.1 and 3.0.0 [xx XXX xxxx]
 
+  *) Limit the number of blocks in a data unit for AES-XTS to 2^20 as
+     mandated by IEEE Std 1619-2018.
+
   *) Added newline escaping functionality to a filename when using openssl dgst.
      This output format is to replicate the output format found in the '*sum'
      checksum programs. This aims to preserve backward compatibility.
@@ -16,6 +19,7 @@
 
   *) Removed the heartbeat message in DTLS feature, as it has very
      little usage and doesn't seem to fulfill a valuable purpose.
+     The configuration option is now deprecated.
      [Richard Levitte]
 
   *) Changed the output of 'openssl {digestname} < file' to display the
