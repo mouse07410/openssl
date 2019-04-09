@@ -448,7 +448,6 @@ static int test_param_construct(void)
     void *vp, *vpn = NULL, *vp2;
     OSSL_PARAM *p;
     const OSSL_PARAM *cp;
-    static const OSSL_PARAM pend = OSSL_PARAM_END;
     int i, n = 0, ret = 0;
     unsigned int u;
     long int l;
@@ -476,9 +475,9 @@ static int test_param_construct(void)
                                                    &sz);
     params[n++] = OSSL_PARAM_construct_octet_string("octstr", buf, sizeof(buf),
                                                     &sz);
-    params[n++] = OSSL_PARAM_construct_utf8_ptr("utf8ptr", &bufp, &sz);
-    params[n++] = OSSL_PARAM_construct_octet_ptr("octptr", &vp, &sz);
-    params[n] = pend;
+    params[n++] = OSSL_PARAM_construct_utf8_ptr("utf8ptr", &bufp, 0, &sz);
+    params[n++] = OSSL_PARAM_construct_octet_ptr("octptr", &vp, 0, &sz);
+    params[n] = OSSL_PARAM_construct_end();
 
     /* Search failure */
     if (!TEST_ptr_null(OSSL_PARAM_locate(params, "fnord")))
