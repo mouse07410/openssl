@@ -338,6 +338,9 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
 #ifndef OPENSSL_NO_ENGINE
  skip_to_init:
 #endif
+    if (ctx->cipher == NULL)
+        return 0;
+
     /* we assume block size is a power of 2 in *cryptUpdate */
     OPENSSL_assert(ctx->cipher->block_size == 1
                    || ctx->cipher->block_size == 8
@@ -587,11 +590,14 @@ int EVP_EncryptUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
                                inl + (blocksize == 1 ? 0 : blocksize), in,
                                (size_t)inl);
 
-    if (soutl > INT_MAX) {
-        EVPerr(EVP_F_EVP_ENCRYPTUPDATE, EVP_R_UPDATE_ERROR);
-        return 0;
+    if (ret) {
+        if (soutl > INT_MAX) {
+            EVPerr(EVP_F_EVP_ENCRYPTUPDATE, EVP_R_UPDATE_ERROR);
+            return 0;
+        }
+        *outl = soutl;
     }
-    *outl = soutl;
+
     return ret;
 
     /* TODO(3.0): Remove legacy code below */
@@ -620,7 +626,11 @@ int EVP_EncryptFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl)
         return 0;
     }
 
-    if (ctx->cipher == NULL || ctx->cipher->prov == NULL)
+    if (ctx->cipher == NULL) {
+        EVPerr(EVP_F_EVP_ENCRYPTFINAL_EX, EVP_R_NO_CIPHER_SET);
+        return 0;
+    }
+    if (ctx->cipher->prov == NULL)
         goto legacy;
 
     blocksize = EVP_CIPHER_CTX_block_size(ctx);
@@ -633,11 +643,13 @@ int EVP_EncryptFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl)
     ret = ctx->cipher->cfinal(ctx->provctx, out, &soutl,
                               blocksize == 1 ? 0 : blocksize);
 
-    if (soutl > INT_MAX) {
-        EVPerr(EVP_F_EVP_ENCRYPTFINAL_EX, EVP_R_FINAL_ERROR);
-        return 0;
+    if (ret) {
+        if (soutl > INT_MAX) {
+            EVPerr(EVP_F_EVP_ENCRYPTFINAL_EX, EVP_R_FINAL_ERROR);
+            return 0;
+        }
+        *outl = soutl;
     }
-    *outl = soutl;
 
     return ret;
 
@@ -695,7 +707,11 @@ int EVP_DecryptUpdate(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
         return 0;
     }
 
-    if (ctx->cipher == NULL || ctx->cipher->prov == NULL)
+    if (ctx->cipher == NULL) {
+        EVPerr(EVP_F_EVP_DECRYPTUPDATE, EVP_R_NO_CIPHER_SET);
+        return 0;
+    }
+    if (ctx->cipher->prov == NULL)
         goto legacy;
 
     blocksize = EVP_CIPHER_CTX_block_size(ctx);
@@ -832,6 +848,10 @@ int EVP_DecryptFinal_ex(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl)
  legacy:
 
     *outl = 0;
+    if (ctx->cipher == NULL) {
+        EVPerr(EVP_F_EVP_DECRYPTFINAL_EX, EVP_R_NO_CIPHER_SET);
+        return 0;
+    }
 
     if (ctx->cipher->flags & EVP_CIPH_FLAG_CUSTOM_CIPHER) {
         i = ctx->cipher->do_cipher(ctx, out, NULL, 0);
@@ -949,9 +969,11 @@ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
 int EVP_CIPHER_CTX_rand_key(EVP_CIPHER_CTX *ctx, unsigned char *key)
 {
+    int kl;
     if (ctx->cipher->flags & EVP_CIPH_RAND_KEY)
         return EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_RAND_KEY, 0, key);
-    if (RAND_priv_bytes(key, EVP_CIPHER_CTX_key_length(ctx)) <= 0)
+    kl = EVP_CIPHER_CTX_key_length(ctx);
+    if (kl <= 0 || RAND_priv_bytes(key, kl) <= 0)
         return 0;
     return 1;
 }
