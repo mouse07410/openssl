@@ -560,9 +560,6 @@ void OPENSSL_cleanup(void)
     OSSL_TRACE(INIT, "OPENSSL_cleanup: rand_cleanup_int()\n");
     rand_cleanup_int();
 
-    OSSL_TRACE(INIT, "OPENSSL_cleanup: rand_drbg_cleanup_int()\n");
-    rand_drbg_cleanup_int();
-
     OSSL_TRACE(INIT, "OPENSSL_cleanup: conf_modules_free_int()\n");
     conf_modules_free_int();
 
@@ -855,5 +852,6 @@ void OPENSSL_fork_parent(void)
 void OPENSSL_fork_child(void)
 {
     rand_fork();
+    /* TODO(3.0): Inform all providers about a fork event */
 }
 #endif
