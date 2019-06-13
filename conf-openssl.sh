@@ -1,5 +1,11 @@
 #!/bin/bash -ex
 
+unset OPENSSL_CFLAGS
+unset OPENSSL_LIBS
+unset OPENSSL
+
+CFLAGS="$CFLAGS -g"
+
 make distclean || true
 
 # For OpenSSL-1.1.1 master (development branch)

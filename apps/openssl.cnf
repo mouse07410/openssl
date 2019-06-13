@@ -348,3 +348,12 @@ ess_cert_id_chain	= no	# Must the ESS cert id chain be included?
 				# (optional, default: no)
 ess_cert_id_alg		= sha1	# algorithm to compute certificate
 				# identifier (optional, default: sha1)
+
+[engine_section]
+pkcs11 = pkcs11_section
+
+[pkcs11_section]
+engine_id = pkcs11
+dynamic_path = /Users/uri/openssl-1.1/lib/engines-3/pkcs11.dylib
+MODULE_PATH = /Library/OpenSC/lib/opensc-pkcs11.so
+init = 0
