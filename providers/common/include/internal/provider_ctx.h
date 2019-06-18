@@ -7,4 +7,8 @@
  * https://www.openssl.org/source/license.html
  */
 
-const OSSL_PROVIDER *FIPS_get_provider(OPENSSL_CTX *ctx);
+/*
+ * To be used anywhere the library context needs to be passed, such as to
+ * fetching functions.
+ */
+#define PROV_LIBRARY_CONTEXT_OF(provctx)        (provctx)

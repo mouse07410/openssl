@@ -780,6 +780,7 @@ SSL *SSL_new(SSL_CTX *ctx)
         s->ext.ecpointformats_len =
             ctx->ext.ecpointformats_len;
     }
+#endif
     if (ctx->ext.supportedgroups) {
         s->ext.supportedgroups =
             OPENSSL_memdup(ctx->ext.supportedgroups,
@@ -789,7 +790,7 @@ SSL *SSL_new(SSL_CTX *ctx)
             goto err;
         s->ext.supportedgroups_len = ctx->ext.supportedgroups_len;
     }
-#endif
+
 #ifndef OPENSSL_NO_NEXTPROTONEG
     s->ext.npn = NULL;
 #endif
@@ -1168,6 +1169,7 @@ void SSL_free(SSL *s)
     sk_SSL_CIPHER_free(s->cipher_list);
     sk_SSL_CIPHER_free(s->cipher_list_by_id);
     sk_SSL_CIPHER_free(s->tls13_ciphersuites);
+    sk_SSL_CIPHER_free(s->peer_ciphers);
 
     /* Make the next call work :-) */
     if (s->session != NULL) {
@@ -1186,7 +1188,9 @@ void SSL_free(SSL *s)
     SSL_CTX_free(s->session_ctx);
 #ifndef OPENSSL_NO_EC
     OPENSSL_free(s->ext.ecpointformats);
+    OPENSSL_free(s->ext.peer_ecpointformats);
     OPENSSL_free(s->ext.supportedgroups);
+    OPENSSL_free(s->ext.peer_supportedgroups);
 #endif                          /* OPENSSL_NO_EC */
     sk_X509_EXTENSION_pop_free(s->ext.ocsp.exts, X509_EXTENSION_free);
 #ifndef OPENSSL_NO_OCSP
@@ -2569,9 +2573,9 @@ STACK_OF(SSL_CIPHER) *SSL_get_ciphers(const SSL *s)
 
 STACK_OF(SSL_CIPHER) *SSL_get_client_ciphers(const SSL *s)
 {
-    if ((s == NULL) || (s->session == NULL) || !s->server)
+    if ((s == NULL) || !s->server)
         return NULL;
-    return s->session->ciphers;
+    return s->peer_ciphers;
 }
 
 STACK_OF(SSL_CIPHER) *SSL_get1_supported_ciphers(SSL *s)
@@ -2710,13 +2714,12 @@ char *SSL_get_shared_ciphers(const SSL *s, char *buf, int size)
     int i;
 
     if (!s->server
-            || s->session == NULL
-            || s->session->ciphers == NULL
+            || s->peer_ciphers == NULL
             || size < 2)
         return NULL;
 
     p = buf;
-    clntsk = s->session->ciphers;
+    clntsk = s->peer_ciphers;
     srvrsk = SSL_get_ciphers(s);
     if (clntsk == NULL || srvrsk == NULL)
         return NULL;

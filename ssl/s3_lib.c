@@ -3578,7 +3578,7 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
         }
         return ssl_cert_set_current(s->cert, larg);
 
-#ifndef OPENSSL_NO_EC
+#if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
     case SSL_CTRL_GET_GROUPS:
         {
             uint16_t *clist;
@@ -3586,8 +3586,8 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
 
             if (!s->session)
                 return 0;
-            clist = s->session->ext.supportedgroups;
-            clistlen = s->session->ext.supportedgroups_len;
+            clist = s->ext.peer_supportedgroups;
+            clistlen = s->ext.peer_supportedgroups_len;
             if (parg) {
                 size_t i;
                 int *cptr = parg;
@@ -3623,7 +3623,8 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
             }
             return id;
         }
-#endif
+#endif /* !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH) */
+
     case SSL_CTRL_SET_SIGALGS:
         return tls1_set_sigalgs(s->cert, parg, larg, 0);
 
@@ -3701,13 +3702,12 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
 #ifndef OPENSSL_NO_EC
     case SSL_CTRL_GET_EC_POINT_FORMATS:
         {
-            SSL_SESSION *sess = s->session;
             const unsigned char **pformat = parg;
 
-            if (sess == NULL || sess->ext.ecpointformats == NULL)
+            if (s->ext.peer_ecpointformats == NULL)
                 return 0;
-            *pformat = sess->ext.ecpointformats;
-            return (int)sess->ext.ecpointformats_len;
+            *pformat = s->ext.peer_ecpointformats;
+            return (int)s->ext.peer_ecpointformats_len;
         }
 #endif
 
@@ -3899,7 +3899,7 @@ long ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
         break;
 #endif
 
-#ifndef OPENSSL_NO_EC
+#if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
     case SSL_CTRL_SET_GROUPS:
         return tls1_set_groups(&ctx->ext.supportedgroups,
                                &ctx->ext.supportedgroups_len,
@@ -3909,7 +3909,8 @@ long ssl3_ctx_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
         return tls1_set_groups_list(&ctx->ext.supportedgroups,
                                     &ctx->ext.supportedgroups_len,
                                     parg);
-#endif
+#endif /* !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH) */
+
     case SSL_CTRL_SET_SIGALGS:
         return tls1_set_sigalgs(ctx->cert, parg, larg, 0);
 
@@ -4680,6 +4681,7 @@ EVP_PKEY *ssl_generate_pkey(EVP_PKEY *pm)
 }
 
 /* Generate a private key from a group ID */
+#if !defined(OPENSSL_NO_DH) || !defined(OPENSSL_NO_EC)
 EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
 {
     const TLS_GROUP_INFO *ginf = tls1_group_id_lookup(id);
@@ -4766,6 +4768,7 @@ EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
     EVP_PKEY_CTX_free(pctx);
     return pkey;
 }
+#endif
 
 /*
  * Generate parameters from a group ID

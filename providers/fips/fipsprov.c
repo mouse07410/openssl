@@ -21,12 +21,44 @@
 #include "internal/property.h"
 #include "internal/evp_int.h"
 #include "internal/provider_algs.h"
+#include "internal/provider_ctx.h"
+#include "internal/providercommon.h"
 
+/*
+ * TODO(3.0): Should these be stored in the provider side provctx? Could they
+ * ever be different from one init to the next? Unfortunately we can't do this
+ * at the moment because c_put_error/c_add_error_vdata do not provide us with
+ * the OPENSSL_CTX as a parameter.
+ */
 /* Functions provided by the core */
 static OSSL_core_get_param_types_fn *c_get_param_types = NULL;
 static OSSL_core_get_params_fn *c_get_params = NULL;
+extern OSSL_core_thread_start_fn *c_thread_start;
+OSSL_core_thread_start_fn *c_thread_start = NULL;
 static OSSL_core_put_error_fn *c_put_error = NULL;
 static OSSL_core_add_error_vdata_fn *c_add_error_vdata = NULL;
+
+typedef struct fips_global_st {
+    const OSSL_PROVIDER *prov;
+} FIPS_GLOBAL;
+
+static void *fips_prov_ossl_ctx_new(OPENSSL_CTX *libctx)
+{
+    FIPS_GLOBAL *fgbl = OPENSSL_zalloc(sizeof(*fgbl));
+
+    return fgbl;
+}
+
+static void fips_prov_ossl_ctx_free(void *fgbl)
+{
+    OPENSSL_free(fgbl);
+}
+
+static const OPENSSL_CTX_METHOD fips_prov_ossl_ctx_method = {
+    fips_prov_ossl_ctx_new,
+    fips_prov_ossl_ctx_free,
+};
+
 
 /* Parameters we provide to the core */
 static const OSSL_ITEM fips_param_types[] = {
@@ -37,8 +69,9 @@ static const OSSL_ITEM fips_param_types[] = {
 };
 
 /* TODO(3.0): To be removed */
-static int dummy_evp_call(OPENSSL_CTX *libctx)
+static int dummy_evp_call(void *provctx)
 {
+    OPENSSL_CTX *libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     EVP_MD *sha256 = EVP_MD_fetch(libctx, "SHA256", NULL);
     char msg[] = "Hello World!";
@@ -182,7 +215,19 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
                        const OSSL_DISPATCH **out,
                        void **provctx)
 {
-    OPENSSL_CTX *ctx;
+    FIPS_GLOBAL *fgbl;
+    OPENSSL_CTX *ctx = OPENSSL_CTX_new();
+
+    if (ctx == NULL)
+        return 0;
+
+    fgbl = openssl_ctx_get_data(ctx, OPENSSL_CTX_FIPS_PROV_INDEX,
+                                &fips_prov_ossl_ctx_method);
+
+    if (fgbl == NULL)
+        goto err;
+
+    fgbl->prov = provider;
 
     for (; in->function_id != 0; in++) {
         switch (in->function_id) {
@@ -191,6 +236,9 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
             break;
         case OSSL_FUNC_CORE_GET_PARAMS:
             c_get_params = OSSL_get_core_get_params(in);
+            break;
+        case OSSL_FUNC_CORE_THREAD_START:
+            c_thread_start = OSSL_get_core_thread_start(in);
             break;
         case OSSL_FUNC_CORE_PUT_ERROR:
             c_put_error = OSSL_get_core_put_error(in);
@@ -208,30 +256,32 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
     if (ctx == NULL)
         return 0;
 
+    *out = fips_dispatch_table;
+    *provctx = ctx;
+
     /*
      * TODO(3.0): Remove me. This is just a dummy call to demonstrate making
      * EVP calls from within the FIPS module.
      */
-    if (!dummy_evp_call(ctx)) {
-        OPENSSL_CTX_free(ctx);
+    if (!dummy_evp_call(*provctx)) {
+        OPENSSL_CTX_free(*provctx);
+        *provctx = NULL;
         return 0;
     }
 
-    *out = fips_dispatch_table;
-    *provctx = ctx;
     return 1;
+
+ err:
+    OPENSSL_CTX_free(ctx);
+    return 0;
 }
 
 /*
  * The internal init function used when the FIPS module uses EVP to call
  * another algorithm also in the FIPS module. This is a recursive call that has
- * been made from within the FIPS module itself. Normally we are responsible for
- * providing our own provctx value, but in this recursive case it has been
- * pre-populated for us with the same library context that was used in the EVP
- * call that initiated this recursive call - so we don't need to do anything
- * further with that parameter. This only works because we *know* in the core
- * code that the FIPS module uses a library context for its provctx. This is
- * not generally true for all providers.
+ * been made from within the FIPS module itself. To make this work, we populate
+ * the provider context of this inner instance with the same library context
+ * that was used in the EVP call that initiated this recursive call.
  */
 OSSL_provider_init_fn fips_intern_provider_init;
 int fips_intern_provider_init(const OSSL_PROVIDER *provider,
@@ -239,6 +289,30 @@ int fips_intern_provider_init(const OSSL_PROVIDER *provider,
                               const OSSL_DISPATCH **out,
                               void **provctx)
 {
+    OSSL_core_get_library_context_fn *c_get_libctx = NULL;
+
+    for (; in->function_id != 0; in++) {
+        switch (in->function_id) {
+        case OSSL_FUNC_CORE_GET_LIBRARY_CONTEXT:
+            c_get_libctx = OSSL_get_core_get_library_context(in);
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (c_get_libctx == NULL)
+        return 0;
+
+    *provctx = c_get_libctx(provider);
+
+    /*
+     * Safety measure...  we should get the library context that was
+     * created up in OSSL_provider_init().
+     */
+    if (*provctx == NULL)
+        return 0;
+
     *out = intern_dispatch_table;
     return 1;
 }
@@ -252,11 +326,13 @@ void ERR_put_error(int lib, int func, int reason, const char *file, int line)
      * so we'll need to come up with something else for them.
      */
     c_put_error(lib, func, reason, file, line);
+    ERR_add_error_data(1, "(in the FIPS module)");
 }
 
 void ERR_add_error_data(int num, ...)
 {
     va_list args;
+
     va_start(args, num);
     ERR_add_error_vdata(num, args);
     va_end(args);
@@ -265,4 +341,15 @@ void ERR_add_error_data(int num, ...)
 void ERR_add_error_vdata(int num, va_list args)
 {
     c_add_error_vdata(num, args);
+}
+
+const OSSL_PROVIDER *FIPS_get_provider(OPENSSL_CTX *ctx)
+{
+    FIPS_GLOBAL *fgbl = openssl_ctx_get_data(ctx, OPENSSL_CTX_FIPS_PROV_INDEX,
+                                             &fips_prov_ossl_ctx_method);
+
+    if (fgbl == NULL)
+        return NULL;
+
+    return fgbl->prov;
 }
