@@ -1,0 +1,7 @@
+LIBS=../../../libcrypto
+IF[{- !$disabled{dh} -}]
+  SOURCE[../../../libcrypto]=\
+          dh.c
+ENDIF
+
+

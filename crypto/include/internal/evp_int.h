@@ -18,6 +18,11 @@
 #define EVP_MD_CTX_FLAG_KEEP_PKEY_CTX   0x0400
 
 struct evp_pkey_ctx_st {
+    EVP_KEYEXCH *exchange;
+    void *exchprovctx;
+
+    /* Legacy fields below */
+
     /* Method associated with this operation */
     const EVP_PKEY_METHOD *pmeth;
     /* Engine that implements this method or NULL if builtin */
@@ -173,6 +178,7 @@ extern const EVP_KDF hkdf_kdf_meth;
 extern const EVP_KDF sshkdf_kdf_meth;
 extern const EVP_KDF ss_kdf_meth;
 extern const EVP_KDF x963_kdf_meth;
+extern const EVP_KDF x942_kdf_meth;
 
 struct evp_md_st {
     /* nid */
@@ -256,9 +262,6 @@ struct evp_cipher_st {
     OSSL_OP_cipher_cipher_fn *ccipher;
     OSSL_OP_cipher_freectx_fn *freectx;
     OSSL_OP_cipher_dupctx_fn *dupctx;
-    OSSL_OP_cipher_key_length_fn *key_length;
-    OSSL_OP_cipher_iv_length_fn *iv_length;
-    OSSL_OP_cipher_block_size_fn *blocksize;
     OSSL_OP_cipher_get_params_fn *get_params;
     OSSL_OP_cipher_ctx_get_params_fn *ctx_get_params;
     OSSL_OP_cipher_ctx_set_params_fn *ctx_set_params;

@@ -36,7 +36,6 @@ typedef struct evp_test_st {
     const EVP_TEST_METHOD *meth;  /* method for this test */
     const char *err, *aux_err;    /* Error string for test */
     char *expected_err;           /* Expected error value of test */
-    char *func;                   /* Expected error function string */
     char *reason;                 /* Expected error reason string */
     void *data;                   /* test specific data */
 } EVP_TEST;
@@ -659,6 +658,14 @@ static int cipher_test_enc(EVP_TEST *t, int enc,
     }
     if (!EVP_CipherInit_ex(ctx, NULL, NULL, expected->key, expected->iv, -1)) {
         t->err = "KEY_SET_ERROR";
+        goto err;
+    }
+    /* Check that we get the same IV back */
+    if (expected->iv != NULL
+        && (EVP_CIPHER_flags(expected->cipher) & EVP_CIPH_CUSTOM_IV) == 0
+        && !TEST_mem_eq(expected->iv, expected->iv_len,
+                        EVP_CIPHER_CTX_iv(ctx), expected->iv_len)) {
+        t->err = "INVALID_IV";
         goto err;
     }
 
@@ -1965,7 +1972,14 @@ static int kdf_test_init(EVP_TEST *t, const char *name)
         t->skip = 1;
         return 1;
     }
-#endif
+#endif /* OPENSSL_NO_SCRYPT */
+
+#ifdef OPENSSL_NO_CMS
+    if (strcmp(name, "X942KDF") == 0) {
+        t->skip = 1;
+        return 1;
+    }
+#endif /* OPENSSL_NO_CMS */
 
     kdf = EVP_get_kdfbyname(name);
     if (kdf == NULL)
@@ -2097,7 +2111,14 @@ static int pkey_kdf_test_init(EVP_TEST *t, const char *name)
         t->skip = 1;
         return 1;
     }
-#endif
+#endif /* OPENSSL_NO_SCRYPT */
+
+#ifdef OPENSSL_NO_CMS
+    if (strcmp(name, "X942KDF") == 0) {
+        t->skip = 1;
+        return 1;
+    }
+#endif /* OPENSSL_NO_CMS */
 
     if (kdf_nid == NID_undef)
         kdf_nid = OBJ_ln2nid(name);
@@ -2713,8 +2734,6 @@ static void clear_test(EVP_TEST *t)
     }
     OPENSSL_free(t->expected_err);
     t->expected_err = NULL;
-    OPENSSL_free(t->func);
-    t->func = NULL;
     OPENSSL_free(t->reason);
     t->reason = NULL;
 
@@ -2757,10 +2776,10 @@ static int check_test_error(EVP_TEST *t)
         return 0;
     }
 
-    if (t->func == NULL && t->reason == NULL)
+    if (t->reason == NULL)
         return 1;
 
-    if (t->func == NULL || t->reason == NULL) {
+    if (t->reason == NULL) {
         TEST_info("%s:%d: Test is missing function or reason code",
                   t->s.test_file, t->s.start);
         return 0;
@@ -2768,25 +2787,25 @@ static int check_test_error(EVP_TEST *t)
 
     err = ERR_peek_error();
     if (err == 0) {
-        TEST_info("%s:%d: Expected error \"%s:%s\" not set",
-                  t->s.test_file, t->s.start, t->func, t->reason);
+        TEST_info("%s:%d: Expected error \"%s\" not set",
+                  t->s.test_file, t->s.start, t->reason);
         return 0;
     }
 
     func = ERR_func_error_string(err);
     reason = ERR_reason_error_string(err);
     if (func == NULL && reason == NULL) {
-        TEST_info("%s:%d: Expected error \"%s:%s\", no strings available."
+        TEST_info("%s:%d: Expected error \"%s\", no strings available."
                   " Assuming ok.",
-                  t->s.test_file, t->s.start, t->func, t->reason);
+                  t->s.test_file, t->s.start, t->reason);
         return 1;
     }
 
-    if (strcmp(func, t->func) == 0 && strcmp(reason, t->reason) == 0)
+    if (strcmp(reason, t->reason) == 0)
         return 1;
 
-    TEST_info("%s:%d: Expected error \"%s:%s\", got \"%s:%s\"",
-              t->s.test_file, t->s.start, t->func, t->reason, func, reason);
+    TEST_info("%s:%d: Expected error \"%s\", got \"%s\"",
+              t->s.test_file, t->s.start, t->reason, reason);
 
     return 0;
 }
@@ -3017,11 +3036,7 @@ top:
             }
             t->expected_err = take_value(pp);
         } else if (strcmp(pp->key, "Function") == 0) {
-            if (t->func != NULL) {
-                TEST_info("Line %d: multiple function lines\n", t->s.curr);
-                return 0;
-            }
-            t->func = take_value(pp);
+            /* Ignore old line. */
         } else if (strcmp(pp->key, "Reason") == 0) {
             if (t->reason != NULL) {
                 TEST_info("Line %d: multiple reason lines", t->s.curr);
@@ -3096,8 +3111,10 @@ int setup_tests(void)
         return 0;
 #ifndef NO_LEGACY_MODULE
     legacyprov = OSSL_PROVIDER_load(NULL, "legacy");
-    if (!TEST_ptr(legacyprov))
+    if (!TEST_ptr(legacyprov)) {
+        OSSL_PROVIDER_unload(defltprov);
         return 0;
+    }
 #endif /* NO_LEGACY_MODULE */
 
     ADD_ALL_TESTS(run_file_tests, n);

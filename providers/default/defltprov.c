@@ -114,6 +114,13 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { NULL, NULL, NULL }
 };
 
+static const OSSL_ALGORITHM deflt_keyexch[] = {
+#ifndef OPENSSL_NO_DH
+    { "dhKeyAgreement", "default=yes", dh_functions },
+#endif
+    { NULL, NULL, NULL }
+};
+
 static const OSSL_ALGORITHM *deflt_query(OSSL_PROVIDER *prov,
                                          int operation_id,
                                          int *no_cache)
@@ -124,6 +131,8 @@ static const OSSL_ALGORITHM *deflt_query(OSSL_PROVIDER *prov,
         return deflt_digests;
     case OSSL_OP_CIPHER:
         return deflt_ciphers;
+    case OSSL_OP_KEYEXCH:
+        return deflt_keyexch;
     }
     return NULL;
 }

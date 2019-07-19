@@ -9,6 +9,39 @@
 
  Changes between 1.1.1 and 3.0.0 [xx XXX xxxx]
 
+  *) {CRYPTO,OPENSSL}_mem_debug_{push,pop} are now no-ops and have been
+     deprecated.
+     [Rich Salz]
+
+  *) A new type, EVP_KEYEXCH, has been introduced to represent key exchange
+     algorithms. An implementation of a key exchange algorithm can be obtained
+     by using the function EVP_KEYEXCH_fetch(). An EVP_KEYEXCH algorithm can be
+     used in a call to EVP_PKEY_derive_init_ex() which works in a similar way to
+     the older EVP_PKEY_derive_init() function. See the man pages for the new
+     functions for further details.
+     [Matt Caswell]
+
+  *) The EVP_PKEY_CTX_set_dh_pad() macro has now been converted to a function.
+     [Matt Caswell]
+
+  *) Removed the function names from error messages and deprecated the
+     xxx_F_xxx define's.
+
+  *) Removed NextStep support and the macro OPENSSL_UNISTD
+     [Rich Salz]
+
+  *) Removed DES_check_key.  Also removed OPENSSL_IMPLEMENT_GLOBAL,
+     OPENSSL_GLOBAL_REF, OPENSSL_DECLARE_GLOBAL.
+     Also removed "export var as function" capability; we do not export
+     variables, only functions.
+     [Rich Salz]
+
+  *) RC5_32_set_key has been changed to return an int type, with 0 indicating
+     an error and 1 indicating success. In previous versions of OpenSSL this
+     was a void type. If a key was set longer than the maximum possible this
+     would crash.
+     [Matt Caswell]
+
   *) Support SM2 signing and verification schemes with X509 certificate.
      [Paul Yang]
 
@@ -24,7 +57,7 @@
      EVP_KDF_CTRL_SET_PBKDF2_PKCS5_MODE.
      [Shane Lontis]
 
-  *) Default cipher lists/suites are now avaialble via a function, the
+  *) Default cipher lists/suites are now available via a function, the
      #defines are deprecated.
      [Todd Short]
 
@@ -447,7 +480,7 @@
         SSL_set_ciphersuites()
      [Matt Caswell]
 
-  *) Memory allocation failures consistenly add an error to the error
+  *) Memory allocation failures consistently add an error to the error
      stack.
      [Rich Salz]
 
@@ -6985,7 +7018,7 @@
      reason texts, thereby removing some of the footprint that may not
      be interesting if those errors aren't displayed anyway.
 
-     NOTE: it's still possible for any application or module to have it's
+     NOTE: it's still possible for any application or module to have its
      own set of error texts inserted.  The routines are there, just not
      used by default when no-err is given.
      [Richard Levitte]
@@ -8951,7 +8984,7 @@ des-cbc           3624.96k     5258.21k     5530.91k     5624.30k     5628.26k
  Changes between 0.9.6g and 0.9.6h  [5 Dec 2002]
 
   *) New function OPENSSL_cleanse(), which is used to cleanse a section of
-     memory from it's contents.  This is done with a counter that will
+     memory from its contents.  This is done with a counter that will
      place alternating values in each byte.  This can be used to solve
      two issues: 1) the removal of calls to memset() by highly optimizing
      compilers, and 2) cleansing with other values than 0, since those can
