@@ -11,6 +11,9 @@
 
 #include <openssl/core_numbers.h>
 
+#define EVP_CTRL_RET_UNSUPPORTED -1
+
+
 struct evp_md_ctx_st {
     const EVP_MD *reqdigest;    /* The original requested digest */
     const EVP_MD *digest;
@@ -62,10 +65,39 @@ struct evp_kdf_ctx_st {
     EVP_KDF_IMPL *impl;          /* Algorithm-specific data */
 } /* EVP_KDF_CTX */ ;
 
-struct evp_keyexch_st {
+struct evp_keymgmt_st {
+    int id;                      /* libcrypto internal */
+
+    char *name;
     OSSL_PROVIDER *prov;
     CRYPTO_REF_COUNT refcnt;
     CRYPTO_RWLOCK *lock;
+
+    /* Domain parameter routines */
+    OSSL_OP_keymgmt_importdomparams_fn *importdomparams;
+    OSSL_OP_keymgmt_gendomparams_fn *gendomparams;
+    OSSL_OP_keymgmt_freedomparams_fn *freedomparams;
+    OSSL_OP_keymgmt_exportdomparams_fn *exportdomparams;
+    OSSL_OP_keymgmt_importdomparam_types_fn *importdomparam_types;
+    OSSL_OP_keymgmt_exportdomparam_types_fn *exportdomparam_types;
+
+    /* Key routines */
+    OSSL_OP_keymgmt_importkey_fn *importkey;
+    OSSL_OP_keymgmt_genkey_fn *genkey;
+    OSSL_OP_keymgmt_loadkey_fn *loadkey;
+    OSSL_OP_keymgmt_freekey_fn *freekey;
+    OSSL_OP_keymgmt_exportkey_fn *exportkey;
+    OSSL_OP_keymgmt_importkey_types_fn *importkey_types;
+    OSSL_OP_keymgmt_exportkey_types_fn *exportkey_types;
+} /* EVP_KEYMGMT */ ;
+
+struct evp_keyexch_st {
+    char *name;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_RWLOCK *lock;
+
+    EVP_KEYMGMT *keymgmt;
 
     OSSL_OP_keyexch_newctx_fn *newctx;
     OSSL_OP_keyexch_init_fn *init;
@@ -75,7 +107,6 @@ struct evp_keyexch_st {
     OSSL_OP_keyexch_dupctx_fn *dupctx;
     OSSL_OP_keyexch_set_params_fn *set_params;
 } /* EVP_KEYEXCH */;
-
 
 int PKCS5_v2_PBKDF2_keyivgen(EVP_CIPHER_CTX *ctx, const char *pass,
                              int passlen, ASN1_TYPE *param,
@@ -108,9 +139,17 @@ int is_partially_overlapping(const void *ptr1, const void *ptr2, int len);
 
 void *evp_generic_fetch(OPENSSL_CTX *ctx, int operation_id,
                         const char *algorithm, const char *properties,
-                        void *(*new_method)(const OSSL_DISPATCH *fns,
+                        void *(*new_method)(const char *name,
+                                            const OSSL_DISPATCH *fns,
                                             OSSL_PROVIDER *prov),
                         int (*up_ref_method)(void *),
+                        void (*free_method)(void *));
+void evp_generic_do_all(OPENSSL_CTX *libctx, int operation_id,
+                        void (*user_fn)(void *method, void *arg),
+                        void *user_arg,
+                        void *(*new_method)(const char *name,
+                                            const OSSL_DISPATCH *fns,
+                                            OSSL_PROVIDER *prov),
                         void (*free_method)(void *));
 
 /* Helper functions to avoid duplicating code */

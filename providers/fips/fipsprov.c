@@ -39,13 +39,11 @@ extern OSSL_core_thread_start_fn *c_thread_start;
 static OSSL_core_get_param_types_fn *c_get_param_types;
 static OSSL_core_get_params_fn *c_get_params;
 OSSL_core_thread_start_fn *c_thread_start;
-static OSSL_core_put_error_fn *c_put_error;
-static OSSL_core_add_error_vdata_fn *c_add_error_vdata;
+static OSSL_core_new_error_fn *c_new_error;
+static OSSL_core_set_error_debug_fn *c_set_error_debug;
+static OSSL_core_vset_error_fn *c_vset_error;
 static OSSL_CRYPTO_malloc_fn *c_CRYPTO_malloc;
 static OSSL_CRYPTO_zalloc_fn *c_CRYPTO_zalloc;
-static OSSL_CRYPTO_memdup_fn *c_CRYPTO_memdup;
-static OSSL_CRYPTO_strdup_fn *c_CRYPTO_strdup;
-static OSSL_CRYPTO_strndup_fn *c_CRYPTO_strndup;
 static OSSL_CRYPTO_free_fn *c_CRYPTO_free;
 static OSSL_CRYPTO_clear_free_fn *c_CRYPTO_clear_free;
 static OSSL_CRYPTO_realloc_fn *c_CRYPTO_realloc;
@@ -55,7 +53,6 @@ static OSSL_CRYPTO_secure_zalloc_fn *c_CRYPTO_secure_zalloc;
 static OSSL_CRYPTO_secure_free_fn *c_CRYPTO_secure_free;
 static OSSL_CRYPTO_secure_clear_free_fn *c_CRYPTO_secure_clear_free;
 static OSSL_CRYPTO_secure_allocated_fn *c_CRYPTO_secure_allocated;
-static OSSL_OPENSSL_hexstr2buf_fn *c_OPENSSL_hexstr2buf;
 
 typedef struct fips_global_st {
     const OSSL_PROVIDER *prov;
@@ -80,11 +77,11 @@ static const OPENSSL_CTX_METHOD fips_prov_ossl_ctx_method = {
 
 
 /* Parameters we provide to the core */
-static const OSSL_ITEM fips_param_types[] = {
-    { OSSL_PARAM_UTF8_PTR, OSSL_PROV_PARAM_NAME },
-    { OSSL_PARAM_UTF8_PTR, OSSL_PROV_PARAM_VERSION },
-    { OSSL_PARAM_UTF8_PTR, OSSL_PROV_PARAM_BUILDINFO },
-    { 0, NULL }
+static const OSSL_PARAM fips_param_types[] = {
+    OSSL_PARAM_DEFN(OSSL_PROV_PARAM_NAME, OSSL_PARAM_UTF8_PTR, NULL, 0),
+    OSSL_PARAM_DEFN(OSSL_PROV_PARAM_VERSION, OSSL_PARAM_UTF8_PTR, NULL, 0),
+    OSSL_PARAM_DEFN(OSSL_PROV_PARAM_BUILDINFO, OSSL_PARAM_UTF8_PTR, NULL, 0),
+    OSSL_PARAM_END
 };
 
 /* TODO(3.0): To be removed */
@@ -149,7 +146,7 @@ static int dummy_evp_call(void *provctx)
     return ret;
 }
 
-static const OSSL_ITEM *fips_get_param_types(const OSSL_PROVIDER *prov)
+static const OSSL_PARAM *fips_get_param_types(const OSSL_PROVIDER *prov)
 {
     return fips_param_types;
 }
@@ -253,6 +250,9 @@ static const OSSL_ALGORITHM fips_ciphers[] = {
     { "AES-256-CTR", "fips=yes", aes256ctr_functions },
     { "AES-192-CTR", "fips=yes", aes192ctr_functions },
     { "AES-128-CTR", "fips=yes", aes128ctr_functions },
+    { "id-aes256-GCM", "fips=yes", aes256gcm_functions },
+    { "id-aes192-GCM", "fips=yes", aes192gcm_functions },
+    { "id-aes128-GCM", "fips=yes", aes128gcm_functions },
     { NULL, NULL, NULL }
 };
 
@@ -309,26 +309,20 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
         case OSSL_FUNC_CORE_THREAD_START:
             c_thread_start = OSSL_get_core_thread_start(in);
             break;
-        case OSSL_FUNC_CORE_PUT_ERROR:
-            c_put_error = OSSL_get_core_put_error(in);
+        case OSSL_FUNC_CORE_NEW_ERROR:
+            c_new_error = OSSL_get_core_new_error(in);
             break;
-        case OSSL_FUNC_CORE_ADD_ERROR_VDATA:
-            c_add_error_vdata = OSSL_get_core_add_error_vdata(in);
+        case OSSL_FUNC_CORE_SET_ERROR_DEBUG:
+            c_set_error_debug = OSSL_get_core_set_error_debug(in);
+            break;
+        case OSSL_FUNC_CORE_VSET_ERROR:
+            c_vset_error = OSSL_get_core_vset_error(in);
             break;
         case OSSL_FUNC_CRYPTO_MALLOC:
             c_CRYPTO_malloc = OSSL_get_CRYPTO_malloc(in);
             break;
         case OSSL_FUNC_CRYPTO_ZALLOC:
             c_CRYPTO_zalloc = OSSL_get_CRYPTO_zalloc(in);
-            break;
-        case OSSL_FUNC_CRYPTO_MEMDUP:
-            c_CRYPTO_memdup = OSSL_get_CRYPTO_memdup(in);
-            break;
-        case OSSL_FUNC_CRYPTO_STRDUP:
-            c_CRYPTO_strdup = OSSL_get_CRYPTO_strdup(in);
-            break;
-        case OSSL_FUNC_CRYPTO_STRNDUP:
-            c_CRYPTO_strndup = OSSL_get_CRYPTO_strndup(in);
             break;
         case OSSL_FUNC_CRYPTO_FREE:
             c_CRYPTO_free = OSSL_get_CRYPTO_free(in);
@@ -356,9 +350,6 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
             break;
         case OSSL_FUNC_CRYPTO_SECURE_ALLOCATED:
             c_CRYPTO_secure_allocated = OSSL_get_CRYPTO_secure_allocated(in);
-            break;
-        case OSSL_FUNC_OPENSSL_HEXSTR2BUF:
-            c_OPENSSL_hexstr2buf = OSSL_get_OPENSSL_hexstr2buf(in);
             break;
         default:
             /* Just ignore anything we don't understand */
@@ -432,29 +423,28 @@ int fips_intern_provider_init(const OSSL_PROVIDER *provider,
     return 1;
 }
 
-void ERR_put_error(int lib, int func, int reason, const char *file, int line)
+void ERR_new(void)
 {
-    /*
-     * TODO(3.0) the first argument is currently NULL but is expected to
-     * be passed something else in the future, either an OSSL_PROVIDER or
-     * a OPENSSL_CTX pointer.
-     */
-    c_put_error(NULL, ERR_PACK(lib, func, reason), file, line);
-    ERR_add_error_data(1, "(in the FIPS module)");
+    c_new_error(NULL);
 }
 
-void ERR_add_error_data(int num, ...)
+void ERR_set_debug(const char *file, int line, const char *func)
+{
+    c_set_error_debug(NULL, file, line, func);
+}
+
+void ERR_set_error(int lib, int reason, const char *fmt, ...)
 {
     va_list args;
 
-    va_start(args, num);
-    ERR_add_error_vdata(num, args);
+    va_start(args, fmt);
+    c_vset_error(NULL, ERR_PACK(lib, 0, reason), fmt, args);
     va_end(args);
 }
 
-void ERR_add_error_vdata(int num, va_list args)
+void ERR_vset_error(int lib, int reason, const char *fmt, va_list args)
 {
-    c_add_error_vdata(NULL, num, args);
+    c_vset_error(NULL, ERR_PACK(lib, 0, reason), fmt, args);
 }
 
 const OSSL_PROVIDER *FIPS_get_provider(OPENSSL_CTX *ctx)
@@ -476,21 +466,6 @@ void *CRYPTO_malloc(size_t num, const char *file, int line)
 void *CRYPTO_zalloc(size_t num, const char *file, int line)
 {
     return c_CRYPTO_zalloc(num, file, line);
-}
-
-void *CRYPTO_memdup(const void *str, size_t siz, const char *file, int line)
-{
-    return c_CRYPTO_memdup(str, siz, file, line);
-}
-
-char *CRYPTO_strdup(const char *str, const char *file, int line)
-{
-    return c_CRYPTO_strdup(str, file, line);
-}
-
-char *CRYPTO_strndup(const char *str, size_t s, const char *file, int line)
-{
-    return c_CRYPTO_strndup(str, s, file, line);
 }
 
 void CRYPTO_free(void *ptr, const char *file, int line)
@@ -532,11 +507,6 @@ void CRYPTO_secure_free(void *ptr, const char *file, int line)
 void CRYPTO_secure_clear_free(void *ptr, size_t num, const char *file, int line)
 {
     c_CRYPTO_secure_clear_free(ptr, num, file, line);
-}
-
-unsigned char *OPENSSL_hexstr2buf(const char *str, long *len)
-{
-    return c_OPENSSL_hexstr2buf(str, len);
 }
 
 int CRYPTO_secure_allocated(const void *ptr)

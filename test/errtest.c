@@ -44,9 +44,30 @@ static int vdata_appends(void)
     return TEST_str_eq(data, "hello world");
 }
 
+/* Test that setting a platform error sets the right values. */
+static int platform_error(void)
+{
+    const char *file, *f, *data;
+    int line;
+    int l;
+    unsigned long e;
+
+    file = __FILE__;
+    line = __LINE__ + 1; /* The error is generated on the next line */
+    FUNCerr("exit", ERR_R_INTERNAL_ERROR);
+    if (!TEST_ulong_ne(e = ERR_get_error_line_data(&f, &l, &data, NULL), 0)
+            || !TEST_int_eq(ERR_GET_REASON(e), ERR_R_INTERNAL_ERROR)
+            || !TEST_int_eq(l, line)
+            || !TEST_str_eq(f, file)
+            || !TEST_str_eq(data, "calling function exit"))
+        return 0;
+    return 1;
+}
+
 int setup_tests(void)
 {
     ADD_TEST(preserves_system_error);
     ADD_TEST(vdata_appends);
+    ADD_TEST(platform_error);
     return 1;
 }

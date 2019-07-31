@@ -457,7 +457,8 @@ typedef int (EVP_PBE_KEYGEN) (EVP_CIPHER_CTX *ctx, const char *pass,
 
 int EVP_MD_type(const EVP_MD *md);
 # define EVP_MD_nid(e)                   EVP_MD_type(e)
-# define EVP_MD_name(e)                  OBJ_nid2sn(EVP_MD_nid(e))
+const char *EVP_MD_name(const EVP_MD *md);
+const OSSL_PROVIDER *EVP_MD_provider(const EVP_MD *md);
 int EVP_MD_pkey_type(const EVP_MD *md);
 int EVP_MD_size(const EVP_MD *md);
 int EVP_MD_block_size(const EVP_MD *md);
@@ -469,6 +470,7 @@ int (*EVP_MD_CTX_update_fn(EVP_MD_CTX *ctx))(EVP_MD_CTX *ctx,
 void EVP_MD_CTX_set_update_fn(EVP_MD_CTX *ctx,
                               int (*update) (EVP_MD_CTX *ctx,
                                              const void *data, size_t count));
+# define EVP_MD_CTX_name(e)              EVP_MD_name(EVP_MD_CTX_md(e))
 # define EVP_MD_CTX_size(e)              EVP_MD_size(EVP_MD_CTX_md(e))
 # define EVP_MD_CTX_block_size(e)        EVP_MD_block_size(EVP_MD_CTX_md(e))
 # define EVP_MD_CTX_type(e)              EVP_MD_type(EVP_MD_CTX_md(e))
@@ -477,7 +479,8 @@ void EVP_MD_CTX_set_pkey_ctx(EVP_MD_CTX *ctx, EVP_PKEY_CTX *pctx);
 void *EVP_MD_CTX_md_data(const EVP_MD_CTX *ctx);
 
 int EVP_CIPHER_nid(const EVP_CIPHER *cipher);
-# define EVP_CIPHER_name(e)              OBJ_nid2sn(EVP_CIPHER_nid(e))
+const char *EVP_CIPHER_name(const EVP_CIPHER *cipher);
+const OSSL_PROVIDER *EVP_CIPHER_provider(const EVP_CIPHER *cipher);
 int EVP_CIPHER_block_size(const EVP_CIPHER *cipher);
 int EVP_CIPHER_impl_ctx_size(const EVP_CIPHER *cipher);
 int EVP_CIPHER_key_length(const EVP_CIPHER *cipher);
@@ -504,6 +507,7 @@ void *EVP_CIPHER_CTX_get_app_data(const EVP_CIPHER_CTX *ctx);
 void EVP_CIPHER_CTX_set_app_data(EVP_CIPHER_CTX *ctx, void *data);
 void *EVP_CIPHER_CTX_get_cipher_data(const EVP_CIPHER_CTX *ctx);
 void *EVP_CIPHER_CTX_set_cipher_data(EVP_CIPHER_CTX *ctx, void *cipher_data);
+# define EVP_CIPHER_CTX_name(c)         EVP_CIPHER_name(EVP_CIPHER_CTX_cipher(c))
 # define EVP_CIPHER_CTX_type(c)         EVP_CIPHER_type(EVP_CIPHER_CTX_cipher(c))
 # if !OPENSSL_API_1_1_0
 #  define EVP_CIPHER_CTX_flags(c)       EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(c))
@@ -999,6 +1003,9 @@ void EVP_CIPHER_do_all(void (*fn) (const EVP_CIPHER *ciph,
 void EVP_CIPHER_do_all_sorted(void (*fn)
                                (const EVP_CIPHER *ciph, const char *from,
                                 const char *to, void *x), void *arg);
+void EVP_CIPHER_do_all_ex(OPENSSL_CTX *libctx,
+                          void (*fn)(EVP_CIPHER *cipher, void *arg),
+                          void *arg);
 
 void EVP_MD_do_all(void (*fn) (const EVP_MD *ciph,
                                const char *from, const char *to, void *x),
@@ -1006,6 +1013,9 @@ void EVP_MD_do_all(void (*fn) (const EVP_MD *ciph,
 void EVP_MD_do_all_sorted(void (*fn)
                            (const EVP_MD *ciph, const char *from,
                             const char *to, void *x), void *arg);
+void EVP_MD_do_all_ex(OPENSSL_CTX *libctx,
+                      void (*fn)(EVP_MD *md, void *arg),
+                      void *arg);
 
 /* MAC stuff */
 
@@ -1419,6 +1429,12 @@ int EVP_PKEY_meth_remove(const EVP_PKEY_METHOD *pmeth);
 size_t EVP_PKEY_meth_get_count(void);
 const EVP_PKEY_METHOD *EVP_PKEY_meth_get0(size_t idx);
 
+EVP_KEYMGMT *EVP_KEYMGMT_fetch(OPENSSL_CTX *ctx, const char *algorithm,
+                               const char *properties);
+int EVP_KEYMGMT_up_ref(EVP_KEYMGMT *keymgmt);
+void EVP_KEYMGMT_free(EVP_KEYMGMT *keymgmt);
+const OSSL_PROVIDER *EVP_KEYMGMT_provider(const EVP_KEYMGMT *keymgmt);
+
 EVP_PKEY_CTX *EVP_PKEY_CTX_new(EVP_PKEY *pkey, ENGINE *e);
 EVP_PKEY_CTX *EVP_PKEY_CTX_new_id(int id, ENGINE *e);
 EVP_PKEY_CTX *EVP_PKEY_CTX_dup(const EVP_PKEY_CTX *ctx);
@@ -1720,6 +1736,7 @@ void EVP_KEYEXCH_free(EVP_KEYEXCH *exchange);
 int EVP_KEYEXCH_up_ref(EVP_KEYEXCH *exchange);
 EVP_KEYEXCH *EVP_KEYEXCH_fetch(OPENSSL_CTX *ctx, const char *algorithm,
                                const char *properties);
+OSSL_PROVIDER *EVP_KEYEXCH_provider(const EVP_KEYEXCH *exchange);
 
 void EVP_add_alg_module(void);
 
