@@ -25,8 +25,8 @@
 
 static OSSL_OP_cipher_encrypt_init_fn gcm_einit;
 static OSSL_OP_cipher_decrypt_init_fn gcm_dinit;
-static OSSL_OP_cipher_ctx_get_params_fn gcm_ctx_get_params;
-static OSSL_OP_cipher_ctx_set_params_fn gcm_ctx_set_params;
+static OSSL_OP_cipher_get_ctx_params_fn gcm_get_ctx_params;
+static OSSL_OP_cipher_set_ctx_params_fn gcm_set_ctx_params;
 static OSSL_OP_cipher_cipher_fn gcm_cipher;
 static OSSL_OP_cipher_update_fn gcm_stream_update;
 static OSSL_OP_cipher_final_fn gcm_stream_final;
@@ -68,7 +68,7 @@ static int gcm_init(void *vctx, const unsigned char *key, size_t keylen,
 
     if (iv != NULL) {
         if (ivlen < ctx->ivlen_min || ivlen > sizeof(ctx->iv)) {
-            PROVerr(0, PROV_R_INVALID_IVLEN);
+            PROVerr(0, PROV_R_INVALID_IV_LENGTH);
             return 0;
         }
         ctx->ivlen = ivlen;
@@ -78,7 +78,7 @@ static int gcm_init(void *vctx, const unsigned char *key, size_t keylen,
 
     if (key != NULL) {
         if (keylen != ctx->keylen) {
-            PROVerr(0, PROV_R_INVALID_KEYLEN);
+            PROVerr(0, PROV_R_INVALID_KEY_LENGTH);
             return 0;
         }
         return ctx->hw->setkey(ctx, key, ctx->keylen);
@@ -98,7 +98,7 @@ static int gcm_dinit(void *vctx, const unsigned char *key, size_t keylen,
     return gcm_init(vctx, key, keylen, iv, ivlen, 0);
 }
 
-static int gcm_ctx_get_params(void *vctx, OSSL_PARAM params[])
+static int gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
 {
     PROV_GCM_CTX *ctx = (PROV_GCM_CTX *)vctx;
     OSSL_PARAM *p;
@@ -120,7 +120,7 @@ static int gcm_ctx_get_params(void *vctx, OSSL_PARAM params[])
         if (ctx->iv_gen != 1 && ctx->iv_gen_rand != 1)
             return 0;
         if (ctx->ivlen != (int)p->data_size) {
-            PROVerr(0, PROV_R_INVALID_IVLEN);
+            PROVerr(0, PROV_R_INVALID_IV_LENGTH);
             return 0;
         }
         if (!OSSL_PARAM_set_octet_string(p, ctx->iv, ctx->ivlen)) {
@@ -149,7 +149,7 @@ static int gcm_ctx_get_params(void *vctx, OSSL_PARAM params[])
     return 1;
 }
 
-static int gcm_ctx_set_params(void *vctx, const OSSL_PARAM params[])
+static int gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 {
     PROV_GCM_CTX *ctx = (PROV_GCM_CTX *)vctx;
     const OSSL_PARAM *p;
@@ -177,7 +177,7 @@ static int gcm_ctx_set_params(void *vctx, const OSSL_PARAM params[])
             return 0;
         }
         if (sz == 0 || sz > sizeof(ctx->iv)) {
-            PROVerr(0, PROV_R_INVALID_IVLEN);
+            PROVerr(0, PROV_R_INVALID_IV_LENGTH);
             return 0;
         }
         ctx->ivlen = sz;
@@ -535,10 +535,10 @@ err:
         { OSSL_FUNC_CIPHER_FREECTX, (void (*)(void)) alg##_gcm_freectx },      \
         { OSSL_FUNC_CIPHER_GET_PARAMS,                                         \
             (void (*)(void)) alg##_##kbits##_##lcmode##_get_params },          \
-        { OSSL_FUNC_CIPHER_CTX_GET_PARAMS,                                     \
-            (void (*)(void))gcm_ctx_get_params },                              \
-        { OSSL_FUNC_CIPHER_CTX_SET_PARAMS,                                     \
-            (void (*)(void))gcm_ctx_set_params },                              \
+        { OSSL_FUNC_CIPHER_GET_CTX_PARAMS,                                     \
+            (void (*)(void))gcm_get_ctx_params },                              \
+        { OSSL_FUNC_CIPHER_SET_CTX_PARAMS,                                     \
+            (void (*)(void))gcm_set_ctx_params },                              \
         { 0, NULL }                                                            \
     }
 

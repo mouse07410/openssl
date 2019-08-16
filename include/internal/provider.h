@@ -63,10 +63,11 @@ const char *ossl_provider_name(const OSSL_PROVIDER *prov);
 const DSO *ossl_provider_dso(const OSSL_PROVIDER *prov);
 const char *ossl_provider_module_name(const OSSL_PROVIDER *prov);
 const char *ossl_provider_module_path(const OSSL_PROVIDER *prov);
+OPENSSL_CTX *ossl_provider_library_context(const OSSL_PROVIDER *prov);
 
 /* Thin wrappers around calls to the provider */
 void ossl_provider_teardown(const OSSL_PROVIDER *prov);
-const OSSL_PARAM *ossl_provider_get_param_types(const OSSL_PROVIDER *prov);
+const OSSL_PARAM *ossl_provider_gettable_params(const OSSL_PROVIDER *prov);
 int ossl_provider_get_params(const OSSL_PROVIDER *prov, OSSL_PARAM params[]);
 const OSSL_ALGORITHM *ossl_provider_query_operation(const OSSL_PROVIDER *prov,
                                                     int operation_id,

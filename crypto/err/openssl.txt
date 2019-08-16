@@ -551,6 +551,11 @@ EC_F_ECDSA_SIGN_EX:254:ECDSA_sign_ex
 EC_F_ECDSA_SIGN_SETUP:248:ECDSA_sign_setup
 EC_F_ECDSA_SIG_NEW:265:ECDSA_SIG_new
 EC_F_ECDSA_VERIFY:253:ECDSA_verify
+EC_F_ECDSA_SIMPLE_SIGN_SETUP:310:ecdsa_simple_sign_setup
+EC_F_ECDSA_SIMPLE_SIGN_SIG:311:ecdsa_simple_sign_sig
+EC_F_ECDSA_SIMPLE_VERIFY_SIG:312:ecdsa_simple_verify_sig
+EC_F_ECDSA_S390X_NISTP_SIGN_SIG:313:ecdsa_s390x_nistp_sign_sig
+EC_F_ECDSA_S390X_NISTP_VERIFY_SIG:314:ecdsa_s390x_nistp_verify_sig
 EC_F_ECD_ITEM_VERIFY:270:ecd_item_verify
 EC_F_ECKEY_PARAM2TYPE:223:eckey_param2type
 EC_F_ECKEY_PARAM_DECODE:212:eckey_param_decode
@@ -716,6 +721,7 @@ EC_F_NISTP521_PRE_COMP_NEW:237:nistp521_pre_comp_new
 EC_F_O2I_ECPUBLICKEY:152:o2i_ECPublicKey
 EC_F_OLD_EC_PRIV_DECODE:222:old_ec_priv_decode
 EC_F_OSSL_ECDH_COMPUTE_KEY:247:ossl_ecdh_compute_key
+EC_F_OSSL_ECDSA_SIGN_SETUP:300:ossl_ecdsa_sign_setup
 EC_F_OSSL_ECDSA_SIGN_SIG:249:ossl_ecdsa_sign_sig
 EC_F_OSSL_ECDSA_VERIFY_SIG:250:ossl_ecdsa_verify_sig
 EC_F_PKEY_ECD_CTRL:271:pkey_ecd_ctrl
@@ -795,10 +801,6 @@ EVP_F_ARIA_GCM_CTRL:197:aria_gcm_ctrl
 EVP_F_ARIA_GCM_INIT_KEY:176:aria_gcm_init_key
 EVP_F_ARIA_INIT_KEY:185:aria_init_key
 EVP_F_B64_NEW:198:b64_new
-EVP_F_BLAKE2B_MAC_CTRL:220:blake2b_mac_ctrl
-EVP_F_BLAKE2B_MAC_INIT:221:blake2b_mac_init
-EVP_F_BLAKE2S_MAC_CTRL:222:blake2s_mac_ctrl
-EVP_F_BLAKE2S_MAC_INIT:223:blake2s_mac_init
 EVP_F_CAMELLIA_INIT_KEY:159:camellia_init_key
 EVP_F_CHACHA20_POLY1305_CTRL:182:chacha20_poly1305_ctrl
 EVP_F_CMLL_T4_INIT_KEY:179:cmll_t4_init_key
@@ -1148,14 +1150,19 @@ PROV_F_AESNI_INIT_KEY:101:aesni_init_key
 PROV_F_AES_BLOCK_FINAL:102:aes_block_final
 PROV_F_AES_BLOCK_UPDATE:103:aes_block_update
 PROV_F_AES_CIPHER:104:aes_cipher
-PROV_F_AES_CTX_GET_PARAMS:105:aes_ctx_get_params
-PROV_F_AES_CTX_SET_PARAMS:106:aes_ctx_set_params
+PROV_F_AES_GET_CTX_PARAMS:105:aes_get_ctx_params
+PROV_F_AES_SET_CTX_PARAMS:106:aes_set_ctx_params
 PROV_F_AES_DINIT:107:aes_dinit
 PROV_F_AES_DUPCTX:108:aes_dupctx
 PROV_F_AES_EINIT:109:aes_einit
 PROV_F_AES_INIT_KEY:110:aes_init_key
 PROV_F_AES_STREAM_UPDATE:111:aes_stream_update
 PROV_F_AES_T4_INIT_KEY:112:aes_t4_init_key
+PROV_F_BLAKE2_MAC_INIT:115:blake2_mac_init
+PROV_F_BLAKE2_MAC_SET_PARAMS:116:blake2_mac_set_params
+PROV_F_GMAC_SET_PARAMS:117:gmac_set_params
+PROV_F_KMAC_SET_PARAMS:118:kmac_set_params
+PROV_F_POLY1305_SET_PARAMS:119:poly1305_set_params
 PROV_F_PROV_AES_KEY_GENERIC_INIT:113:PROV_AES_KEY_generic_init
 PROV_F_TRAILINGDATA:114:trailingdata
 PROV_F_UNPADBLOCK:100:unpadblock
@@ -2327,6 +2334,7 @@ EC_R_BUFFER_TOO_SMALL:100:buffer too small
 EC_R_CANNOT_INVERT:165:cannot invert
 EC_R_COORDINATES_OUT_OF_RANGE:146:coordinates out of range
 EC_R_CURVE_DOES_NOT_SUPPORT_ECDH:160:curve does not support ecdh
+EC_R_CURVE_DOES_NOT_SUPPORT_ECDSA:170:curve does not support ecdsa
 EC_R_CURVE_DOES_NOT_SUPPORT_SIGNING:159:curve does not support signing
 EC_R_D2I_ECPKPARAMETERS_FAILURE:117:d2i ecpkparameters failure
 EC_R_DECODE_ERROR:142:decode error
@@ -2703,9 +2711,13 @@ PROV_R_CIPHER_OPERATION_FAILED:102:cipher operation failed
 PROV_R_FAILED_TO_GET_PARAMETER:103:failed to get parameter
 PROV_R_FAILED_TO_SET_PARAMETER:104:failed to set parameter
 PROV_R_INVALID_AAD:108:invalid aad
-PROV_R_INVALID_IVLEN:109:invalid ivlen
-PROV_R_INVALID_KEYLEN:105:invalid keylen
+PROV_R_INVALID_CUSTOM_LENGTH:111:invalid custom length
+PROV_R_INVALID_IV_LENGTH:109:invalid iv length
+PROV_R_INVALID_KEY_LENGTH:105:invalid key length
+PROV_R_INVALID_SALT_LENGTH:112:invalid salt length
 PROV_R_INVALID_TAG:110:invalid tag
+PROV_R_NOT_XOF_OR_INVALID_LENGTH:113:not xof or invalid length
+PROV_R_NO_KEY_SET:114:no key set
 PROV_R_OUTPUT_BUFFER_TOO_SMALL:106:output buffer too small
 PROV_R_WRONG_FINAL_BLOCK_LENGTH:107:wrong final block length
 RAND_R_ADDITIONAL_INPUT_TOO_LONG:102:additional input too long

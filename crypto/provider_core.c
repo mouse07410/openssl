@@ -62,7 +62,7 @@ struct ossl_provider_st {
 
     /* Provider side functions */
     OSSL_provider_teardown_fn *teardown;
-    OSSL_provider_get_param_types_fn *get_param_types;
+    OSSL_provider_gettable_params_fn *gettable_params;
     OSSL_provider_get_params_fn *get_params;
     OSSL_provider_query_operation_fn *query_operation;
 
@@ -464,9 +464,9 @@ static int provider_activate(OSSL_PROVIDER *prov)
             prov->teardown =
                 OSSL_get_provider_teardown(provider_dispatch);
             break;
-        case OSSL_FUNC_PROVIDER_GET_PARAM_TYPES:
-            prov->get_param_types =
-                OSSL_get_provider_get_param_types(provider_dispatch);
+        case OSSL_FUNC_PROVIDER_GETTABLE_PARAMS:
+            prov->gettable_params =
+                OSSL_get_provider_gettable_params(provider_dispatch);
             break;
         case OSSL_FUNC_PROVIDER_GET_PARAMS:
             prov->get_params =
@@ -706,6 +706,11 @@ const char *ossl_provider_module_path(const OSSL_PROVIDER *prov)
 #endif
 }
 
+OPENSSL_CTX *ossl_provider_library_context(const OSSL_PROVIDER *prov)
+{
+    return prov->libctx;
+}
+
 /* Wrappers around calls to the provider */
 void ossl_provider_teardown(const OSSL_PROVIDER *prov)
 {
@@ -713,10 +718,10 @@ void ossl_provider_teardown(const OSSL_PROVIDER *prov)
         prov->teardown(prov->provctx);
 }
 
-const OSSL_PARAM *ossl_provider_get_param_types(const OSSL_PROVIDER *prov)
+const OSSL_PARAM *ossl_provider_gettable_params(const OSSL_PROVIDER *prov)
 {
-    return prov->get_param_types == NULL
-        ? NULL : prov->get_param_types(prov->provctx);
+    return prov->gettable_params == NULL
+        ? NULL : prov->gettable_params(prov->provctx);
 }
 
 int ossl_provider_get_params(const OSSL_PROVIDER *prov, OSSL_PARAM params[])
@@ -756,7 +761,7 @@ static const OSSL_PARAM param_types[] = {
  * This ensures that the compiler will complain if they aren't defined
  * with the correct signature.
  */
-static OSSL_core_get_param_types_fn core_get_param_types;
+static OSSL_core_gettable_params_fn core_gettable_params;
 static OSSL_core_get_params_fn core_get_params;
 static OSSL_core_thread_start_fn core_thread_start;
 static OSSL_core_get_library_context_fn core_get_libctx;
@@ -766,7 +771,7 @@ static OSSL_core_set_error_debug_fn core_set_error_debug;
 static OSSL_core_vset_error_fn core_vset_error;
 #endif
 
-static const OSSL_PARAM *core_get_param_types(const OSSL_PROVIDER *prov)
+static const OSSL_PARAM *core_gettable_params(const OSSL_PROVIDER *prov)
 {
     return param_types;
 }
@@ -801,7 +806,7 @@ static int core_get_params(const OSSL_PROVIDER *prov, OSSL_PARAM params[])
 
 static OPENSSL_CTX *core_get_libctx(const OSSL_PROVIDER *prov)
 {
-    return prov->libctx;
+    return ossl_provider_library_context(prov);
 }
 
 static int core_thread_start(const OSSL_PROVIDER *prov,
@@ -855,7 +860,7 @@ static void core_vset_error(const OSSL_PROVIDER *prov,
  * functions.
  */
 static const OSSL_DISPATCH core_dispatch_[] = {
-    { OSSL_FUNC_CORE_GET_PARAM_TYPES, (void (*)(void))core_get_param_types },
+    { OSSL_FUNC_CORE_GETTABLE_PARAMS, (void (*)(void))core_gettable_params },
     { OSSL_FUNC_CORE_GET_PARAMS, (void (*)(void))core_get_params },
     { OSSL_FUNC_CORE_GET_LIBRARY_CONTEXT, (void (*)(void))core_get_libctx },
     { OSSL_FUNC_CORE_THREAD_START, (void (*)(void))core_thread_start },

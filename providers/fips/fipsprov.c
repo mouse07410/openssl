@@ -37,7 +37,7 @@ extern OSSL_core_thread_start_fn *c_thread_start;
  * us with the OPENSSL_CTX as a parameter.
  */
 /* Functions provided by the core */
-static OSSL_core_get_param_types_fn *c_get_param_types;
+static OSSL_core_gettable_params_fn *c_gettable_params;
 static OSSL_core_get_params_fn *c_get_params;
 OSSL_core_thread_start_fn *c_thread_start;
 static OSSL_core_new_error_fn *c_new_error;
@@ -164,7 +164,7 @@ static int dummy_evp_call(void *provctx)
     return ret;
 }
 
-static const OSSL_PARAM *fips_get_param_types(const OSSL_PROVIDER *prov)
+static const OSSL_PARAM *fips_gettable_params(const OSSL_PROVIDER *prov)
 {
     return fips_param_types;
 }
@@ -252,8 +252,12 @@ static const OSSL_ALGORITHM fips_digests[] = {
     { "SHA3-256", "fips=yes", sha3_256_functions },
     { "SHA3-384", "fips=yes", sha3_384_functions },
     { "SHA3-512", "fips=yes", sha3_512_functions },
-    { "KMAC128", "fips=yes", keccak_kmac_128_functions },
-    { "KMAC256", "fips=yes", keccak_kmac_256_functions },
+    /*
+     * KECCAK_KMAC128 and KECCAK_KMAC256 as hashes are mostly useful for
+     * the KMAC128 and KMAC256.
+     */
+    { "KECCAK_KMAC128", "fips=yes", keccak_kmac_128_functions },
+    { "KECCAK_KMAC256", "fips=yes", keccak_kmac_256_functions },
 
     { NULL, NULL, NULL }
 };
@@ -274,6 +278,15 @@ static const OSSL_ALGORITHM fips_ciphers[] = {
     { NULL, NULL, NULL }
 };
 
+static const OSSL_ALGORITHM fips_macs[] = {
+    { "CMAC", "fips=yes", cmac_functions },
+    { "GMAC", "fips=yes", gmac_functions },
+    { "HMAC", "fips=yes", hmac_functions },
+    { "KMAC128", "fips=yes", kmac128_functions },
+    { "KMAC256", "fips=yes", kmac256_functions },
+    { NULL, NULL, NULL }
+};
+
 static const OSSL_ALGORITHM *fips_query(OSSL_PROVIDER *prov,
                                          int operation_id,
                                          int *no_cache)
@@ -284,6 +297,8 @@ static const OSSL_ALGORITHM *fips_query(OSSL_PROVIDER *prov,
         return fips_digests;
     case OSSL_OP_CIPHER:
         return fips_ciphers;
+    case OSSL_OP_MAC:
+        return fips_macs;
     }
     return NULL;
 }
@@ -295,7 +310,7 @@ static const OSSL_DISPATCH fips_dispatch_table[] = {
      * use OPENSSL_CTX_free directly as our teardown function
      */
     { OSSL_FUNC_PROVIDER_TEARDOWN, (void (*)(void))OPENSSL_CTX_free },
-    { OSSL_FUNC_PROVIDER_GET_PARAM_TYPES, (void (*)(void))fips_get_param_types },
+    { OSSL_FUNC_PROVIDER_GETTABLE_PARAMS, (void (*)(void))fips_gettable_params },
     { OSSL_FUNC_PROVIDER_GET_PARAMS, (void (*)(void))fips_get_params },
     { OSSL_FUNC_PROVIDER_QUERY_OPERATION, (void (*)(void))fips_query },
     { 0, NULL }
@@ -318,8 +333,8 @@ int OSSL_provider_init(const OSSL_PROVIDER *provider,
 
     for (; in->function_id != 0; in++) {
         switch (in->function_id) {
-        case OSSL_FUNC_CORE_GET_PARAM_TYPES:
-            c_get_param_types = OSSL_get_core_get_param_types(in);
+        case OSSL_FUNC_CORE_GETTABLE_PARAMS:
+            c_gettable_params = OSSL_get_core_gettable_params(in);
             break;
         case OSSL_FUNC_CORE_GET_PARAMS:
             c_get_params = OSSL_get_core_get_params(in);
