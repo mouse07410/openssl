@@ -34,6 +34,11 @@ extern "C" {
  */
 #define OSSL_PROV_PARAM_BUILDINFO   "buildinfo"
 
+/*
+ * The module filename
+ * Type: OSSL_PARAM_OCTET_STRING
+ */
+#define OSSL_PROV_PARAM_MODULE_FILENAME "module-filename"
 
 /* cipher parameters */
 #define OSSL_CIPHER_PARAM_PADDING   "padding"    /* int */
@@ -59,6 +64,10 @@ extern "C" {
 #define OSSL_DIGEST_PARAM_SIZE      "size" /* OSSL_PARAM_INTEGER */
 #define OSSL_DIGEST_PARAM_FLAGS     "flags" /* OSSL_PARAM_UNSIGNED_INTEGER */
 
+/* Known DIGEST names (not a complete list) */
+#define OSSL_DIGEST_NAME_KECCAK_KMAC128 "KECCAK_KMAC128"
+#define OSSL_DIGEST_NAME_KECCAK_KMAC256 "KECCAK_KMAC256"
+
 /* MAC parameters */
 #define OSSL_MAC_PARAM_KEY          "key"       /* octet string */
 #define OSSL_MAC_PARAM_IV           "iv"        /* octet string */
@@ -78,6 +87,12 @@ extern "C" {
 #define OSSL_MAC_PARAM_SIZE         "size"      /* size_t */
 #define OSSL_MAC_PARAM_DIGESTSIZE   "digestsize" /* size_t */
 #define OSSL_MAC_PARAM_OUTLEN       "outlen"    /* size_t */
+
+/* Known MAC names (not a complete list) */
+#define OSSL_MAC_NAME_CMAC          "CMAC"
+#define OSSL_MAC_NAME_HMAC          "HMAC"
+#define OSSL_MAC_NAME_KMAC128       "KMAC128"
+#define OSSL_MAC_NAME_KMAC256       "KMAC256"
 
 /* PKEY parameters */
 /* Diffie-Hellman Parameters */
