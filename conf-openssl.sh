@@ -8,11 +8,11 @@ CFLAGS="$CFLAGS -g"
 
 make distclean || true
 
-# For OpenSSL-1.1.1 master (development branch)
-./config --prefix=$HOME/openssl-1.1 --debug --openssldir=$HOME/openssl-1.1/etc --with-rand-seed=rdcpu enable-aria enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers enable-zlib-dynamic enable-ssl-trace
+# For OpenSSL-3 master (development branch)
+./config --prefix=$HOME/openssl-3 --debug --openssldir=$HOME/openssl-3/etc --with-rand-seed=rdcpu enable-aria enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers enable-zlib-dynamic enable-ssl-trace
 #enable-tls1_3 enable-tls13downgrade
 
-# For OpenSSL-1.1.0-stable
+# For OpenSSL-1.1.1-stable
 #./config --debug --prefix=$HOME/openssl-1.1 --openssldir=$HOME/openssl-1.1/etc enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers enable-zlib-dynamic enable-tls1_3 enable-tls13downgrade enable-ssl-trace
 
 # For OpenSSL-1.0.2-stable
