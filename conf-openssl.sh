@@ -4,12 +4,15 @@ unset OPENSSL_CFLAGS
 unset OPENSSL_LIBS
 unset OPENSSL
 
+OPENSSL_DIR="$HOME/openssl-3"
+OPENSSL_GOST_ENGINE_SO=${OPENSSL_DIR}/lib/engines-3/gost.dylib
+
 CFLAGS="$CFLAGS -g"
 
 make distclean || true
 
 # For OpenSSL-3 master (development branch)
-./config --prefix=$HOME/openssl-3 --debug --openssldir=$HOME/openssl-3/etc --with-rand-seed=rdcpu enable-aria enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers enable-zlib-dynamic enable-ssl-trace
+./config --prefix=${OPENSSL_DIR} --debug --openssldir=${OPENSSL_DIR}/etc --with-rand-seed=rdcpu enable-aria enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers enable-zlib-dynamic enable-ssl-trace
 #enable-tls1_3 enable-tls13downgrade
 
 # For OpenSSL-1.1.1-stable
