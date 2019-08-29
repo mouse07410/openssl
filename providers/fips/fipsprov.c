@@ -324,13 +324,17 @@ static const OSSL_ALGORITHM fips_ciphers[] = {
     { "id-aes256-CCM", "fips=yes", aes256ccm_functions },
     { "id-aes192-CCM", "fips=yes", aes192ccm_functions },
     { "id-aes128-CCM", "fips=yes", aes128ccm_functions },
+#ifndef OPENSSL_NO_DES
     { "DES-EDE3", "fips=yes", tdes_ede3_ecb_functions },
     { "DES-EDE3-CBC", "fips=yes", tdes_ede3_cbc_functions },
+#endif  /* OPENSSL_NO_DES */
     { NULL, NULL, NULL }
 };
 
 static const OSSL_ALGORITHM fips_macs[] = {
+#ifndef OPENSSL_NO_CMAC
     { "CMAC", "fips=yes", cmac_functions },
+#endif
     { "GMAC", "fips=yes", gmac_functions },
     { "HMAC", "fips=yes", hmac_functions },
     { "KMAC128", "fips=yes", kmac128_functions },

@@ -7,18 +7,15 @@
  * https://www.openssl.org/source/license.html
  */
 
-#include <openssl/opensslconf.h>
-#ifndef OPENSSL_NO_CMAC
+#include <openssl/core_numbers.h>
+#include <openssl/core_names.h>
+#include <openssl/params.h>
+#include <openssl/engine.h>
+#include <openssl/evp.h>
+#include <openssl/cmac.h>
 
-# include <openssl/core_numbers.h>
-# include <openssl/core_names.h>
-# include <openssl/params.h>
-# include <openssl/engine.h>
-# include <openssl/evp.h>
-# include <openssl/cmac.h>
-
-# include "internal/provider_algs.h"
-# include "internal/provider_ctx.h"
+#include "internal/provider_algs.h"
+#include "internal/provider_ctx.h"
 
 /*
  * Forward declaration of everything implemented here.  This is not strictly
@@ -187,7 +184,8 @@ static int cmac_set_ctx_params(void *vmacctx, const OSSL_PARAM params[])
             const char *algoname = p->data;
             const char *propquery = NULL;
 
-#ifndef FIPS_MODE /* Inside the FIPS module, we don't support engines */
+/* Inside the FIPS module, we don't support engines */
+#if !defined(FIPS_MODE) && !defined(OPENSSL_NO_ENGINE)
             ENGINE_finish(macctx->tmpengine);
             macctx->tmpengine = NULL;
 
@@ -256,5 +254,3 @@ const OSSL_DISPATCH cmac_functions[] = {
     { OSSL_FUNC_MAC_SET_CTX_PARAMS, (void (*)(void))cmac_set_ctx_params },
     { 0, NULL }
 };
-
-#endif
