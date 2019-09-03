@@ -101,7 +101,6 @@ void AES_xts_decrypt(const unsigned char *inp, unsigned char *out, size_t len,
          defined(_M_AMD64)       || defined(_M_X64)      )
 
 /* AES-NI section */
-extern unsigned int OPENSSL_ia32cap_P[];
 
 #  define AESNI_CAPABLE   (OPENSSL_ia32cap_P[1]&(1<<(57-32)))
 #  ifdef VPAES_ASM
@@ -194,6 +193,7 @@ extern unsigned int OPENSSL_sparcv9cap_P[];
 
 #  ifndef OPENSSL_NO_CAMELLIA
 #   define SPARC_CMLL_CAPABLE      (OPENSSL_sparcv9cap_P[1] & CFR_CAMELLIA)
+#   include "openssl/camellia.h"
 
 void cmll_t4_set_key(const unsigned char *key, int bits, CAMELLIA_KEY *ks);
 void cmll_t4_encrypt(const unsigned char *in, unsigned char *out,
