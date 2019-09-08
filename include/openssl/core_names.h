@@ -40,6 +40,16 @@ extern "C" {
  */
 #define OSSL_PROV_PARAM_MODULE_FILENAME "module-filename"
 
+/*
+ * Algorithm parameters
+ * If "engine" or "properties" are specified, they should always be paired
+ * with the algorithm type.
+ */
+#define OSSL_ALG_PARAM_DIGEST       "digest"    /* utf8_string */
+#define OSSL_ALG_PARAM_CIPHER       "cipher"    /* utf8_string */
+#define OSSL_ALG_PARAM_ENGINE       "engine"    /* utf8_string */
+#define OSSL_ALG_PARAM_PROPERTIES   "properties"/* utf8_string */
+
 /* cipher parameters */
 #define OSSL_CIPHER_PARAM_PADDING   "padding"    /* uint */
 #define OSSL_CIPHER_PARAM_MODE      "mode"       /* uint */
@@ -80,10 +90,10 @@ extern "C" {
  * If "engine" or "properties" are specified, they should always be paired
  * with "cipher" or "digest".
  */
-#define OSSL_MAC_PARAM_CIPHER       "cipher"     /* utf8 string */
-#define OSSL_MAC_PARAM_DIGEST       "digest"     /* utf8 string */
-#define OSSL_MAC_PARAM_ENGINE       "engine"     /* utf8 string */
-#define OSSL_MAC_PARAM_PROPERTIES   "properties" /* utf8 string */
+#define OSSL_MAC_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER     /* utf8 string */
+#define OSSL_MAC_PARAM_DIGEST       OSSL_ALG_PARAM_DIGEST     /* utf8 string */
+#define OSSL_MAC_PARAM_ENGINE       OSSL_ALG_PARAM_ENGINE     /* utf8 string */
+#define OSSL_MAC_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES /* utf8 string */
 #define OSSL_MAC_PARAM_SIZE         "size"       /* size_t */
 
 /* Known MAC names (not a complete list) */
@@ -91,6 +101,32 @@ extern "C" {
 #define OSSL_MAC_NAME_HMAC          "HMAC"
 #define OSSL_MAC_NAME_KMAC128       "KMAC128"
 #define OSSL_MAC_NAME_KMAC256       "KMAC256"
+
+/* KDF / PRF parameters */
+#define OSSL_KDF_PARAM_SECRET       "secret"    /* octet string */
+#define OSSL_KDF_PARAM_KEY          "key"       /* octet string */
+#define OSSL_KDF_PARAM_SALT         "salt"      /* octet string */
+#define OSSL_KDF_PARAM_PASSWORD     "pass"      /* octet string */
+#define OSSL_KDF_PARAM_DIGEST       OSSL_ALG_PARAM_DIGEST    /* utf8 string */
+#define OSSL_KDF_PARAM_MAC          "mac"       /* utf8 string */
+#define OSSL_KDF_PARAM_MAC_SIZE     "maclen"    /* size_t */
+#define OSSL_KDF_PARAM_ENGINE       OSSL_ALG_PARAM_ENGINE     /* utf8 string */
+#define OSSL_KDF_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES /* utf8 string */
+#define OSSL_KDF_PARAM_ITER         "iter"      /* unsigned int */
+#define OSSL_KDF_PARAM_MODE         "mode"      /* utf8 string or int */
+#define OSSL_KDF_PARAM_PKCS5        "pkcs5"     /* int */
+#define OSSL_KDF_PARAM_UKM          "ukm"       /* octet string */
+#define OSSL_KDF_PARAM_CEK_ALG      "cekalg"    /* utf8 string */
+#define OSSL_KDF_PARAM_SCRYPT_N     "n"         /* uint64_t */
+#define OSSL_KDF_PARAM_SCRYPT_R     "r"         /* uint32_t */
+#define OSSL_KDF_PARAM_SCRYPT_P     "p"         /* uint32_t */
+#define OSSL_KDF_PARAM_SCRYPT_MAXMEM "maxmem_bytes" /* uint64_t */
+#define OSSL_KDF_PARAM_INFO         "info"      /* octet string */
+#define OSSL_KDF_PARAM_SEED         "seed"      /* octet string */
+#define OSSL_KDF_PARAM_SSHKDF_XCGHASH "xcghash" /* octet string */
+#define OSSL_KDF_PARAM_SSHKDF_SESSION_ID "session_id" /* octet string */
+#define OSSL_KDF_PARAM_SSHKDF_TYPE  "type"      /* int */
+#define OSSL_KDF_PARAM_SIZE         "size"      /* size_t */
 
 /* PKEY parameters */
 /* Diffie-Hellman Parameters */
