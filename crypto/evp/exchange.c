@@ -32,11 +32,6 @@ static EVP_KEYEXCH *evp_keyexch_new(OSSL_PROVIDER *prov)
     return exchange;
 }
 
-struct keymgmt_data_st {
-    OPENSSL_CTX *ctx;
-    const char *properties;
-};
-
 static void *evp_keyexch_from_dispatch(const char *name,
                                        const OSSL_DISPATCH *fns,
                                        OSSL_PROVIDER *prov,
@@ -55,7 +50,7 @@ static void *evp_keyexch_from_dispatch(const char *name,
     EVP_KEYMGMT *keymgmt = EVP_KEYMGMT_fetch(keymgmt_data->ctx, name,
                                              keymgmt_data->properties);
     EVP_KEYEXCH *exchange = NULL;
-    int fncnt = 0;
+    int fncnt = 0, paramfncnt = 0;
 
     if (keymgmt == NULL || EVP_KEYMGMT_provider(keymgmt) != prov) {
         ERR_raise(ERR_LIB_EVP, EVP_R_NO_KEYMGMT_AVAILABLE);
@@ -107,19 +102,28 @@ static void *evp_keyexch_from_dispatch(const char *name,
                 break;
             exchange->dupctx = OSSL_get_OP_keyexch_dupctx(fns);
             break;
-        case OSSL_FUNC_KEYEXCH_SET_PARAMS:
-            if (exchange->set_params != NULL)
+        case OSSL_FUNC_KEYEXCH_SET_CTX_PARAMS:
+            if (exchange->set_ctx_params != NULL)
                 break;
-            exchange->set_params = OSSL_get_OP_keyexch_set_params(fns);
+            exchange->set_ctx_params = OSSL_get_OP_keyexch_set_ctx_params(fns);
+            paramfncnt++;
+            break;
+        case OSSL_FUNC_KEYEXCH_SETTABLE_CTX_PARAMS:
+            if (exchange->settable_ctx_params != NULL)
+                break;
+            exchange->settable_ctx_params
+                = OSSL_get_OP_keyexch_settable_ctx_params(fns);
+            paramfncnt++;
             break;
         }
     }
-    if (fncnt != 4) {
+    if (fncnt != 4 || (paramfncnt != 0 && paramfncnt != 2)) {
         /*
          * In order to be a consistent set of functions we must have at least
          * a complete set of "exchange" functions: init, derive, newctx,
-         * and freectx. The dupctx, set_peer and set_params functions are
-         * optional.
+         * and freectx. The set_ctx_params and settable_ctx_params functions are
+         * optional, but if one of them is present then the other one must also
+         * be present. The dupctx and set_peer functions are optional.
          */
         EVPerr(EVP_F_EVP_KEYEXCH_FROM_DISPATCH,
                EVP_R_INVALID_PROVIDER_FUNCTIONS);
@@ -184,6 +188,7 @@ int EVP_PKEY_derive_init_ex(EVP_PKEY_CTX *ctx, EVP_KEYEXCH *exchange)
     int ret;
     void *provkey = NULL;
 
+    evp_pkey_ctx_free_old_ops(ctx);
     ctx->operation = EVP_PKEY_OP_DERIVE;
 
     if (ctx->engine != NULL)
@@ -217,10 +222,7 @@ int EVP_PKEY_derive_init_ex(EVP_PKEY_CTX *ctx, EVP_KEYEXCH *exchange)
         }
     }
 
-    if (ctx->exchprovctx != NULL && ctx->exchange != NULL)
-        ctx->exchange->freectx(ctx->exchprovctx);
-    EVP_KEYEXCH_free(ctx->exchange);
-    ctx->exchange = exchange;
+    ctx->op.kex.exchange = exchange;
     if (ctx->pkey != NULL) {
         provkey = evp_keymgmt_export_to_provider(ctx->pkey, exchange->keymgmt);
         if (provkey == NULL) {
@@ -228,13 +230,13 @@ int EVP_PKEY_derive_init_ex(EVP_PKEY_CTX *ctx, EVP_KEYEXCH *exchange)
             goto err;
         }
     }
-    ctx->exchprovctx = exchange->newctx(ossl_provider_ctx(exchange->prov));
-    if (ctx->exchprovctx == NULL) {
+    ctx->op.kex.exchprovctx = exchange->newctx(ossl_provider_ctx(exchange->prov));
+    if (ctx->op.kex.exchprovctx == NULL) {
         /* The provider key can stay in the cache */
         EVPerr(EVP_F_EVP_PKEY_DERIVE_INIT_EX, EVP_R_INITIALIZATION_ERROR);
         goto err;
     }
-    ret = exchange->init(ctx->exchprovctx, provkey);
+    ret = exchange->init(ctx->op.kex.exchprovctx, provkey);
 
     return ret ? 1 : 0;
  err:
@@ -272,27 +274,22 @@ int EVP_PKEY_derive_set_peer(EVP_PKEY_CTX *ctx, EVP_PKEY *peer)
         return -2;
     }
 
-    if (ctx->exchprovctx == NULL)
+    if (!EVP_PKEY_CTX_IS_DERIVE_OP(ctx) || ctx->op.kex.exchprovctx == NULL)
         goto legacy;
 
-    if (ctx->operation != EVP_PKEY_OP_DERIVE) {
-        EVPerr(EVP_F_EVP_PKEY_DERIVE_SET_PEER,
-               EVP_R_OPERATON_NOT_INITIALIZED);
-        return -1;
-    }
-
-    if (ctx->exchange->set_peer == NULL) {
+    if (ctx->op.kex.exchange->set_peer == NULL) {
         EVPerr(EVP_F_EVP_PKEY_DERIVE_SET_PEER,
                EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
         return -2;
     }
 
-    provkey = evp_keymgmt_export_to_provider(peer, ctx->exchange->keymgmt);
+    provkey = evp_keymgmt_export_to_provider(peer,
+                                             ctx->op.kex.exchange->keymgmt);
     if (provkey == NULL) {
         EVPerr(EVP_F_EVP_PKEY_DERIVE_SET_PEER, ERR_R_INTERNAL_ERROR);
         return 0;
     }
-    return ctx->exchange->set_peer(ctx->exchprovctx, provkey);
+    return ctx->op.kex.exchange->set_peer(ctx->op.kex.exchprovctx, provkey);
 
  legacy:
     if (ctx->pmeth == NULL
@@ -367,15 +364,16 @@ int EVP_PKEY_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *pkeylen)
         return -2;
     }
 
-    if (ctx->operation != EVP_PKEY_OP_DERIVE) {
+    if (!EVP_PKEY_CTX_IS_DERIVE_OP(ctx)) {
         EVPerr(EVP_F_EVP_PKEY_DERIVE, EVP_R_OPERATON_NOT_INITIALIZED);
         return -1;
     }
 
-    if (ctx->exchprovctx == NULL)
+    if (ctx->op.kex.exchprovctx == NULL)
         goto legacy;
 
-    ret = ctx->exchange->derive(ctx->exchprovctx, key, pkeylen, SIZE_MAX);
+    ret = ctx->op.kex.exchange->derive(ctx->op.kex.exchprovctx, key, pkeylen,
+                                       SIZE_MAX);
 
     return ret;
  legacy:
