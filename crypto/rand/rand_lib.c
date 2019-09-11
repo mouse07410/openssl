@@ -30,8 +30,6 @@ static CRYPTO_ONCE rand_init = CRYPTO_ONCE_STATIC_INIT;
 static int rand_inited = 0;
 #endif /* FIPS_MODE */
 
-int rand_fork_count;
-
 #ifdef OPENSSL_RAND_SEED_RDTSC
 /*
  * IMPORTANT NOTE:  It is not currently possible to use this code
@@ -160,7 +158,9 @@ size_t rand_drbg_get_entropy(RAND_DRBG *drbg,
             size_t bytes = 0;
 
             /*
-             * Get random from parent, include our state as additional input.
+             * Get random data from parent. Include our address as additional input,
+             * in order to provide some additional distinction between different
+             * DRBG child instances.
              * Our lock is already held, but we need to lock our parent before
              * generating bits from it. (Note: taking the lock will be a no-op
              * if locking if drbg->parent->lock == NULL.)
@@ -169,7 +169,7 @@ size_t rand_drbg_get_entropy(RAND_DRBG *drbg,
             if (RAND_DRBG_generate(drbg->parent,
                                    buffer, bytes_needed,
                                    prediction_resistance,
-                                   NULL, 0) != 0)
+                                   (unsigned char *)&drbg, sizeof(drbg)) != 0)
                 bytes = bytes_needed;
             drbg->reseed_next_counter
                 = tsan_load(&drbg->parent->reseed_prop_counter);
@@ -236,11 +236,6 @@ size_t rand_drbg_get_additional_data(RAND_POOL *pool, unsigned char **pout)
 void rand_drbg_cleanup_additional_data(RAND_POOL *pool, unsigned char *out)
 {
     rand_pool_reattach(pool, out);
-}
-
-void rand_fork(void)
-{
-    rand_fork_count++;
 }
 
 #ifndef FIPS_MODE

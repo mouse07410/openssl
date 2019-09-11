@@ -2008,8 +2008,10 @@ static int kdf_test_init(EVP_TEST *t, const char *name)
     *kdata->p = OSSL_PARAM_construct_end();
 
     kdf = EVP_KDF_fetch(NULL, name, NULL);
-    if (kdf == NULL)
+    if (kdf == NULL) {
+        OPENSSL_free(kdata);
         return 0;
+    }
     kdata->ctx = EVP_KDF_CTX_new(kdf);
     EVP_KDF_free(kdf);
     if (kdata->ctx == NULL) {
@@ -2045,14 +2047,15 @@ static int kdf_test_ctrl(EVP_TEST *t, EVP_KDF_CTX *kctx,
     if (p != NULL)
         *p++ = '\0';
 
-    rv = OSSL_PARAM_allocate_from_text(kdata->p, defs, name, p, strlen(p));
+    rv = OSSL_PARAM_allocate_from_text(kdata->p, defs, name, p,
+                                       p != NULL ? strlen(p) : 0);
     *++kdata->p = OSSL_PARAM_construct_end();
     if (!rv) {
         t->err = "KDF_PARAM_ERROR";
         OPENSSL_free(name);
         return 0;
     }
-    if (strcmp(name, "digest") == 0 && p != NULL) {
+    if (p != NULL && strcmp(name, "digest") == 0) {
         /* If p has an OID and lookup fails assume disabled algorithm */
         int nid = OBJ_sn2nid(p);
 

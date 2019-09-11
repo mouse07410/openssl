@@ -63,7 +63,8 @@ extern "C" {
 #define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD      "tlsaad"     /* octet_string */
 #define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD_PAD  "tlsaadpad"  /* size_t */
 #define OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED "tlsivfixed" /* octet_string */
-#define OSSL_CIPHER_PARAM_AEAD_IVLEN OSSL_CIPHER_PARAM_IVLEN
+#define OSSL_CIPHER_PARAM_AEAD_IVLEN         OSSL_CIPHER_PARAM_IVLEN
+#define OSSL_CIPHER_PARAM_AEAD_TAGLEN        "taglen"     /* size_t */
 #define OSSL_CIPHER_PARAM_RANDOM_KEY         "randkey"    /* octet_string */
 
 /* digest parameters */
@@ -127,6 +128,16 @@ extern "C" {
 #define OSSL_KDF_PARAM_SSHKDF_SESSION_ID "session_id" /* octet string */
 #define OSSL_KDF_PARAM_SSHKDF_TYPE  "type"      /* int */
 #define OSSL_KDF_PARAM_SIZE         "size"      /* size_t */
+
+/* Known KDF names */
+#define OSSL_KDF_NAME_HKDF          "HKDF"
+#define OSSL_KDF_NAME_PBKDF2        "PBKDF2"
+#define OSSL_KDF_NAME_SCRYPT        "id-scrypt"
+#define OSSL_KDF_NAME_SSHKDF        "SSHKDF"
+#define OSSL_KDF_NAME_SSKDF         "SSKDF"
+#define OSSL_KDF_NAME_TLS1_PRF      "TLS1-PRF"
+#define OSSL_KDF_NAME_X942KDF       "X942KDF"
+#define OSSL_KDF_NAME_X963KDF       "X963KDF"
 
 /* PKEY parameters */
 /* Diffie-Hellman/DSA Parameters */
