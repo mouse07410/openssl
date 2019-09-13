@@ -9,6 +9,33 @@
 
  Changes between 1.1.1 and 3.0.0 [xx XXX xxxx]
 
+  *) Deprecated the public definition of ERR_STATE as well as the function
+     ERR_get_state().  This is done in preparation of making ERR_STATE an
+     opaque type.
+     [Richard Levitte]
+
+  *) Added ERR functionality to give callers access to the stored function
+     names that have replaced the older function code based functions.
+
+     New functions are ERR_get_error_func(), ERR_peek_error_func(),
+     ERR_peek_last_error_func(), ERR_get_error_data(), ERR_peek_error_data(),
+     ERR_peek_last_error_data(), ERR_get_error_all(), ERR_peek_error_all()
+     and ERR_peek_last_error_all().
+
+     These functions have become deprecated: ERR_get_error_line_data(),
+     ERR_peek_error_line_data(), ERR_peek_last_error_line_data() and
+     ERR_func_error_string().
+     [Richard Levitte]
+
+  *) Extended testing to be verbose for failing tests only.  The make variables
+     VERBOSE_FAILURE or VF can be used to enable this:
+
+     $ make VF=1 test                                   # Unix
+     $ mms /macro=(VF=1) test                           ! OpenVMS
+     $ nmake VF=1 test                                  # Windows
+
+     [Richard Levitte]
+
   *) For built-in EC curves, ensure an EC_GROUP built from the curve name is
      used even when parsing explicit parameters, when loading a serialized key
      or calling `EC_GROUP_new_from_ecpkparameters()`/
