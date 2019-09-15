@@ -114,6 +114,8 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { "AES-256-CTR", "default=yes", aes256ctr_functions },
     { "AES-192-CTR", "default=yes", aes192ctr_functions },
     { "AES-128-CTR", "default=yes", aes128ctr_functions },
+    { "AES-256-XTS", "default=yes", aes256xts_functions },
+    { "AES-128-XTS", "default=yes", aes128xts_functions },
 /* TODO(3.0) Add aliases when they are supported */
     { "id-aes256-GCM", "default=yes", aes256gcm_functions },
     { "id-aes192-GCM", "default=yes", aes192gcm_functions },
@@ -187,6 +189,12 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { "DESX-CBC", "default=yes", tdes_desx_cbc_functions },
     { "id-smime-alg-CMS3DESwrap", "default=yes", tdes_wrap_cbc_functions },
 #endif /* OPENSSL_NO_DES */
+#ifndef OPENSSL_NO_BF
+    { "BF-ECB", "default=yes", blowfish128ecb_functions },
+    { "BF-CBC", "default=yes", blowfish128cbc_functions },
+    { "BF-OFB", "default=yes", blowfish64ofb64_functions },
+    { "BF-CFB", "default=yes", blowfish64cfb64_functions },
+#endif /* OPENSSL_NO_BF */
     { NULL, NULL, NULL }
 };
 

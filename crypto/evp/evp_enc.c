@@ -163,6 +163,8 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
         case NID_aes_256_ctr:
         case NID_aes_192_ctr:
         case NID_aes_128_ctr:
+        case NID_aes_128_xts:
+        case NID_aes_256_xts:
         case NID_aes_256_gcm:
         case NID_aes_192_gcm:
         case NID_aes_128_gcm:
@@ -229,6 +231,10 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
         case NID_des_ede_cfb64:
         case NID_desx_cbc:
         case NID_id_smime_alg_CMS3DESwrap:
+        case NID_bf_cbc:
+        case NID_bf_ecb:
+        case NID_bf_cfb64:
+        case NID_bf_ofb64:
             break;
         default:
             goto legacy;
