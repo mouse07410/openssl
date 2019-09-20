@@ -60,10 +60,10 @@ int EVP_CIPHER_param_to_asn1(EVP_CIPHER_CTX *c, ASN1_TYPE *type)
         }
     } else
         ret = -1;
-    if (ret <= 0)
-        EVPerr(EVP_F_EVP_CIPHER_PARAM_TO_ASN1, ret == -2 ?
-               ASN1_R_UNSUPPORTED_CIPHER :
-               EVP_R_CIPHER_PARAMETER_ERROR);
+    if (ret == -2)
+        EVPerr(EVP_F_EVP_CIPHER_PARAM_TO_ASN1, ASN1_R_UNSUPPORTED_CIPHER);
+    else if (ret <= 0)
+        EVPerr(EVP_F_EVP_CIPHER_PARAM_TO_ASN1, EVP_R_CIPHER_PARAMETER_ERROR);
     if (ret < -1)
         ret = -1;
     return ret;
@@ -106,10 +106,10 @@ int EVP_CIPHER_asn1_to_param(EVP_CIPHER_CTX *c, ASN1_TYPE *type)
         }
     } else
         ret = -1;
-    if (ret <= 0)
-        EVPerr(EVP_F_EVP_CIPHER_ASN1_TO_PARAM, ret == -2 ?
-               EVP_R_UNSUPPORTED_CIPHER :
-               EVP_R_CIPHER_PARAMETER_ERROR);
+    if (ret == -2)
+        EVPerr(EVP_F_EVP_CIPHER_ASN1_TO_PARAM, EVP_R_UNSUPPORTED_CIPHER);
+    else if (ret <= 0)
+        EVPerr(EVP_F_EVP_CIPHER_ASN1_TO_PARAM, EVP_R_CIPHER_PARAMETER_ERROR);
     if (ret < -1)
         ret = -1;
     return ret;
@@ -448,10 +448,15 @@ int EVP_CIPHER_CTX_nid(const EVP_CIPHER_CTX *ctx)
     return ctx->cipher->nid;
 }
 
+int EVP_CIPHER_is_a(const EVP_CIPHER *cipher, const char *name)
+{
+    return evp_is_a(cipher->prov, cipher->name_id, name);
+}
+
 const char *EVP_CIPHER_name(const EVP_CIPHER *cipher)
 {
     if (cipher->prov != NULL)
-        return cipher->name;
+        return evp_first_name(cipher->prov, cipher->name_id);
 #ifndef FIPS_MODE
     return OBJ_nid2sn(EVP_CIPHER_nid(cipher));
 #else
@@ -479,7 +484,7 @@ int EVP_CIPHER_mode(const EVP_CIPHER *cipher)
 const char *EVP_MD_name(const EVP_MD *md)
 {
     if (md->prov != NULL)
-        return md->name;
+        return evp_first_name(md->prov, md->name_id);
 #ifndef FIPS_MODE
     return OBJ_nid2sn(EVP_MD_nid(md));
 #else

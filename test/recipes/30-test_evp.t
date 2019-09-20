@@ -32,6 +32,17 @@ my @files = qw( evpciph.txt evpdigest.txt );
 my @defltfiles = qw( evpencod.txt evpkdf.txt evppkey_kdf.txt evpmac.txt
     evppbe.txt evppkey.txt evppkey_ecc.txt evpcase.txt evpaessiv.txt
     evpccmcavs.txt );
+my @ideafiles = qw( evpciph_idea.txt );
+push @defltfiles, @ideafiles unless disabled("idea");
+
+my @castfiles = qw( evpciph_cast5.txt );
+push @defltfiles, @castfiles unless disabled("cast");
+
+my @seedfiles = qw( evpciph_seed.txt );
+push @defltfiles, @seedfiles unless disabled("seed");
+
+my @sm4files = qw( evpciph_sm4.txt );
+push @defltfiles, @sm4files unless disabled("sm4");
 
 plan tests => (scalar(@configs) * scalar(@files)) + scalar(@defltfiles) + 1;
 

@@ -729,9 +729,7 @@ generate: generate_apps generate_crypto_bn generate_crypto_objects \
 
 .PHONY: doc-nits
 doc-nits: build_generated
-	(cd $(SRCDIR); $(PERL) util/find-doc-nits -n -p -s ) >doc-nits
-	@if [ -s doc-nits ] ; then cat doc-nits ; exit 1; \
-	else echo 'doc-nits: no errors.'; rm doc-nits ; fi
+	(cd $(SRCDIR); $(PERL) util/find-doc-nits -n -p -s )
 
 # Test coverage is a good idea for the future
 #coverage: $(PROGRAMS) $(TESTPROGRAMS)
@@ -980,8 +978,16 @@ $args{src}: $args{generator}->[0] $deps
 EOF
 	  }
       } else {
+          my $cppflags = {
+              shlib => '$(LIB_CFLAGS) $(LIB_CPPFLAGS)',
+              lib => '$(LIB_CFLAGS) $(LIB_CPPFLAGS)',
+              dso => '$(DSO_CFLAGS) $(DSO_CPPFLAGS)',
+              bin => '$(BIN_CFLAGS) $(BIN_CPPFLAGS)'
+          } -> {$args{intent}};
+
           if ($args{generator}->[0] =~ /\.pl$/) {
-              $generator = 'CC="$(CC)" $(PERL)'.$generator_incs.' '.$generator;
+              $generator = 'CC="$(CC)" $(PERL)'.$generator_incs.' '.$generator
+                  .' "$(PERLASM_SCHEME)"'.$incs.' '.$cppflags.$defs.' $(PROCESSSOR)';
           } elsif ($args{generator}->[0] =~ /\.m4$/) {
               $generator = 'm4 -B 8192'.$generator_incs.' '.$generator.' >'
           } elsif ($args{generator}->[0] =~ /\.S$/) {
@@ -990,12 +996,6 @@ EOF
               die "Generator type for $args{src} unknown: $generator\n";
           }
 
-          my $cppflags = {
-              shlib => '$(LIB_CFLAGS) $(LIB_CPPFLAGS)',
-              lib => '$(LIB_CFLAGS) $(LIB_CPPFLAGS)',
-              dso => '$(DSO_CFLAGS) $(DSO_CPPFLAGS)',
-              bin => '$(BIN_CFLAGS) $(BIN_CPPFLAGS)'
-          } -> {$args{intent}};
           if (defined($generator)) {
               return <<"EOF";
 $args{src}: $args{generator}->[0] $deps

@@ -165,9 +165,18 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
         case NID_aes_128_ctr:
         case NID_aes_128_xts:
         case NID_aes_256_xts:
+        case NID_aes_256_ocb:
+        case NID_aes_192_ocb:
+        case NID_aes_128_ocb:
         case NID_aes_256_gcm:
         case NID_aes_192_gcm:
         case NID_aes_128_gcm:
+        case NID_id_aes256_wrap:
+        case NID_id_aes256_wrap_pad:
+        case NID_id_aes192_wrap:
+        case NID_id_aes192_wrap_pad:
+        case NID_id_aes128_wrap:
+        case NID_id_aes128_wrap_pad:
         case NID_aria_256_gcm:
         case NID_aria_192_gcm:
         case NID_aria_128_gcm:
@@ -235,6 +244,23 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
         case NID_bf_ecb:
         case NID_bf_cfb64:
         case NID_bf_ofb64:
+        case NID_idea_cbc:
+        case NID_idea_ecb:
+        case NID_idea_cfb64:
+        case NID_idea_ofb64:
+        case NID_cast5_cbc:
+        case NID_cast5_ecb:
+        case NID_cast5_cfb64:
+        case NID_cast5_ofb64:
+        case NID_seed_cbc:
+        case NID_seed_ecb:
+        case NID_seed_cfb128:
+        case NID_seed_ofb128:
+        case NID_sm4_cbc:
+        case NID_sm4_ecb:
+        case NID_sm4_ctr:
+        case NID_sm4_cfb128:
+        case NID_sm4_ofb128:
             break;
         default:
             goto legacy;
@@ -1261,7 +1287,7 @@ EVP_CIPHER *evp_cipher_new(void)
     return cipher;
 }
 
-static void *evp_cipher_from_dispatch(const char *name,
+static void *evp_cipher_from_dispatch(const int name_id,
                                       const OSSL_DISPATCH *fns,
                                       OSSL_PROVIDER *prov,
                                       void *unused)
@@ -1269,22 +1295,23 @@ static void *evp_cipher_from_dispatch(const char *name,
     EVP_CIPHER *cipher = NULL;
     int fnciphcnt = 0, fnctxcnt = 0;
 
-    if ((cipher = evp_cipher_new()) == NULL
-        || (cipher->name = OPENSSL_strdup(name)) == NULL) {
-        EVP_CIPHER_free(cipher);
+    if ((cipher = evp_cipher_new()) == NULL) {
         EVPerr(0, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
+    cipher->name_id = name_id;
 
 #ifndef FIPS_MODE
-    /*
-     * FIPS module note: since internal fetches will be entirely
-     * provider based, we know that none of its code depends on legacy
-     * NIDs or any functionality that use them.
-     *
-     * TODO(3.x) get rid of the need for legacy NIDs
-     */
-    cipher->nid = OBJ_sn2nid(name);
+    {
+        /*
+         * FIPS module note: since internal fetches will be entirely
+         * provider based, we know that none of its code depends on legacy
+         * NIDs or any functionality that use them.
+         *
+         * TODO(3.x) get rid of the need for legacy NIDs
+         */
+        cipher->nid = OBJ_sn2nid(evp_first_name(prov, name_id));
+    }
 #endif
 
     for (; fns->function_id != 0; fns++) {
@@ -1429,7 +1456,6 @@ void EVP_CIPHER_free(EVP_CIPHER *cipher)
     if (i > 0)
         return;
     ossl_provider_free(cipher->prov);
-    OPENSSL_free(cipher->name);
     CRYPTO_THREAD_lock_free(cipher->lock);
     OPENSSL_free(cipher);
 }

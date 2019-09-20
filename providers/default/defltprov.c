@@ -116,6 +116,11 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { "AES-128-CTR", "default=yes", aes128ctr_functions },
     { "AES-256-XTS", "default=yes", aes256xts_functions },
     { "AES-128-XTS", "default=yes", aes128xts_functions },
+#ifndef OPENSSL_NO_OCB
+    { "AES-256-OCB", "default=yes", aes256ocb_functions },
+    { "AES-192-OCB", "default=yes", aes192ocb_functions },
+    { "AES-128-OCB", "default=yes", aes128ocb_functions },
+#endif /* OPENSSL_NO_OCB */
 /* TODO(3.0) Add aliases when they are supported */
     { "id-aes256-GCM", "default=yes", aes256gcm_functions },
     { "id-aes192-GCM", "default=yes", aes192gcm_functions },
@@ -123,6 +128,12 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { "id-aes256-CCM", "default=yes", aes256ccm_functions },
     { "id-aes192-CCM", "default=yes", aes192ccm_functions },
     { "id-aes128-CCM", "default=yes", aes128ccm_functions },
+    { "id-aes256-wrap", "default=yes", aes256wrap_functions },
+    { "id-aes192-wrap", "default=yes", aes192wrap_functions },
+    { "id-aes128-wrap", "default=yes", aes128wrap_functions },
+    { "id-aes256-wrap-pad", "default=yes", aes256wrappad_functions },
+    { "id-aes192-wrap-pad", "default=yes", aes192wrappad_functions },
+    { "id-aes128-wrap-pad", "default=yes", aes128wrappad_functions },
 #ifndef OPENSSL_NO_ARIA
     { "ARIA-256-GCM", "default=yes", aria256gcm_functions },
     { "ARIA-192-GCM", "default=yes", aria192gcm_functions },
@@ -195,6 +206,31 @@ static const OSSL_ALGORITHM deflt_ciphers[] = {
     { "BF-OFB", "default=yes", blowfish64ofb64_functions },
     { "BF-CFB", "default=yes", blowfish64cfb64_functions },
 #endif /* OPENSSL_NO_BF */
+#ifndef OPENSSL_NO_IDEA
+    { "IDEA-ECB", "default=yes", idea128ecb_functions },
+    { "IDEA-CBC", "default=yes", idea128cbc_functions },
+    { "IDEA-OFB", "default=yes", idea128ofb64_functions },
+    { "IDEA-CFB", "default=yes", idea128cfb64_functions },
+#endif /* OPENSSL_NO_IDEA */
+#ifndef OPENSSL_NO_CAST
+    { "CAST5-ECB", "default=yes", cast5128ecb_functions },
+    { "CAST5-CBC", "default=yes", cast5128cbc_functions },
+    { "CAST5-OFB", "default=yes", cast564ofb64_functions },
+    { "CAST5-CFB", "default=yes", cast564cfb64_functions },
+#endif /* OPENSSL_NO_CAST */
+#ifndef OPENSSL_NO_SEED
+    { "SEED-ECB", "default=yes", seed128ecb_functions },
+    { "SEED-CBC", "default=yes", seed128cbc_functions },
+    { "SEED-OFB", "default=yes", seed128ofb128_functions },
+    { "SEED-CFB", "default=yes", seed128cfb128_functions },
+#endif /* OPENSSL_NO_SEED */
+#ifndef OPENSSL_NO_SM4
+    { "SM4-ECB", "default=yes", sm4128ecb_functions },
+    { "SM4-CBC", "default=yes", sm4128cbc_functions },
+    { "SM4-CTR", "default=yes", sm4128ctr_functions },
+    { "SM4-OFB", "default=yes", sm4128ofb128_functions },
+    { "SM4-CFB", "default=yes", sm4128cfb128_functions },
+#endif /* OPENSSL_NO_SM4 */
     { NULL, NULL, NULL }
 };
 
