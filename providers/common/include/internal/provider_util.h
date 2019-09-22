@@ -21,9 +21,6 @@ typedef struct {
 
     /* Conditions for legacy EVP_CIPHER uses */
     ENGINE *engine;             /* cipher engine */
-
-    /* Name this was fetched by */
-    char name[51];               /* A longer name would be unexpected */
 } PROV_CIPHER;
 
 typedef struct {
@@ -37,9 +34,6 @@ typedef struct {
 
     /* Conditions for legacy EVP_MD uses */
     ENGINE *engine;             /* digest engine */
-
-    /* Name this was fetched by */
-    char name[51];               /* A longer name would be unexpected */
 } PROV_DIGEST;
 
 /* Cipher functions */
@@ -62,7 +56,6 @@ int ossl_prov_cipher_copy(PROV_CIPHER *dst, const PROV_CIPHER *src);
 /* Query the cipher and associated engine (if any) */
 const EVP_CIPHER *ossl_prov_cipher_cipher(const PROV_CIPHER *pc);
 ENGINE *ossl_prov_cipher_engine(const PROV_CIPHER *pc);
-const char *ossl_prov_cipher_name(const PROV_CIPHER *pc);
 
 /* Digest functions */
 /*
@@ -84,4 +77,27 @@ int ossl_prov_digest_copy(PROV_DIGEST *dst, const PROV_DIGEST *src);
 /* Query the digest and associated engine (if any) */
 const EVP_MD *ossl_prov_digest_md(const PROV_DIGEST *pd);
 ENGINE *ossl_prov_digest_engine(const PROV_DIGEST *pd);
-const char *ossl_prov_digest_name(const PROV_DIGEST *pd);
+
+/* MAC functions */
+/*
+ * Load an EVP_MAC_CTX* from the specified parameters with the specified
+ * library context.
+ * The params "mac" and "properties" are used to determine the implementation
+ * used, and the parameters "digest", "cipher", "engine" and "properties" are
+ * passed to the MAC via the created MAC context if they are given.
+ * If there is already a created MAC context, it will be replaced if the "mac"
+ * parameter is found, otherwise it will simply be used as is, and passed the
+ * parameters to pilfer as it sees fit.
+ *
+ * As an option, a MAC name may be explicitly given, and if it is, the "mac"
+ * parameter will be ignored.
+ * Similarly, as an option, a cipher name or a digest name may be explicitly
+ * given, and if any of them is, the "digest" and "cipher" parameters are
+ * ignored.
+ */
+int ossl_prov_macctx_load_from_params(EVP_MAC_CTX **macctx,
+                                      const OSSL_PARAM params[],
+                                      const char *macname,
+                                      const char *ciphername,
+                                      const char *mdname,
+                                      OPENSSL_CTX *ctx);
