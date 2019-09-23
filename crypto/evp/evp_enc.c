@@ -239,6 +239,12 @@ int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher,
         case NID_des_ede_ofb64:
         case NID_des_ede_cfb64:
         case NID_desx_cbc:
+        case NID_des_cbc:
+        case NID_des_ecb:
+        case NID_des_cfb1:
+        case NID_des_cfb8:
+        case NID_des_cfb64:
+        case NID_des_ofb64:
         case NID_id_smime_alg_CMS3DESwrap:
         case NID_bf_cbc:
         case NID_bf_ecb:
@@ -1287,6 +1293,31 @@ EVP_CIPHER *evp_cipher_new(void)
     return cipher;
 }
 
+/*
+ * FIPS module note: since internal fetches will be entirely
+ * provider based, we know that none of its code depends on legacy
+ * NIDs or any functionality that use them.
+ */
+#ifndef FIPS_MODE
+/* TODO(3.x) get rid of the need for legacy NIDs */
+static void set_legacy_nid(const char *name, void *vlegacy_nid)
+{
+    int nid;
+    int *legacy_nid = vlegacy_nid;
+
+    if (*legacy_nid == -1)       /* We found a clash already */
+        return;
+    if ((nid = OBJ_sn2nid(name)) == NID_undef
+        && (nid = OBJ_ln2nid(name)) == NID_undef)
+        return;
+    if (*legacy_nid != NID_undef && *legacy_nid != nid) {
+        *legacy_nid = -1;
+        return;
+    }
+    *legacy_nid = nid;
+}
+#endif
+
 static void *evp_cipher_from_dispatch(const int name_id,
                                       const OSSL_DISPATCH *fns,
                                       OSSL_PROVIDER *prov,
@@ -1299,20 +1330,19 @@ static void *evp_cipher_from_dispatch(const int name_id,
         EVPerr(0, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
-    cipher->name_id = name_id;
 
 #ifndef FIPS_MODE
-    {
-        /*
-         * FIPS module note: since internal fetches will be entirely
-         * provider based, we know that none of its code depends on legacy
-         * NIDs or any functionality that use them.
-         *
-         * TODO(3.x) get rid of the need for legacy NIDs
-         */
-        cipher->nid = OBJ_sn2nid(evp_first_name(prov, name_id));
+    /* TODO(3.x) get rid of the need for legacy NIDs */
+    cipher->nid = NID_undef;
+    evp_doall_names(prov, name_id, set_legacy_nid, &cipher->nid);
+    if (cipher->nid == -1) {
+        ERR_raise(ERR_LIB_EVP, ERR_R_INTERNAL_ERROR);
+        EVP_CIPHER_free(cipher);
+        return NULL;
     }
 #endif
+
+    cipher->name_id = name_id;
 
     for (; fns->function_id != 0; fns++) {
         switch (fns->function_id) {
