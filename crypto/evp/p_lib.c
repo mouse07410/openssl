@@ -23,8 +23,8 @@
 #include <openssl/params.h>
 #include <openssl/core_names.h>
 
-#include "internal/asn1_int.h"
-#include "internal/evp_int.h"
+#include "crypto/asn1.h"
+#include "crypto/evp.h"
 #include "internal/provider.h"
 
 static void EVP_PKEY_free_it(EVP_PKEY *x);
@@ -344,8 +344,7 @@ EVP_PKEY *EVP_PKEY_new_CMAC_key(ENGINE *e, const unsigned char *priv,
 # ifndef OPENSSL_NO_ENGINE
     if (engine_id != NULL)
         params[paramsn++] =
-            OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_ENGINE,
-                                             (char *)engine_id, 0);
+            OSSL_PARAM_construct_utf8_string("engine", (char *)engine_id, 0);
 # endif
 
     params[paramsn++] =

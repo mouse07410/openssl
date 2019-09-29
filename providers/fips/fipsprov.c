@@ -25,7 +25,7 @@
 
 #include "internal/cryptlib.h"
 #include "internal/property.h"
-#include "internal/evp_int.h"
+#include "crypto/evp.h"
 #include "internal/provider_algs.h"
 #include "internal/provider_ctx.h"
 #include "internal/providercommon.h"
@@ -378,6 +378,7 @@ static const OSSL_ALGORITHM fips_kdfs[] = {
     { OSSL_KDF_NAME_SSKDF, "fips=yes", kdf_sskdf_functions },
     { OSSL_KDF_NAME_PBKDF2, "fips=yes", kdf_pbkdf2_functions },
     { OSSL_KDF_NAME_TLS1_PRF, "fips=yes", kdf_tls1_prf_functions },
+    { OSSL_KDF_NAME_KBKDF, "fips=yes", kdf_kbkdf_functions },
    { NULL, NULL, NULL }
 };
 

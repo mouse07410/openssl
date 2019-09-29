@@ -8,7 +8,7 @@
  */
 
 #include <stddef.h>
-#include <openssl/ossl_typ.h>
+#include <openssl/types.h>
 #include <openssl/evp.h>
 #include <openssl/core.h>
 #include "internal/cryptlib.h"
@@ -17,8 +17,8 @@
 #include "internal/core.h"
 #include "internal/provider.h"
 #include "internal/namemap.h"
-#include "internal/evp_int.h"    /* evp_locl.h needs it */
-#include "evp_locl.h"
+#include "crypto/evp.h"    /* evp_local.h needs it */
+#include "evp_local.h"
 
 static void default_method_store_free(void *vstore)
 {

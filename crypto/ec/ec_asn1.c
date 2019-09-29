@@ -8,12 +8,12 @@
  */
 
 #include <string.h>
-#include "ec_lcl.h"
+#include "ec_local.h"
 #include <openssl/err.h>
 #include <openssl/asn1t.h>
 #include <openssl/objects.h>
 #include "internal/nelem.h"
-#include "internal/asn1_dsa.h"
+#include "crypto/asn1_dsa.h"
 
 #ifndef FIPS_MODE
 

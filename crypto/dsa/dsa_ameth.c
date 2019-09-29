@@ -14,10 +14,10 @@
 #include <openssl/cms.h>
 #include <openssl/core_names.h>
 #include "internal/cryptlib.h"
-#include "internal/asn1_int.h"
-#include "internal/evp_int.h"
+#include "crypto/asn1.h"
+#include "crypto/evp.h"
 #include "internal/param_build.h"
-#include "dsa_locl.h"
+#include "dsa_local.h"
 
 static int dsa_pub_decode(EVP_PKEY *pkey, X509_PUBKEY *pubkey)
 {

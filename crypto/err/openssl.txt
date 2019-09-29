@@ -737,6 +737,12 @@ EC_F_PKEY_EC_KDF_DERIVE:283:pkey_ec_kdf_derive
 EC_F_PKEY_EC_KEYGEN:199:pkey_ec_keygen
 EC_F_PKEY_EC_PARAMGEN:219:pkey_ec_paramgen
 EC_F_PKEY_EC_SIGN:218:pkey_ec_sign
+EC_F_S390X_PKEY_ECD_DIGESTSIGN25519:303:s390x_pkey_ecd_digestsign25519
+EC_F_S390X_PKEY_ECD_DIGESTSIGN448:304:s390x_pkey_ecd_digestsign448
+EC_F_S390X_PKEY_ECD_KEYGEN25519:305:s390x_pkey_ecd_keygen25519
+EC_F_S390X_PKEY_ECD_KEYGEN448:306:s390x_pkey_ecd_keygen448
+EC_F_S390X_PKEY_ECX_KEYGEN25519:307:s390x_pkey_ecx_keygen25519
+EC_F_S390X_PKEY_ECX_KEYGEN448:308:s390x_pkey_ecx_keygen448
 EC_F_VALIDATE_ECX_DERIVE:278:validate_ecx_derive
 ENGINE_F_DIGEST_UPDATE:198:digest_update
 ENGINE_F_DYNAMIC_CTRL:180:dynamic_ctrl
@@ -2057,6 +2063,10 @@ BN_R_PRIVATE_KEY_TOO_LARGE:117:private key too large
 BN_R_P_IS_NOT_PRIME:112:p is not prime
 BN_R_TOO_MANY_ITERATIONS:113:too many iterations
 BN_R_TOO_MANY_TEMPORARY_VARIABLES:109:too many temporary variables
+CMP_R_INVALID_ARGS:100:invalid args
+CMP_R_MULTIPLE_SAN_SOURCES:102:multiple san sources
+CMP_R_NO_STDIO:194:no stdio
+CMP_R_NULL_ARGUMENT:103:null argument
 CMS_R_ADD_SIGNER_ERROR:99:add signer error
 CMS_R_ATTRIBUTE_ERROR:161:attribute error
 CMS_R_CERTIFICATE_ALREADY_PRESENT:175:certificate already present
@@ -2678,6 +2688,7 @@ PROV_R_INVALID_IV_LENGTH:109:invalid iv length
 PROV_R_INVALID_KEYLEN:117:invalid keylen
 PROV_R_INVALID_KEY_LEN:124:invalid key len
 PROV_R_INVALID_KEY_LENGTH:105:invalid key length
+PROV_R_INVALID_MAC:151:invalid mac
 PROV_R_INVALID_MODE:125:invalid mode
 PROV_R_INVALID_MODE_INT:126:invalid mode int
 PROV_R_INVALID_SALT_LENGTH:112:invalid salt length
@@ -2685,6 +2696,7 @@ PROV_R_INVALID_TAG:110:invalid tag
 PROV_R_INVALID_TAGLEN:118:invalid taglen
 PROV_R_MISSING_CEK_ALG:144:missing cek alg
 PROV_R_MISSING_KEY:128:missing key
+PROV_R_MISSING_MAC:150:missing mac
 PROV_R_MISSING_MESSAGE_DIGEST:129:missing message digest
 PROV_R_MISSING_PASS:130:missing pass
 PROV_R_MISSING_SALT:131:missing salt

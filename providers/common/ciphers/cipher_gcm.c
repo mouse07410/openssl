@@ -9,10 +9,10 @@
 
 /* Dispatch functions for gcm mode */
 
-#include "cipher_locl.h"
+#include "cipher_local.h"
 #include "internal/ciphers/cipher_gcm.h"
 #include "internal/providercommonerr.h"
-#include "internal/rand_int.h"
+#include "crypto/rand.h"
 #include "internal/provider_ctx.h"
 
 static int gcm_tls_init(PROV_GCM_CTX *dat, unsigned char *aad, size_t aad_len);

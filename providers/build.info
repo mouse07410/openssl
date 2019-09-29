@@ -9,17 +9,22 @@ IF[{- !$disabled{fips} -}]
     SOURCE[fips]=fips.ld
     GENERATE[fips.ld]=../util/providers.num
   ENDIF
-  INCLUDE[fips]=.. ../include ../crypto/include common/include
+  INCLUDE[fips]=.. ../include common/include
   DEFINE[fips]=FIPS_MODE
 ENDIF
 
 IF[{- !$disabled{legacy} -}]
   SUBDIRS=legacy
-  MODULES=legacy
-  IF[{- defined $target{shared_defflag} -}]
-    SOURCE[legacy]=legacy.ld
-    GENERATE[legacy.ld]=../util/providers.num
+  IF[{- $disabled{module} -}]
+    LIBS=../libcrypto
+    DEFINE[../libcrypto]=STATIC_LEGACY
+  ELSE
+    MODULES=legacy
+    IF[{- defined $target{shared_defflag} -}]
+      SOURCE[legacy]=legacy.ld
+      GENERATE[legacy.ld]=../util/providers.num
+    ENDIF
+    DEPEND[legacy]=../libcrypto
+    INCLUDE[legacy]=.. ../include common/include
   ENDIF
-  INCLUDE[legacy]=.. ../include ../crypto/include common/include
-  DEPEND[legacy]=../libcrypto
 ENDIF

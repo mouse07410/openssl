@@ -7,13 +7,19 @@
  * https://www.openssl.org/source/license.html
  */
 
-#ifndef HEADER_ENVELOPE_H
-# define HEADER_ENVELOPE_H
+#ifndef OPENSSL_EVP_H
+# define OPENSSL_EVP_H
+# pragma once
+
+# include <openssl/macros.h>
+# if !OPENSSL_API_3
+#  define HEADER_ENVELOPE_H
+# endif
 
 # include <stdarg.h>
 
 # include <openssl/opensslconf.h>
-# include <openssl/ossl_typ.h>
+# include <openssl/types.h>
 # include <openssl/core.h>
 # include <openssl/symhacks.h>
 # include <openssl/bio.h>
@@ -563,8 +569,10 @@ int EVP_MD_get_params(const EVP_MD *digest, OSSL_PARAM params[]);
 int EVP_MD_CTX_set_params(EVP_MD_CTX *ctx, const OSSL_PARAM params[]);
 int EVP_MD_CTX_get_params(EVP_MD_CTX *ctx, OSSL_PARAM params[]);
 const OSSL_PARAM *EVP_MD_gettable_params(const EVP_MD *digest);
-const OSSL_PARAM *EVP_MD_CTX_settable_params(const EVP_MD *digest);
-const OSSL_PARAM *EVP_MD_CTX_gettable_params(const EVP_MD *digest);
+const OSSL_PARAM *EVP_MD_settable_ctx_params(const EVP_MD *md);
+const OSSL_PARAM *EVP_MD_gettable_ctx_params(const EVP_MD *md);
+const OSSL_PARAM *EVP_MD_CTX_settable_params(EVP_MD_CTX *ctx);
+const OSSL_PARAM *EVP_MD_CTX_gettable_params(EVP_MD_CTX *ctx);
 int EVP_MD_CTX_ctrl(EVP_MD_CTX *ctx, int cmd, int p1, void *p2);
 EVP_MD_CTX *EVP_MD_CTX_new(void);
 int EVP_MD_CTX_reset(EVP_MD_CTX *ctx);
