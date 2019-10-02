@@ -275,8 +275,9 @@ int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))(EVP_CIPHER_CTX *,
 # define         EVP_CIPH_CUSTOM_COPY            0x400
 /* Don't use standard iv length function */
 # define         EVP_CIPH_CUSTOM_IV_LENGTH       0x800
-/* Allow use default ASN1 get/set iv */
-# define         EVP_CIPH_FLAG_DEFAULT_ASN1      0x1000
+/* Legacy and no longer relevant: Allow use default ASN1 get/set iv */
+# define         EVP_CIPH_FLAG_DEFAULT_ASN1      0
+/* Free:                                         0x1000 */
 /* Buffer length in bits not bytes: CFB1 mode only */
 # define         EVP_CIPH_FLAG_LENGTH_BITS       0x2000
 /* Note if suitable for use in FIPS mode */
@@ -291,6 +292,8 @@ int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))(EVP_CIPHER_CTX *,
 # define         EVP_CIPH_FLAG_TLS1_1_MULTIBLOCK 0x400000
 /* Cipher can handle pipeline operations */
 # define         EVP_CIPH_FLAG_PIPELINE          0X800000
+/* For provider implementations that handle  ASN1 get/set param themselves */
+# define         EVP_CIPH_FLAG_CUSTOM_ASN1       0x1000000
 
 /*
  * Cipher context flag to indicate we can handle wrap mode: if allowed in
@@ -731,8 +734,8 @@ int EVP_CIPHER_get_params(EVP_CIPHER *cipher, OSSL_PARAM params[]);
 int EVP_CIPHER_CTX_set_params(EVP_CIPHER_CTX *ctx, const OSSL_PARAM params[]);
 int EVP_CIPHER_CTX_get_params(EVP_CIPHER_CTX *ctx, OSSL_PARAM params[]);
 const OSSL_PARAM *EVP_CIPHER_gettable_params(const EVP_CIPHER *cipher);
-const OSSL_PARAM *EVP_CIPHER_CTX_settable_params(const EVP_CIPHER *cipher);
-const OSSL_PARAM *EVP_CIPHER_CTX_gettable_params(const EVP_CIPHER *cipher);
+const OSSL_PARAM *EVP_CIPHER_settable_ctx_params(const EVP_CIPHER *cipher);
+const OSSL_PARAM *EVP_CIPHER_gettable_ctx_params(const EVP_CIPHER *cipher);
 
 const BIO_METHOD *BIO_f_md(void);
 const BIO_METHOD *BIO_f_base64(void);
@@ -1068,8 +1071,8 @@ int EVP_MAC_update(EVP_MAC_CTX *ctx, const unsigned char *data, size_t datalen);
 int EVP_MAC_final(EVP_MAC_CTX *ctx,
                   unsigned char *out, size_t *outl, size_t outsize);
 const OSSL_PARAM *EVP_MAC_gettable_params(const EVP_MAC *mac);
-const OSSL_PARAM *EVP_MAC_CTX_gettable_params(const EVP_MAC *mac);
-const OSSL_PARAM *EVP_MAC_CTX_settable_params(const EVP_MAC *mac);
+const OSSL_PARAM *EVP_MAC_gettable_ctx_params(const EVP_MAC *mac);
+const OSSL_PARAM *EVP_MAC_settable_ctx_params(const EVP_MAC *mac);
 
 void EVP_MAC_do_all_ex(OPENSSL_CTX *libctx,
                        void (*fn)(EVP_MAC *mac, void *arg),
