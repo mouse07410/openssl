@@ -2394,6 +2394,7 @@ ESS_R_ESS_SIGNING_CERT_ADD_ERROR:100:ess signing cert add error
 ESS_R_ESS_SIGNING_CERT_V2_ADD_ERROR:101:ess signing cert v2 add error
 EVP_R_AES_KEY_SETUP_FAILED:143:aes key setup failed
 EVP_R_ARIA_KEY_SETUP_FAILED:176:aria key setup failed
+EVP_R_BAD_ALGORITHM_NAME:200:bad algorithm name
 EVP_R_BAD_DECRYPT:100:bad decrypt
 EVP_R_BAD_KEY_LENGTH:195:bad key length
 EVP_R_BUFFER_TOO_SMALL:155:buffer too small
@@ -2403,6 +2404,7 @@ EVP_R_CANNOT_SET_PARAMETERS:198:cannot set parameters
 EVP_R_CIPHER_NOT_GCM_MODE:184:cipher not gcm mode
 EVP_R_CIPHER_PARAMETER_ERROR:122:cipher parameter error
 EVP_R_COMMAND_NOT_SUPPORTED:147:command not supported
+EVP_R_CONFLICTING_ALGORITHM_NAME:201:conflicting algorithm name
 EVP_R_COPY_ERROR:173:copy error
 EVP_R_CTRL_NOT_IMPLEMENTED:132:ctrl not implemented
 EVP_R_CTRL_OPERATION_NOT_IMPLEMENTED:133:ctrl operation not implemented
@@ -2715,6 +2717,7 @@ PROV_R_UNABLE_TO_LOAD_SHA1:143:unable to load sha1
 PROV_R_UNABLE_TO_LOAD_SHA256:147:unable to load sha256
 PROV_R_UNSUPPORTED_CEK_ALG:145:unsupported cek alg
 PROV_R_UNSUPPORTED_MAC_TYPE:137:unsupported mac type
+PROV_R_UNSUPPORTED_NUMBER_OF_ROUNDS:152:unsupported number of rounds
 PROV_R_VALUE_ERROR:138:value error
 PROV_R_WRONG_FINAL_BLOCK_LENGTH:107:wrong final block length
 PROV_R_WRONG_OUTPUT_BUFFER_SIZE:139:wrong output buffer size
