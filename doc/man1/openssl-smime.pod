@@ -65,17 +65,17 @@ B<openssl> B<smime>
 [B<-indef>]
 [B<-noindef>]
 [B<-stream>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-md> I<digest>]
-[cert.pem]...
+I<cert.pem> ...
 
 =for comment ifdef engine
 
 =head1 DESCRIPTION
 
-The B<smime> command handles S/MIME mail. It can encrypt, decrypt, sign and
-verify S/MIME messages.
+This command handles S/MIME mail. It can encrypt, decrypt, sign
+and verify S/MIME messages.
 
 =head1 OPTIONS
 
@@ -187,7 +187,7 @@ A file containing trusted CA certificates, only used with B<-verify>.
 
 A directory containing trusted CA certificates, only used with
 B<-verify>. This directory must be a standard certificate directory: that
-is a hash of each subject name (using B<x509 -hash>) should be linked
+is a hash of each subject name (using C<openssl x509 -hash>) should be linked
 to each certificate.
 
 =item B<-no-CAfile>
@@ -208,7 +208,7 @@ default digest algorithm for the signing key will be used (usually SHA1).
 The encryption algorithm to use. For example DES  (56 bits) - B<-des>,
 triple DES (168 bits) - B<-des3>,
 EVP_get_cipherbyname() function) can also be used preceded by a dash, for
-example B<-aes-128-cbc>. See L<B<enc>|enc(1)> for list of ciphers
+example B<-aes-128-cbc>. See L<openssl-enc(1)> for list of ciphers
 supported by your version of OpenSSL.
 
 If not specified triple DES is used. Only used with B<-encrypt>.
@@ -295,13 +295,12 @@ specified, the argument is given to the engine as a key identifier.
 
 =item B<-passin> I<arg>
 
-The private key password source. For more information about the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
+The private key password source. For more information about the format of I<arg>
+see L<openssl(1)/Pass Phrase Options>.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -310,11 +309,6 @@ all others.
 
 Writes random data to the specified I<file> upon exit.
 This can be used with a subsequent B<-rand> flag.
-
-=item B<cert.pem...>
-
-One or more certificates of message recipients: used when encrypting
-a message.
 
 =item B<-to>, B<-from>, B<-subject>
 
@@ -332,7 +326,12 @@ B<-auth_level>, B<-verify_depth>, B<-verify_email>, B<-verify_hostname>,
 B<-verify_ip>, B<-verify_name>, B<-x509_strict>
 
 Set various options of certificate chain verification. See
-L<verify(1)> manual page for details.
+L<openssl-verify(1)> manual page for details.
+
+=item I<cert.pem> ...
+
+One or more certificates of message recipients, used when encrypting
+a message.
 
 =back
 

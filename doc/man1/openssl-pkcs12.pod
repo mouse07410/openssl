@@ -36,7 +36,7 @@ B<openssl> B<pkcs12>
 [B<-password> I<arg>]
 [B<-passin> I<arg>]
 [B<-passout> I<arg>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-CAfile> I<file>]
 [B<-CApath> I<dir>]
@@ -48,7 +48,7 @@ B<openssl> B<pkcs12>
 
 =head1 DESCRIPTION
 
-The B<pkcs12> command allows PKCS#12 files (sometimes referred to as
+This command allows PKCS#12 files (sometimes referred to as
 PFX files) to be created and parsed. PKCS#12 files are used by several
 programs including Netscape, MSIE and MS Outlook.
 
@@ -76,22 +76,10 @@ by default.
 The filename to write certificates and private keys to, standard output by
 default.  They are all written in PEM format.
 
-=item B<-passin> I<arg>
-
-The PKCS#12 file (i.e. input file) password source. For more information about
-the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
-
-=item B<-passout> I<arg>
-
-Pass phrase source to encrypt any outputted private keys with. For more
-information about the format of B<arg> see the B<PASS PHRASE ARGUMENTS> section
-in L<openssl(1)>.
-
 =item B<-password> I<arg>
 
-With -export, -password is equivalent to -passout.
-Otherwise, -password is equivalent to -passin.
+With B<-export>, B<-password> is equivalent to B<-passout>,
+otherwise it is equivalent to B<-passin>.
 
 =item B<-noout>
 
@@ -156,7 +144,7 @@ Don't attempt to verify the integrity MAC before reading the file.
 Prompt for separate integrity and encryption passwords: most software
 always assumes these are the same so this option will render such
 PKCS#12 files unreadable. Cannot be used in combination with the options
--password, -passin (if importing) or -passout (if exporting).
+B<-password>, B<-passin> if importing, or B<-passout> if exporting.
 
 =back
 
@@ -204,17 +192,12 @@ used multiple times to specify names for all certificates in the order they
 appear. Netscape ignores friendly names on other certificates whereas MSIE
 displays them.
 
-=item B<-pass> I<arg>, B<-passout> I<arg>
+=item B<-passin> I<arg>, B<-passout> I<arg>
 
-The PKCS#12 file (i.e. output file) password source. For more information about
-the format of B<arg> see the B<PASS PHRASE ARGUMENTS> section in
-L<openssl(1)>.
-
-=item B<-passin> I<password>
-
-Pass phrase source to decrypt any input private keys with. For more information
-about the format of B<arg> see the B<PASS PHRASE ARGUMENTS> section in
-L<openssl(1)>.
+The password source for the input, and for encrypting any private keys that
+are output.
+For more information about the format of B<arg>
+see L<openssl(1)/Pass Phrase Options>.
 
 =item B<-chain>
 
@@ -233,8 +216,8 @@ unless RC2 is disabled in which case triple DES is used.
 
 These options allow the algorithm used to encrypt the private key and
 certificates to be selected. Any PKCS#5 v1.5 or PKCS#12 PBE algorithm name
-can be used (see B<NOTES> section for more information). If a cipher name
-(as output by the B<list-cipher-algorithms> command is specified then it
+can be used (see L</NOTES> section for more information). If a cipher name
+(as output by C<openssl list -cipher-algorithms>) is specified then it
 is used with PKCS#5 v2.0. For interoperability reasons it is advisable to only
 use PKCS#12 algorithms.
 
@@ -280,10 +263,9 @@ to be needed to use MAC iterations counts but they are now used by default.
 
 Don't attempt to provide the MAC integrity.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -300,8 +282,8 @@ CA storage as a file.
 =item B<-CApath> I<dir>
 
 CA storage as a directory. This directory must be a standard certificate
-directory: that is a hash of each subject name (using B<x509 -hash>) should be
-linked to each certificate.
+directory: that is a hash of each subject name (using C<openssl x509 -hash>)
+should be linked to each certificate.
 
 =item B<-no-CAfile>
 
@@ -313,7 +295,7 @@ Do not load the trusted CA certificates from the default directory location.
 
 =item B<-CSP> I<name>
 
-Write B<name> as a Microsoft CSP name.
+Write I<name> as a Microsoft CSP name.
 
 =back
 
@@ -339,7 +321,7 @@ algorithms for private keys and certificates to be specified. Normally
 the defaults are fine but occasionally software can't handle triple DES
 encrypted private keys, then the option B<-keypbe> I<PBE-SHA1-RC2-40> can
 be used to reduce the private key encryption to 40 bit RC2. A complete
-description of all algorithms is contained in the B<pkcs8> manual page.
+description of all algorithms is contained in L<openssl-pkcs8(1)>.
 
 Prior 1.1 release passwords containing non-ASCII characters were encoded
 in non-compliant manner, which limited interoperability, in first hand
@@ -349,7 +331,7 @@ this reason even legacy encodings is attempted when reading the
 data. If you use PKCS#12 files in production application you are advised
 to convert the data, because implemented heuristic approach is not
 MT-safe, its sole goal is to facilitate the data upgrade with this
-utility.
+command.
 
 =head1 EXAMPLES
 

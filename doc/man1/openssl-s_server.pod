@@ -52,7 +52,7 @@ B<openssl> B<s_server>
 [B<-tlsextdebug>]
 [B<-HTTP>]
 [B<-id_prefix> I<val>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-keymatexport> I<val>]
 [B<-keymatexportlen> I<+int>]
@@ -197,15 +197,14 @@ B<openssl> B<s_server>
 
 =head1 DESCRIPTION
 
-The B<s_server> command implements a generic SSL/TLS server which listens
-for connections on a given port using SSL/TLS.
+This command implements a generic SSL/TLS server which
+listens for connections on a given port using SSL/TLS.
 
 =head1 OPTIONS
 
-In addition to the options below the B<s_server> utility also supports the
-common and server only options documented
-in the "Supported Command Line Commands" section of the L<SSL_CONF_cmd(3)>
-manual page.
+In addition to the options below, this command also supports
+the common and server only options documented
+L<SSL_CONF_cmd(3)/Supported Command Line Commands>
 
 =over 4
 
@@ -258,7 +257,7 @@ anonymous cipher suite or PSK) this option has no effect.
 The certificate to use, most servers cipher suites require the use of a
 certificate and some require a certificate with a certain public key type:
 for example the DSS cipher suites require a certificate containing a DSS
-(DSA) key. If not specified then the filename "server.pem" will be used.
+(DSA) key. If not specified then the filename F<server.pem> will be used.
 
 =item B<-cert_chain>
 
@@ -274,9 +273,9 @@ provided to the client.
 =item B<-nameopt> I<val>
 
 Option which determines how the subject or issuer names are displayed. The
-B<val> argument can be a single option or multiple options separated by
+I<val> argument can be a single option or multiple options separated by
 commas.  Alternatively the B<-nameopt> switch may be used more than once to
-set multiple options. See the L<x509(1)> manual page for details.
+set multiple options. See the L<openssl-x509(1)> manual page for details.
 
 =item B<-naccept> I<+int>
 
@@ -307,7 +306,7 @@ The private format to use: DER or PEM. PEM is the default.
 =item B<-pass> I<val>
 
 The private key password source. For more information about the format of B<val>
-see L<openssl(1)/Pass phrase options>.
+see L<openssl(1)/Pass Phrase Options>.
 
 =item B<-dcert> I<infile>, B<-dkey> I<infile>
 
@@ -381,13 +380,14 @@ a certificate is requested.
 =item B<-CApath> I<dir>
 
 The directory to use for client certificate verification. This directory
-must be in "hash format", see L<verify(1)> for more information. These are
-also used when building the server certificate chain.
+must be in "hash format", see L<openssl-verify(1)> for more information.
+These are also used when building the server certificate chain.
 
 =item B<-chainCApath> I<dir>
 
 The directory to use for building the chain provided to the client. This
-directory must be in "hash format", see L<verify(1)> for more information.
+directory must be in "hash format", see L<openssl-verify(1)> for more
+information.
 
 =item B<-chainCAfile> I<file>
 
@@ -423,7 +423,7 @@ web browser. Cannot be used in conjunction with B<-early_data>.
 
 Emulates a simple web server. Pages will be resolved relative to the
 current directory, for example if the URL https://myhost/page.html is
-requested the file ./page.html will be loaded. Cannot be used in conjunction
+requested the file F<./page.html> will be loaded. Cannot be used in conjunction
 with B<-early_data>.
 
 =item B<-tlsextdebug>
@@ -434,22 +434,21 @@ Print a hex dump of any TLS extensions received from the server.
 
 Emulates a simple web server. Pages will be resolved relative to the
 current directory, for example if the URL https://myhost/page.html is
-requested the file ./page.html will be loaded. The files loaded are
+requested the file F<./page.html> will be loaded. The files loaded are
 assumed to contain a complete and correct HTTP response (lines that
 are part of the HTTP response line and headers must end with CRLF). Cannot be
 used in conjunction with B<-early_data>.
 
 =item B<-id_prefix> I<val>
 
-Generate SSL/TLS session IDs prefixed by B<val>. This is mostly useful
+Generate SSL/TLS session IDs prefixed by I<val>. This is mostly useful
 for testing any SSL/TLS code (eg. proxies) that wish to deal with multiple
 servers, when each of which might be generating a unique range of session
 IDs (eg. with a certain prefix).
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -476,7 +475,7 @@ a verbose printout of the OCSP response.
 
 =item B<-status_timeout> I<int>
 
-Sets the timeout for OCSP response to B<int> seconds.
+Sets the timeout for OCSP response to I<int> seconds.
 
 =item B<-status_url> I<val>
 
@@ -543,8 +542,8 @@ further information).
 =item B<-ssl2>, B<-ssl3>, B<-tls1>, B<-tls1_1>, B<-tls1_2>, B<-tls1_3>, B<-no_ssl2>, B<-no_ssl3>, B<-no_tls1>, B<-no_tls1_1>, B<-no_tls1_2>, B<-no_tls1_3>
 
 These options require or disable the use of the specified SSL or TLS protocols.
-By default B<s_server> will negotiate the highest mutually supported protocol
-version.
+By default, this command will negotiate the highest mutually supported
+protocol version.
 When a specific TLS version is required, only that version will be accepted
 from the client.
 Note that not all protocols and flags may be available, depending on how
@@ -610,7 +609,7 @@ modified. This list is combined with any TLSv1.3 ciphersuites that have been
 configured. When the client sends a list of supported ciphers the first client
 cipher also included in the server list is used. Because the client specifies
 the preference order, the order of the server cipherlist is irrelevant. See
-the B<ciphers> command for more information.
+L<openssl-ciphers(1)> for more information.
 
 =item B<-ciphersuites> I<val>
 
@@ -619,16 +618,16 @@ This list is combined with any TLSv1.2 and below ciphersuites that have been
 configured. When the client sends a list of supported ciphers the first client
 cipher also included in the server list is used. Because the client specifies
 the preference order, the order of the server cipherlist is irrelevant. See
-the B<ciphers> command for more information. The format for this list is a
-simple colon (":") separated list of TLSv1.3 ciphersuite names.
+L<openssl-ciphers(1)> command for more information. The format for this list is
+a simple colon (":") separated list of TLSv1.3 ciphersuite names.
 
 =item B<-dhparam> I<infile>
 
 The DH parameter file to use. The ephemeral DH cipher suites generate keys
 using a set of DH parameters. If not specified then an attempt is made to
 load the parameters from the server certificate file.
-If this fails then a static set of parameters hard coded into the B<s_server>
-program will be used.
+If this fails then a static set of parameters hard coded into this command
+will be used.
 
 =item B<-attime>, B<-check_ss_sig>, B<-crl_check>, B<-crl_check_all>,
 B<-explicit_policy>, B<-extended_crl>, B<-ignore_critical>, B<-inhibit_any>,
@@ -639,7 +638,7 @@ B<-auth_level>, B<-verify_depth>, B<-verify_email>, B<-verify_hostname>,
 B<-verify_ip>, B<-verify_name>, B<-x509_strict>
 
 Set different peer certificate verification options.
-See the L<verify(1)> manual page for details.
+See the L<openssl-verify(1)> manual page for details.
 
 =item B<-crl_check>, B<-crl_check_all>
 
@@ -653,42 +652,43 @@ Turns on non blocking I/O.
 
 =item B<-psk_identity> I<val>
 
-Expect the client to send PSK identity B<val> when using a PSK
+Expect the client to send PSK identity I<val> when using a PSK
 cipher suite, and warn if they do not.  By default, the expected PSK
 identity is the string "Client_identity".
 
 =item B<-psk_hint> I<val>
 
-Use the PSK identity hint B<val> when using a PSK cipher suite.
+Use the PSK identity hint I<val> when using a PSK cipher suite.
 
 =item B<-psk> I<val>
 
-Use the PSK key B<val> when using a PSK cipher suite. The key is
+Use the PSK key I<val> when using a PSK cipher suite. The key is
 given as a hexadecimal number without leading 0x, for example -psk
 1a2b3c4d.
 This option must be provided in order to use a PSK cipher.
 
 =item B<-psk_session> I<file>
 
-Use the pem encoded SSL_SESSION data stored in B<file> as the basis of a PSK.
+Use the pem encoded SSL_SESSION data stored in I<file> as the basis of a PSK.
 Note that this will only work if TLSv1.3 is negotiated.
 
 =item B<-listen>
 
 This option can only be used in conjunction with one of the DTLS options above.
-With this option B<s_server> will listen on a UDP port for incoming connections.
+With this option, this command will listen on a UDP port for incoming
+connections.
 Any ClientHellos that arrive will be checked to see if they have a cookie in
 them or not.
 Any without a cookie will be responded to with a HelloVerifyRequest.
-If a ClientHello with a cookie is received then B<s_server> will connect to
-that peer and complete the handshake.
+If a ClientHello with a cookie is received then this command will
+connect to that peer and complete the handshake.
 
 =item B<-dtls>, B<-dtls1>, B<-dtls1_2>
 
-These options make B<s_server> use DTLS protocols instead of TLS.
-With B<-dtls>, B<s_server> will negotiate any supported DTLS protocol version,
-whilst B<-dtls1> and B<-dtls1_2> will only support DTLSv1.0 and DTLSv1.2
-respectively.
+These options make this command use DTLS protocols instead of TLS.
+With B<-dtls>, it will negotiate any supported DTLS protocol
+version, whilst B<-dtls1> and B<-dtls1_2> will only support DTLSv1.0 and
+DTLSv1.2 respectively.
 
 =item B<-sctp>
 
@@ -714,7 +714,7 @@ disabling the ephemeral DH cipher suites.
 These flags enable the Enable the Application-Layer Protocol Negotiation
 or Next Protocol Negotiation (NPN) extension, respectively. ALPN is the
 IETF standard and replaces NPN.
-The B<val> list is a comma-separated list of supported protocol
+The I<val> list is a comma-separated list of supported protocol
 names.  The list should contain the most desirable protocols first.
 Protocol names are printable ASCII strings, for example "http/1.1" or
 "spdy/3".
@@ -722,10 +722,10 @@ The flag B<-nextprotoneg> cannot be specified if B<-tls1_3> is used.
 
 =item B<-engine> I<val>
 
-Specifying an engine (by its unique id string in B<val>) will cause B<s_server>
-to attempt to obtain a functional reference to the specified engine,
-thus initialising it if needed. The engine will then be set as the default
-for all available algorithms.
+Specifying an engine (by its unique id string in I<val>) will cause
+this command to attempt to obtain a functional reference to the
+specified engine, thus initialising it if needed. The engine will then be
+set as the default for all available algorithms.
 
 =item B<-keylogfile> I<outfile>
 
@@ -814,8 +814,8 @@ Send a certificate request to the client (TLSv1.3 only)
 
 =head1 NOTES
 
-B<s_server> can be used to debug SSL clients. To accept connections from
-a web browser the command:
+This command can be used to debug SSL clients. To accept connections
+from a web browser the command:
 
  openssl s_server -accept 443 -www
 
@@ -825,20 +825,20 @@ Although specifying an empty list of CAs when requesting a client certificate
 is strictly speaking a protocol violation, some SSL clients interpret this to
 mean any CA is acceptable. This is useful for debugging purposes.
 
-The session parameters can printed out using the B<sess_id> program.
+The session parameters can printed out using the L<openssl-sess_id(1)> command.
 
 =head1 BUGS
 
 Because this program has a lot of options and also because some of the
-techniques used are rather old, the C source of B<s_server> is rather hard to
-read and not a model of how things should be done.
+techniques used are rather old, the C source for this command is rather
+hard to read and not a model of how things should be done.
 A typical SSL server program would be much simpler.
 
 The output of common ciphers is wrong: it just gives the list of ciphers that
 OpenSSL recognizes and the client supports.
 
-There should be a way for the B<s_server> program to print out details of any
-unknown cipher suites a client says it supports.
+There should be a way for this command to print out details
+of any unknown cipher suites a client says it supports.
 
 =head1 SEE ALSO
 

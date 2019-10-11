@@ -96,19 +96,19 @@ B<openssl> B<cms>
 [B<-inkey> I<file>]
 [B<-keyopt> I<name>:I<parameter>]
 [B<-passin> I<arg>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-to> I<addr>]
 [B<-from> I<addr>]
 [B<-subject> I<subj>]
-[I<cert.pem ...>]
+[I<cert.pem> ...]
 
 =for comment ifdef des-wrap engine
 
 =head1 DESCRIPTION
 
-The B<cms> command handles S/MIME v3.1 mail. It can encrypt, decrypt, sign and
-verify, compress and uncompress S/MIME messages.
+This command handles S/MIME v3.1 mail. It can encrypt, decrypt,
+sign and verify, compress and uncompress S/MIME messages.
 
 =head1 OPTIONS
 
@@ -314,7 +314,7 @@ default digest algorithm for the signing key will be used (usually SHA1).
 The encryption algorithm to use. For example triple DES (168 bits) - B<-des3>
 or 256 bit AES - B<-aes256>. Any standard algorithm name (as used by the
 EVP_get_cipherbyname() function) can also be used preceded by a dash, for
-example B<-aes-128-cbc>. See L<enc(1)> for a list of ciphers
+example B<-aes-128-cbc>. See L<openssl-enc(1)> for a list of ciphers
 supported by your version of OpenSSL.
 
 If not specified triple DES is used. Only used with B<-encrypt> and
@@ -385,7 +385,7 @@ the signers certificates. The certificates should be in PEM format.
 
 =item B<-certsout> I<file>
 
-Any certificates contained in the message are written to B<file>.
+Any certificates contained in the message are written to I<file>.
 
 =item B<-signer> I<file>
 
@@ -446,14 +446,14 @@ content encryption key using an AES key in the B<KEKRecipientInfo> type.
 
 The key identifier for the supplied symmetric key for B<KEKRecipientInfo> type.
 This option B<must> be present if the B<-secretkey> option is used with
-B<-encrypt>. With B<-decrypt> operations the B<id> is used to locate the
+B<-encrypt>. With B<-decrypt> operations the I<id> is used to locate the
 relevant key if it is not supplied then an attempt is used to decrypt any
 B<KEKRecipientInfo> structures.
 
 =item B<-econtent_type> I<type>
 
-Set the encapsulated content type to B<type> if not supplied the B<Data> type
-is used. The B<type> argument can be any valid OID name in either text or
+Set the encapsulated content type to I<type> if not supplied the B<Data> type
+is used. The I<type> argument can be any valid OID name in either text or
 numerical format.
 
 =item B<-inkey> I<file>
@@ -474,12 +474,11 @@ or to modify default parameters for ECDH.
 =item B<-passin> I<arg>
 
 The private key password source. For more information about the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
+see L<openssl(1)/Pass Phrase Options>.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -489,7 +488,7 @@ all others.
 Writes random data to the specified I<file> upon exit.
 This can be used with a subsequent B<-rand> flag.
 
-=item I<cert.pem...>
+=item I<cert.pem> ...
 
 One or more certificates of message recipients: used when encrypting
 a message.
@@ -510,7 +509,7 @@ B<-auth_level>, B<-verify_depth>, B<-verify_email>, B<-verify_hostname>,
 B<-verify_ip>, B<-verify_name>, B<-x509_strict>
 
 Set various certificate chain validation options. See the
-L<verify(1)> manual page for details.
+L<openssl-verify(1)> manual page for details.
 
 =back
 
@@ -630,10 +629,10 @@ the signers certificates.
 
 =head1 COMPATIBILITY WITH PKCS#7 FORMAT
 
-The B<smime> utility can only process the older B<PKCS#7> format. The B<cms>
-utility supports Cryptographic Message Syntax format. Use of some features
-will result in messages which cannot be processed by applications which only
-support the older format. These are detailed below.
+L<openssl-smime(1)> can only process the older B<PKCS#7> format.
+B<openssl cms> supports Cryptographic Message Syntax format.
+Use of some features will result in messages which cannot be processed by
+applications which only support the older format. These are detailed below.
 
 The use of the B<-keyid> option with B<-sign> or B<-encrypt>.
 
@@ -648,7 +647,7 @@ The use of PSS with B<-sign>.
 The use of OAEP or non-RSA keys with B<-encrypt>.
 
 Additionally the B<-EncryptedData_create> and B<-data_create> type cannot
-be processed by the older B<smime> command.
+be processed by the older L<openssl-smime(1)> command.
 
 =head1 EXAMPLES
 
@@ -767,7 +766,7 @@ No revocation checking is done on the signer's certificate.
 The use of multiple B<-signer> options and the B<-resign> command were first
 added in OpenSSL 1.0.0.
 
-The B<keyopt> option was added in OpenSSL 1.0.2.
+The B<-keyopt> option was added in OpenSSL 1.0.2.
 
 Support for RSA-OAEP and RSA-PSS was added in OpenSSL 1.0.2.
 

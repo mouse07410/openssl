@@ -26,8 +26,8 @@ B<openssl> B<asn1parse>
 
 =head1 DESCRIPTION
 
-The B<asn1parse> command is a diagnostic utility that can parse ASN.1
-structures. It can also be used to extract data from ASN.1 formatted data.
+This command is a diagnostic utility that can parse ASN.1 structures.
+It can also be used to extract data from ASN.1 formatted data.
 
 =head1 OPTIONS
 
@@ -39,7 +39,7 @@ Print out a usage message.
 
 =item B<-inform> B<DER>|B<PEM>
 
-The input format. I<DER> is binary format and I<PEM> (the default) is base64
+The input format. B<DER> is binary format and B<PEM> (the default) is base64
 encoded.
 
 =item B<-in> I<filename>
@@ -88,12 +88,12 @@ option can be used multiple times to "drill down" into a nested structure.
 
 =item B<-genstr> I<string>, B<-genconf> I<file>
 
-Generate encoded data based on B<string>, B<file> or both using
-L<ASN1_generate_nconf(3)> format. If B<file> only is
+Generate encoded data based on I<string>, I<file> or both using
+L<ASN1_generate_nconf(3)> format. If I<file> only is
 present then the string is obtained from the default section using the name
 B<asn1>. The encoded data is passed through the ASN1 parser and printed out as
 though it came from a file, the contents can thus be examined and written to a
-file using the B<out> option.
+file using the B<-out> option.
 
 =item B<-strictpem>
 
@@ -105,8 +105,9 @@ END marker in a PEM file.
 
 =item B<-item> I<name>
 
-Attempt to decode and print the data as B<ASN1_ITEM name>. This can be used to
-print out the fields of any supported ASN.1 structure if the type is known.
+Attempt to decode and print the data as an B<ASN1_ITEM> I<name>. This can be
+used to print out the fields of any supported ASN.1 structure if the type is
+known.
 
 =back
 
@@ -132,9 +133,9 @@ The output will typically contain lines like this:
 .....
 
 This example is part of a self-signed certificate. Each line starts with the
-offset in decimal. B<d=XX> specifies the current depth. The depth is increased
-within the scope of any SET or SEQUENCE. B<hl=XX> gives the header length
-(tag and length octets) of the current type. B<l=XX> gives the length of
+offset in decimal. C<d=XX> specifies the current depth. The depth is increased
+within the scope of any SET or SEQUENCE. C<hl=XX> gives the header length
+(tag and length octets) of the current type. C<l=XX> gives the length of
 the contents octets.
 
 The B<-i> option can be used to make the output more readable.
@@ -157,9 +158,12 @@ allows additional OIDs to be included. Each line consists of three columns,
 the first column is the OID in numerical format and should be followed by white
 space. The second column is the "short name" which is a single word followed
 by white space. The final column is the rest of the line and is the
-"long name". B<asn1parse> displays the long name. Example:
+"long name". Example:
 
 C<1.2.3.4       shortName       A long name>
+
+For any OID with an associated short and long name, this command will display
+the long name.
 
 =head1 EXAMPLES
 

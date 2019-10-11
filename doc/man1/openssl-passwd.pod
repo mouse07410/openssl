@@ -20,7 +20,7 @@ B<openssl passwd>
 [B<-noverify>]
 [B<-quiet>]
 [B<-table>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 {I<password>}
 
@@ -28,12 +28,13 @@ B<openssl passwd>
 
 =head1 DESCRIPTION
 
-The B<passwd> command computes the hash of a password typed at
+This command computes the hash of a password typed at
 run-time or the hash of each password in a list.  The password list is
 taken from the named file for option B<-in>, from stdin for
 option B<-stdin>, or from the command line, or from the terminal otherwise.
-The Unix standard algorithm B<crypt> and the MD5-based BSD password
-algorithm B<1>, its Apache variant B<apr1>, and its AIX variant are available.
+The Unix standard algorithm B<-crypt> and the MD5-based BSD password
+algorithm B<-1>, its Apache variant B<-apr1>, and its AIX variant are
+available.
 
 =head1 OPTIONS
 
@@ -92,10 +93,9 @@ Don't output warnings when passwords given at the command line are truncated.
 In the output list, prepend the cleartext password and a TAB character
 to each password hash.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.

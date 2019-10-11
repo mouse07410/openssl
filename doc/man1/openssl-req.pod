@@ -20,10 +20,9 @@ B<openssl> B<req>
 [B<-verify>]
 [B<-modulus>]
 [B<-new>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
-[B<-newkey> I<rsa:bits>]
-[B<-newkey> I<alg:file>]
+[B<-newkey> I<arg>]
 [B<-nodes>]
 [B<-key> I<filename>]
 [B<-keyform> B<DER>|B<PEM>]
@@ -56,7 +55,7 @@ B<openssl> B<req>
 
 =head1 DESCRIPTION
 
-The B<req> command primarily creates and processes certificate requests
+This command primarily creates and processes certificate requests
 in PKCS#10 format. It can additionally create self signed certificates
 for use as root CAs for example.
 
@@ -91,20 +90,16 @@ options (B<-new> and B<-newkey>) are not specified.
 Pass options to the signature algorithm during sign or verify operations.
 Names and values of these options are algorithm-specific.
 
-=item B<-passin> I<arg>
+=item B<-passin> I<arg>, B<-passout> I<arg>
 
-The input file password source. For more information about the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
+The password source for the input and output file.
+For more information about the format of B<arg>
+see L<openssl(1)/Pass Phrase Options>.
 
 =item B<-out> I<filename>
 
 This specifies the output filename to write to or standard output by
 default.
-
-=item B<-passout> I<arg>
-
-The output file password source. For more information about the format of B<arg>
-see the B<PASS PHRASE ARGUMENTS> section in L<openssl(1)>.
 
 =item B<-text>
 
@@ -142,10 +137,9 @@ in the configuration file and any requested extensions.
 If the B<-key> option is not used it will generate a new RSA private
 key using information specified in the configuration file.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -158,35 +152,36 @@ This can be used with a subsequent B<-rand> flag.
 =item B<-newkey> I<arg>
 
 This option creates a new certificate request and a new private
-key. The argument takes one of several forms. B<rsa:nbits>, where
-B<nbits> is the number of bits, generates an RSA key B<nbits>
-in size. If B<nbits> is omitted, i.e. B<-newkey> I<rsa> specified,
+key. The argument takes one of several forms.
+
+B<rsa:>I<nbits>, where
+I<nbits> is the number of bits, generates an RSA key I<nbits>
+in size. If I<nbits> is omitted, i.e. B<-newkey> I<rsa> specified,
 the default key size, specified in the configuration file is used.
 
-All other algorithms support the B<-newkey> I<alg:file> form, where file may be
-an algorithm parameter file, created by the B<genpkey -genparam> command
-or and X.509 certificate for a key with appropriate algorithm.
+All other algorithms support the B<-newkey> I<alg>:I<file> form, where file
+may be an algorithm parameter file, created with C<openssl genpkey -genparam>
+or an X.509 certificate for a key with appropriate algorithm.
 
-B<param:file> generates a key using the parameter file or certificate B<file>,
-the algorithm is determined by the parameters. B<algname:file> use algorithm
-B<algname> and parameter file B<file>: the two algorithms must match or an
-error occurs. B<algname> just uses algorithm B<algname>, and parameters,
-if necessary should be specified via B<-pkeyopt> parameter.
+B<param:>I<file> generates a key using the parameter file or certificate
+I<file>, the algorithm is determined by the parameters. I<algname>:I<file>
+use algorithm I<algname> and parameter file I<file>: the two algorithms must
+match or an error occurs. I<algname> just uses algorithm I<algname>, and
+parameters, if necessary should be specified via B<-pkeyopt> parameter.
 
-B<dsa:filename> generates a DSA key using the parameters
-in the file B<filename>. B<ec:filename> generates EC key (usable both with
-ECDSA or ECDH algorithms), B<gost2001:filename> generates GOST R
-34.10-2001 key (requires B<ccgost> engine configured in the configuration
+B<dsa:>I<filename> generates a DSA key using the parameters
+in the file I<filename>. B<ec:>I<filename> generates EC key (usable both with
+ECDSA or ECDH algorithms), B<gost2001:>I<filename> generates GOST R
+34.10-2001 key (requires B<gost> engine configured in the configuration
 file). If just B<gost2001> is specified a parameter set should be
 specified by B<-pkeyopt> I<paramset:X>
 
+=item B<-pkeyopt> I<opt>:I<value>
 
-=item B<-pkeyopt> I<opt:value>
-
-Set the public key algorithm option B<opt> to B<value>. The precise set of
+Set the public key algorithm option I<opt> to I<value>. The precise set of
 options supported depends on the public key algorithm used and its
-implementation. See B<KEY GENERATION OPTIONS> in the B<genpkey> manual page
-for more details.
+implementation.
+See L<openssl-genpkey(1)/KEY GENERATION OPTIONS> for more details.
 
 =item B<-key> I<filename>
 
@@ -230,7 +225,7 @@ see L<openssl(1)/COMMAND SUMMARY>.
 
 Sets subject name for new request or supersedes the subject name
 when processing a request.
-The arg must be formatted as I</type0=value0/type1=value1/type2=...>.
+The arg must be formatted as C</type0=value0/type1=value1/type2=...>.
 Keyword characters may be escaped by \ (backslash), and whitespace is retained.
 Empty values are permitted, but the corresponding type will not be included
 in the request.
@@ -240,9 +235,9 @@ in the request.
 This option causes the -subj argument to be interpreted with full
 support for multivalued RDNs. Example:
 
-I</DC=org/DC=OpenSSL/DC=users/UID=123456+CN=John Doe>
+C</DC=org/DC=OpenSSL/DC=users/UID=123456+CN=John Doe>
 
-If -multi-rdn is not used then the UID value is I<123456+CN=John Doe>.
+If -multi-rdn is not used then the UID value is C<123456+CN=John Doe>.
 
 =item B<-x509>
 
@@ -250,7 +245,7 @@ This option outputs a self signed certificate instead of a certificate
 request. This is typically used to generate a test certificate or
 a self signed root CA. The extensions added to the certificate
 (if any) are specified in the configuration file. Unless specified
-using the B<set_serial> option, a large random number will be used for
+using the B<-set_serial> option, a large random number will be used for
 the serial number.
 
 If existing request is specified with the B<-in> option, it is converted
@@ -259,13 +254,13 @@ to the self signed certificate otherwise new request is created.
 =item B<-days> I<n>
 
 When the B<-x509> option is being used this specifies the number of
-days to certify the certificate for, otherwise it is ignored. B<n> should
+days to certify the certificate for, otherwise it is ignored. I<n> should
 be a positive integer. The default is 30 days.
 
 =item B<-set_serial> I<n>
 
 Serial number to use when outputting a self signed certificate. This
-may be specified as a decimal value or a hex value if preceded by B<0x>.
+may be specified as a decimal value or a hex value if preceded by C<0x>.
 
 =item B<-addext> I<ext>
 
@@ -305,16 +300,16 @@ configuration file, must be valid UTF8 strings.
 =item B<-nameopt> I<option>
 
 Option which determines how the subject or issuer names are displayed. The
-B<option> argument can be a single option or multiple options separated by
+I<option> argument can be a single option or multiple options separated by
 commas.  Alternatively the B<-nameopt> switch may be used more than once to
-set multiple options. See the L<x509(1)> manual page for details.
+set multiple options. See the L<openssl-x509(1)> manual page for details.
 
-=item B<-reqopt>
+=item B<-reqopt> I<option>
 
-Customise the output format used with B<-text>. The B<option> argument can be
+Customise the output format used with B<-text>. The I<option> argument can be
 a single option or multiple options separated by commas.
 
-See discussion of the  B<-certopt> parameter in the L<x509(1)>
+See discussion of the  B<-certopt> parameter in the L<openssl-x509(1)>
 command.
 
 =item B<-newhdr>
@@ -332,14 +327,14 @@ Print extra details about the operations being performed.
 
 =item B<-engine> I<id>
 
-Specifying an engine (by its unique B<id> string) will cause B<req>
+Specifying an engine (by its unique I<id> string) will cause this command
 to attempt to obtain a functional reference to the specified engine,
 thus initialising it if needed. The engine will then be set as the default
 for all available algorithms.
 
 =item B<-keygen_engine> I<id>
 
-Specifies an engine (by its unique B<id> string) which would be used
+Specifies an engine (by its unique I<id> string) which would be used
 for key generation operations.
 
 =item B<-sm2-id>
@@ -486,8 +481,8 @@ just consist of field names and values: for example,
  OU=My Organization
  emailAddress=someone@somewhere.org
 
-This allows external programs (e.g. GUI based) to generate a template file
-with all the field names and values and just pass it to B<req>. An example
+This allows external programs (e.g. GUI based) to generate a template file with
+all the field names and values and just pass it to this command. An example
 of this kind of configuration file is contained in the B<EXAMPLES> section.
 
 Alternatively if the B<prompt> option is absent or not set to B<no> then the
@@ -666,7 +661,7 @@ The following messages are frequently asked about:
         Using configuration from /some/path/openssl.cnf
         Unable to load config info
 
-This is followed some time later by...
+This is followed some time later by:
 
         unable to find 'distinguished_name' in config
         problems making Certificate Request

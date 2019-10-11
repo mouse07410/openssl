@@ -11,12 +11,12 @@ B<openssl provider>
 [B<-v>]
 [B<-vv>]
 [B<-vvv>]
-[ I<provider...> ]
+[I<provider> ...]
 
 =head1 DESCRIPTION
 
-The B<provider> command is used to query the capabilities of the specified
-I<provider>'s.
+This command is used to query the capabilities of the
+specified I<provider>'s.
 
 =head1 OPTIONS
 

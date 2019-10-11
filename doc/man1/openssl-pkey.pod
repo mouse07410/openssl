@@ -29,8 +29,8 @@ B<openssl> B<pkey>
 
 =head1 DESCRIPTION
 
-The B<pkey> command processes public or private keys. They can be converted
-between various forms and their components printed out.
+This command processes public or private keys. They can be
+converted between various forms and their components printed out.
 
 =head1 OPTIONS
 
@@ -55,10 +55,11 @@ This specifies the input filename to read a key from or standard input if this
 option is not specified. If the key is encrypted a pass phrase will be
 prompted for.
 
-=item B<-passin> I<arg>
+=item B<-passin> I<arg>, B<-passout> I<arg>
 
-The input file password source. For more information about the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
+The password source for the input and output file.
+For more information about the format of B<arg>
+see L<openssl(1)/Pass Phrase Options>.
 
 =item B<-out> I<filename>
 
@@ -66,11 +67,6 @@ This specifies the output filename to write a key to or standard output if this
 option is not specified. If any encryption options are set then a pass phrase
 will be prompted for. The output filename should B<not> be the same as the input
 filename.
-
-=item B<-passout> I<password>
-
-The output file password source. For more information about the format of B<arg>
-see the B<PASS PHRASE ARGUMENTS> section in L<openssl(1)>.
 
 =item B<-traditional>
 
@@ -109,7 +105,7 @@ the input is a public key.
 
 =item B<-engine> I<id>
 
-Specifying an engine (by its unique B<id> string) will cause B<pkey>
+Specifying an engine (by its unique I<id> string) will cause this command
 to attempt to obtain a functional reference to the specified engine,
 thus initialising it if needed. The engine will then be set as the default
 for all available algorithms.

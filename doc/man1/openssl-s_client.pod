@@ -125,7 +125,7 @@ B<openssl> B<s_client>
 [B<-no_ticket>]
 [B<-sess_out> I<filename>]
 [B<-sess_in> I<filename>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-serverinfo> I<types>]
 [B<-status>]
@@ -151,13 +151,13 @@ B<openssl> B<s_client>
 
 =head1 DESCRIPTION
 
-The B<s_client> command implements a generic SSL/TLS client which connects
-to a remote host using SSL/TLS. It is a I<very> useful diagnostic tool for
-SSL servers.
+This command implements a generic SSL/TLS client which
+connects to a remote host using SSL/TLS. It is a I<very> useful diagnostic
+tool for SSL servers.
 
 =head1 OPTIONS
 
-In addition to the options below the B<s_client> utility also supports the
+In addition to the options below, this command also supports the
 common and client only options documented
 in the "Supported Command Line Commands" section of the L<SSL_CONF_cmd(3)>
 manual page.
@@ -200,7 +200,7 @@ the network. Use with caution.
 
 The proxy password source, used with the B<-proxy_user> flag.
 For more information about the format of B<arg>
-see L<openssl(1)/Pass phrase options>.
+see L<openssl(1)/Pass Phrase Options>.
 
 =item B<-unix> I<path>
 
@@ -283,8 +283,8 @@ Extra certificate and private key format respectively.
 
 =item B<-pass> I<arg>
 
-the private key password source. For more information about the format of B<arg>
-see the B<PASS PHRASE ARGUMENTS> section in L<openssl(1)>.
+the private key password source. For more information about the format of I<arg>
+see L<openssl(1)/Pass phrase options>.
 
 =item B<-verify> I<depth>
 
@@ -302,15 +302,15 @@ abort the handshake with a fatal error.
 =item B<-nameopt> I<option>
 
 Option which determines how the subject or issuer names are displayed. The
-B<option> argument can be a single option or multiple options separated by
+I<option> argument can be a single option or multiple options separated by
 commas.  Alternatively the B<-nameopt> switch may be used more than once to
-set multiple options. See the L<x509(1)> manual page for details.
+set multiple options. See the L<openssl-x509(1)> manual page for details.
 
 =item B<-CApath> I<directory>
 
 The directory to use for server certificate verification. This directory
-must be in "hash format", see L<verify(1)> for more information. These are
-also used when building the client certificate chain.
+must be in "hash format", see L<openssl-verify(1)> for more information.
+These are also used when building the client certificate chain.
 
 =item B<-CAfile> I<file>
 
@@ -320,7 +320,8 @@ and to use when attempting to build the client certificate chain.
 =item B<-chainCApath> I<directory>
 
 The directory to use for building the chain provided to the server. This
-directory must be in "hash format", see L<verify(1)> for more information.
+directory must be in "hash format", see L<openssl-verify(1)> for more
+information.
 
 =item B<-chainCAfile> I<file>
 
@@ -360,7 +361,7 @@ at a positive depth or else "matched EE certificate" at depth 0.
 =item B<-dane_tlsa_rrdata> I<rrdata>
 
 Use one or more times to specify the RRDATA fields of the DANE TLSA
-RRset associated with the target service.  The B<rrdata> value is
+RRset associated with the target service.  The I<rrdata> value is
 specied in "presentation form", that is four whitespace separated
 fields that specify the usage, selector, matching type and associated
 data, with the last of these encoded in hexadecimal.  Optional
@@ -406,7 +407,7 @@ B<-auth_level>, B<-verify_depth>, B<-verify_email>, B<-verify_hostname>,
 B<-verify_ip>, B<-verify_name>, B<-x509_strict>
 
 Set various certificate chain validation options. See the
-L<verify(1)> manual page for details.
+L<openssl-verify(1)> manual page for details.
 
 =item B<-reconnect>
 
@@ -481,25 +482,25 @@ Can be used to override the implicit B<-ign_eof> after B<-quiet>.
 
 =item B<-psk_identity> I<identity>
 
-Use the PSK identity B<identity> when using a PSK cipher suite.
+Use the PSK identity I<identity> when using a PSK cipher suite.
 The default value is "Client_identity" (without the quotes).
 
 =item B<-psk> I<key>
 
-Use the PSK key B<key> when using a PSK cipher suite. The key is
+Use the PSK key I<key> when using a PSK cipher suite. The key is
 given as a hexadecimal number without leading 0x, for example -psk
 1a2b3c4d.
 This option must be provided in order to use a PSK cipher.
 
 =item B<-psk_session> I<file>
 
-Use the pem encoded SSL_SESSION data stored in B<file> as the basis of a PSK.
+Use the pem encoded SSL_SESSION data stored in I<file> as the basis of a PSK.
 Note that this will only work if TLSv1.3 is negotiated.
 
 =item B<-ssl3>, B<-tls1>, B<-tls1_1>, B<-tls1_2>, B<-tls1_3>, B<-no_ssl3>, B<-no_tls1>, B<-no_tls1_1>, B<-no_tls1_2>, B<-no_tls1_3>
 
 These options require or disable the use of the specified SSL or TLS protocols.
-By default B<s_client> will negotiate the highest mutually supported protocol
+By default, this command will negotiate the highest mutually supported protocol
 version.
 When a specific TLS version is required, only that version will be offered to
 and accepted from the server.
@@ -508,8 +509,8 @@ OpenSSL was built.
 
 =item B<-dtls>, B<-dtls1>, B<-dtls1_2>
 
-These options make B<s_client> use DTLS protocols instead of TLS.
-With B<-dtls>, B<s_client> will negotiate any supported DTLS protocol version,
+These options make this command use DTLS protocols instead of TLS.
+With B<-dtls>, it will negotiate any supported DTLS protocol version,
 whilst B<-dtls1> and B<-dtls1_2> will only support DTLS1.0 and DTLS1.2
 respectively.
 
@@ -607,22 +608,22 @@ ultimately selected by the server. For a list of all curves, use:
 This allows the TLSv1.2 and below cipher list sent by the client to be modified.
 This list will be combined with any TLSv1.3 ciphersuites that have been
 configured. Although the server determines which ciphersuite is used it should
-take the first supported cipher in the list sent by the client. See the
-B<ciphers> command for more information.
+take the first supported cipher in the list sent by the client. See
+L<openssl-ciphers(1)> for more information.
 
 =item B<-ciphersuites> I<val>
 
 This allows the TLSv1.3 ciphersuites sent by the client to be modified. This
 list will be combined with any TLSv1.2 and below ciphersuites that have been
 configured. Although the server determines which cipher suite is used it should
-take the first supported cipher in the list sent by the client. See the
-B<ciphers> command for more information. The format for this list is a simple
+take the first supported cipher in the list sent by the client. See
+L<openssl-ciphers(1)> for more information. The format for this list is a simple
 colon (":") separated list of TLSv1.3 ciphersuite names.
 
 =item B<-starttls> I<protocol>
 
 Send the protocol-specific message(s) to switch to TLS for communication.
-B<protocol> is a keyword for the intended protocol.  Currently, the only
+I<protocol> is a keyword for the intended protocol.  Currently, the only
 supported keywords are "smtp", "pop3", "imap", "ftp", "xmpp", "xmpp-server",
 "irc", "postgres", "mysql", "lmtp", "nntp", "sieve" and "ldap".
 
@@ -659,24 +660,23 @@ Disable RFC4507bis session ticket support.
 
 =item B<-sess_out> I<filename>
 
-Output SSL session to B<filename>.
+Output SSL session to I<filename>.
 
-=item B<-sess_in> I<sess.pem>
+=item B<-sess_in> I<filename>
 
-Load SSL session from B<filename>. The client will attempt to resume a
+Load SSL session from I<filename>. The client will attempt to resume a
 connection from this session.
 
 =item B<-engine> I<id>
 
-Specifying an engine (by its unique B<id> string) will cause B<s_client>
+Specifying an engine (by its unique I<id> string) will cause this command
 to attempt to obtain a functional reference to the specified engine,
 thus initialising it if needed. The engine will then be set as the default
 for all available algorithms.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -703,7 +703,7 @@ response (if any) is printed out.
 These flags enable the Enable the Application-Layer Protocol Negotiation
 or Next Protocol Negotiation (NPN) extension, respectively. ALPN is the
 IETF standard and replaces NPN.
-The B<protocols> list is a comma-separated list of protocol names that
+The I<protocols> list is a comma-separated list of protocol names that
 the client should advertise support for. The list should contain the most
 desirable protocols first.  Protocol names are printable ASCII strings,
 for example "http/1.1" or "spdy/3".
@@ -784,7 +784,7 @@ Send a key update message to the server and request one back (TLSv1.3 only)
 
 =head1 NOTES
 
-B<s_client> can be used to debug SSL servers. To connect to an SSL HTTP
+This command can be used to debug SSL servers. To connect to an SSL HTTP
 server the command:
 
  openssl s_client -connect servername:443
@@ -802,7 +802,7 @@ A frequent problem when attempting to get client certificates working
 is that a web client complains it has no certificates or gives an empty
 list to choose from. This is normally because the server is not sending
 the clients certificate authority in its "acceptable CA list" when it
-requests a certificate. By using B<s_client> the CA list can be viewed
+requests a certificate. By using this command, the CA list can be viewed
 and checked. However some servers only request client authentication
 after a specific URL is requested. To obtain the list in this case it
 is necessary to use the B<-prexit> option and send an HTTP request
@@ -817,7 +817,7 @@ If there are problems verifying a server certificate then the
 B<-showcerts> option can be used to show all the certificates sent by the
 server.
 
-The B<s_client> utility is a test tool and is designed to continue the
+This command is a test tool and is designed to continue the
 handshake after any certificate verification errors. As a result it will
 accept any certificate chain (trusted or not) sent by the peer. None test
 applications should B<not> do this as it makes them vulnerable to a MITM
@@ -830,8 +830,8 @@ connections to come from some particular address and or port.
 =head1 BUGS
 
 Because this program has a lot of options and also because some of the
-techniques used are rather old, the C source of B<s_client> is rather hard to
-read and not a model of how things should be done.
+techniques used are rather old, the C source for this command is rather
+hard to read and not a model of how things should be done.
 A typical SSL client program would be much simpler.
 
 The B<-prexit> option is a bit of a hack. We should really report

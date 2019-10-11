@@ -20,7 +20,7 @@ B<openssl dhparam>
 [B<-2>]
 [B<-3>]
 [B<-5>]
-[B<-rand> I<file...>]
+[B<-rand> I<files>]
 [B<-writerand> I<file>]
 [B<-engine> I<id>]
 [I<numbits>]
@@ -83,13 +83,12 @@ displays a warning if not.
 
 The generator to use, either 2, 3 or 5. If present then the
 input file is ignored and parameters are generated instead. If not
-present but B<numbits> is present, parameters are generated with the
+present but I<numbits> is present, parameters are generated with the
 default generator 2.
 
-=item B<-rand> I<file...>
+=item B<-rand> I<files>
 
-A file or files containing random data used to seed the random number
-generator.
+The files containing random data used to seed the random number generator.
 Multiple files can be specified separated by an OS-dependent character.
 The separator is B<;> for MS-Windows, B<,> for OpenVMS, and B<:> for
 all others.
@@ -123,7 +122,7 @@ be loaded by calling the get_dhNNNN() function.
 
 =item B<-engine> I<id>
 
-Specifying an engine (by its unique B<id> string) will cause B<dhparam>
+Specifying an engine (by its unique I<id> string) will cause B<dhparam>
 to attempt to obtain a functional reference to the specified engine,
 thus initialising it if needed. The engine will then be set as the default
 for all available algorithms.
@@ -132,10 +131,10 @@ for all available algorithms.
 
 =head1 WARNINGS
 
-The program B<dhparam> combines the functionality of the programs B<dh> and
-B<gendh> in previous versions of OpenSSL. The B<dh> and B<gendh>
-programs are retained for now but may have different purposes in future
-versions of OpenSSL.
+This command combines the functionality of the L<openssl-dh(1)> and the
+L<openssl-gendh(1)> commands in previous OpenSSL versions.
+The L<openssl-dh(1)> and L<openssl-gendh(1)> commands are retained for now but
+may have different purposes in future versions of OpenSSL.
 
 =head1 NOTES
 

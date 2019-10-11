@@ -17,11 +17,9 @@ B<openssl fipsinstall>
 [B<-mac_name> I<macname>]
 [B<-macopt> I<nm>:I<v>]
 
-B<openssl> I<fipsinstall> [B<...>]
-
 =head1 DESCRIPTION
 
-This utility is used to generate a FIPS module configuration file.
+This command is used to generate a FIPS module configuration file.
 The generated configuration file consists of:
 
 =over 4
@@ -73,8 +71,8 @@ Name of the section inside the configuration file.
 =item B<-mac_name> I<name>
 
 Specifies the name of a supported MAC algorithm which will be used.
-To see the list of supported MAC's use the command I<list -mac-algorithms>.
-The default is "HMAC".
+To see the list of supported MAC's use the command
+C<openssl list -mac-algorithms>.  The default is B<HMAC>.
 
 =item B<-macopt> I<nm>:I<v>
 
@@ -85,25 +83,26 @@ Common control strings used for fipsinstall are:
 
 =over 4
 
-=item B<key:string>
+=item B<key>:I<string>
 
 Specifies the MAC key as an alphanumeric string (use if the key contains
 printable characters only).
 The string length must conform to any restrictions of the MAC algorithm.
 A key must be specified for every MAC algorithm.
 
-=item B<hexkey:string>
+=item B<hexkey>:I<string>
 
 Specifies the MAC key in hexadecimal form (two hex digits per byte).
 The key length must conform to any restrictions of the MAC algorithm.
 A key must be specified for every MAC algorithm.
 
-=item B<digest:string>
+=item B<digest>:I<string>
 
 Used by HMAC as an alphanumeric string (use if the key contains printable
 characters only).
 The string length must conform to any restrictions of the MAC algorithm.
-To see the list of supported digests, use the command I<list -digest-commands>.
+To see the list of supported digests, use the command
+C<openssl list -digest-commands>.
 
 =back
 
@@ -111,14 +110,14 @@ To see the list of supported digests, use the command I<list -digest-commands>.
 
 =head1 EXAMPLES
 
-Calculate the mac of a FIPS module 'fips.so' and run a FIPS self test
-for the module, and save the fips.conf configuration file:
+Calculate the mac of a FIPS module F<fips.so> and run a FIPS self test
+for the module, and save the F<fips.conf> configuration file:
 
  openssl fipsinstall -module ./fips.so -out fips.conf -provider_name fips \
          -section_name fipsinstall -mac_name HMAC -macopt digest:SHA256 \
          -macopt hexkey:000102030405060708090A0B0C0D0E0F10111213
 
-Verify that the configuration file 'fips.conf' contains the correct info:
+Verify that the configuration file F<fips.conf> contains the correct info:
 
  openssl fipsinstall -module ./fips.so -in fips.conf  -provider_name fips \
           -section_name fips_install -mac_name HMAC -macopt digest:SHA256 \
@@ -128,7 +127,7 @@ Verify that the configuration file 'fips.conf' contains the correct info:
 
 The MAC mechanisms that are available will depend on the options
 used when building OpenSSL.
-The B<list -mac-algorithms> command can be used to list them.
+The command C<openssl list -mac-algorithms> command can be used to list them.
 
 =head1 SEE ALSO
 
