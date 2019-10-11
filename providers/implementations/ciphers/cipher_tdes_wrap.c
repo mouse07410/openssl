@@ -15,9 +15,7 @@
 #include "prov/providercommonerr.h"
 
 /* TODO (3.0) Figure out what flags are requred */
-#define TDES_WRAP_FLAGS (EVP_CIPH_WRAP_MODE             \
-                         | EVP_CIPH_CUSTOM_IV           \
-                         | EVP_CIPH_FLAG_CUSTOM_CIPHER)
+#define TDES_WRAP_FLAGS (EVP_CIPH_WRAP_MODE | EVP_CIPH_CUSTOM_IV)
 
 
 static OSSL_OP_cipher_update_fn tdes_wrap_update;
@@ -131,7 +129,7 @@ static int tdes_wrap_cipher(void *vctx,
     *outl = 0;
     if (outsize < inl) {
         PROVerr(0, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
-        return -1;
+        return 0;
     }
 
     ret = tdes_wrap_cipher_internal(ctx, out, in, inl);
