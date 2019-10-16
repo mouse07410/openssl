@@ -21,6 +21,10 @@ struct evp_pkey_ctx_st {
     /* Actual operation */
     int operation;
 
+    /* Algorithm name and properties associated with this context */
+    const char *algorithm;
+    const char *propquery;
+
     union {
         struct {
             EVP_KEYEXCH *exchange;
@@ -168,15 +172,6 @@ struct evp_kdf_st {
     OSSL_OP_kdf_get_ctx_params_fn *get_ctx_params;
     OSSL_OP_kdf_set_ctx_params_fn *set_ctx_params;
 };
-
-extern const EVP_KDF pbkdf2_kdf_meth;
-extern const EVP_KDF scrypt_kdf_meth;
-extern const EVP_KDF tls1_prf_kdf_meth;
-extern const EVP_KDF hkdf_kdf_meth;
-extern const EVP_KDF sshkdf_kdf_meth;
-extern const EVP_KDF ss_kdf_meth;
-extern const EVP_KDF x963_kdf_meth;
-extern const EVP_KDF x942_kdf_meth;
 
 struct evp_md_st {
     /* nid */
