@@ -1089,10 +1089,18 @@ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
                                               ptr, sz);
         break;
 
+    case EVP_CTRL_INIT:
+        /*
+         * TODO(3.0) EVP_CTRL_INIT is purely legacy, no provider counterpart
+         * As a matter of fact, this should be dead code, but some caller
+         * might still do a direct control call with this command, so...
+         * Legacy methods return 1 except for exceptional circumstances, so
+         * we do the same here to not be disruptive.
+         */
+        return 1;
     case EVP_CTRL_SET_PIPELINE_OUTPUT_BUFS: /* Used by DASYNC */
-    case EVP_CTRL_INIT: /* TODO(3.0) Purely legacy, no provider counterpart */
     default:
-        return EVP_CTRL_RET_UNSUPPORTED;
+        goto end;
     case EVP_CTRL_GET_IV:
         set_params = 0;
         params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_IV,
@@ -1134,12 +1142,12 @@ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
                                               ptr, sz);
         ret = evp_do_ciph_ctx_setparams(ctx->cipher, ctx->provctx, params);
         if (ret <= 0)
-            return ret;
+            goto end;
         params[0] =
             OSSL_PARAM_construct_size_t(OSSL_CIPHER_PARAM_AEAD_TLS1_AAD_PAD, &sz);
         ret = evp_do_ciph_ctx_getparams(ctx->cipher, ctx->provctx, params);
         if (ret <= 0)
-            return 0;
+            goto end;
         return sz;
 #ifndef OPENSSL_NO_RC2
     case EVP_CTRL_GET_RC2_KEY_BITS:
@@ -1154,7 +1162,7 @@ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         ret = evp_do_ciph_ctx_setparams(ctx->cipher, ctx->provctx, params);
     else
         ret = evp_do_ciph_ctx_getparams(ctx->cipher, ctx->provctx, params);
-    goto conclude;
+    goto end;
 
 /* TODO(3.0): Remove legacy code below */
 legacy:
@@ -1165,7 +1173,7 @@ legacy:
 
     ret = ctx->cipher->ctrl(ctx, type, arg, ptr);
 
- conclude:
+ end:
     if (ret == EVP_CTRL_RET_UNSUPPORTED) {
         EVPerr(EVP_F_EVP_CIPHER_CTX_CTRL,
                EVP_R_CTRL_OPERATION_NOT_IMPLEMENTED);
@@ -1357,7 +1365,7 @@ static void *evp_cipher_from_dispatch(const int name_id,
 #ifndef FIPS_MODE
     /* TODO(3.x) get rid of the need for legacy NIDs */
     cipher->nid = NID_undef;
-    evp_doall_names(prov, name_id, set_legacy_nid, &cipher->nid);
+    evp_names_do_all(prov, name_id, set_legacy_nid, &cipher->nid);
     if (cipher->nid == -1) {
         ERR_raise(ERR_LIB_EVP, ERR_R_INTERNAL_ERROR);
         EVP_CIPHER_free(cipher);
@@ -1513,9 +1521,9 @@ void EVP_CIPHER_free(EVP_CIPHER *cipher)
     OPENSSL_free(cipher);
 }
 
-void EVP_CIPHER_do_all_ex(OPENSSL_CTX *libctx,
-                          void (*fn)(EVP_CIPHER *mac, void *arg),
-                          void *arg)
+void EVP_CIPHER_do_all_provided(OPENSSL_CTX *libctx,
+                                void (*fn)(EVP_CIPHER *mac, void *arg),
+                                void *arg)
 {
     evp_generic_do_all(libctx, OSSL_OP_CIPHER,
                        (void (*)(void *, void *))fn, arg,
