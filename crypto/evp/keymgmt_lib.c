@@ -18,12 +18,14 @@ static OSSL_PARAM *paramdefs_to_params(const OSSL_PARAM *paramdefs)
 {
     size_t cnt;
     const OSSL_PARAM *p;
-    OSSL_PARAM *params, *q;
+    OSSL_PARAM *params = NULL, *q;
 
     for (cnt = 1, p = paramdefs; p->key != NULL; p++, cnt++)
         continue;
 
     params = OPENSSL_zalloc(cnt * sizeof(*params));
+    if (params == NULL)
+        return NULL;
 
     for (p = paramdefs, q = params; ; p++, q++) {
         *q = *p;
@@ -78,6 +80,8 @@ static void *allocate_params_space(OSSL_PARAM *params)
         return NULL;
 
     data = OPENSSL_zalloc(space);
+    if (data == NULL)
+        return NULL;
 
     for (space = 0, p = params; p->key != NULL; p++) {
         p->data = data + space;
@@ -250,6 +254,24 @@ void evp_keymgmt_clear_pkey_cache(EVP_PKEY *pk)
     }
 }
 
+void *evp_keymgmt_fromdata(EVP_PKEY *target, EVP_KEYMGMT *keymgmt,
+                           const OSSL_PARAM params[], int domainparams)
+{
+    void *provctx = ossl_provider_ctx(EVP_KEYMGMT_provider(keymgmt));
+    void *provdata = domainparams
+        ? keymgmt->importdomparams(provctx, params)
+        : keymgmt->importkey(provctx, params);
+
+    evp_keymgmt_clear_pkey_cache(target);
+    if (provdata != NULL) {
+        EVP_KEYMGMT_up_ref(keymgmt);
+        target->pkeys[0].keymgmt = keymgmt;
+        target->pkeys[0].provdata = provdata;
+        target->pkeys[0].domainparams = domainparams;
+    }
+
+    return provdata;
+}
 
 /* internal functions */
 /* TODO(3.0) decide if these should be public or internal */

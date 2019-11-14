@@ -28,6 +28,7 @@ IF[{- !$disabled{tests} -}]
   DEPEND[libtestutil.a]=../libcrypto
 
   PROGRAMS{noinst}=\
+          confdump \
           versions \
           aborttest test_test \
           sanitytest rsa_complex exdatatest bntest \
@@ -38,7 +39,8 @@ IF[{- !$disabled{tests} -}]
           destest mdc2test \
           dhtest enginetest casttest \
           bftest ssltest_old dsatest dsa_no_digest_size_test exptest rsa_test \
-          evp_test evp_extra_test evp_fetch_prov_test igetest v3nametest v3ext \
+          evp_fromdata_test evp_test evp_extra_test evp_fetch_prov_test \
+          igetest v3nametest v3ext \
           crltest danetest bad_dtls_test lhash_test sparse_array_test \
           conf_include_test params_api_test params_conversion_test \
           constant_time_test verify_extra_test clienthellotest \
@@ -55,9 +57,13 @@ IF[{- !$disabled{tests} -}]
           recordlentest drbgtest drbg_cavs_test sslbuffertest \
           time_offset_test pemtest ssl_cert_table_internal_test ciphername_test \
           servername_test ocspapitest rsa_mp_test fatalerrtest tls13ccstest \
-          sysdefaulttest errtest gosttest \
+          sysdefaulttest errtest ssl_ctx_test gosttest \
           context_internal_test aesgcmtest params_test evp_pkey_dparams_test \
           keymgmt_internal_test
+
+  SOURCE[confdump]=confdump.c
+  INCLUDE[confdump]=../include ../apps/include
+  DEPEND[confdump]=../libcrypto
 
   SOURCE[versions]=versions.c
   INCLUDE[versions]=../include ../apps/include
@@ -203,6 +209,10 @@ IF[{- !$disabled{tests} -}]
   IF[{- $disabled{fips} || !$target{dso_scheme} -}]
     DEFINE[evp_extra_test]=NO_FIPS_MODULE
   ENDIF
+
+  SOURCE[evp_fromdata_test]=evp_fromdata_test.c
+  INCLUDE[evp_fromdata_test]=../include ../apps/include
+  DEPEND[evp_fromdata_test]=../libcrypto libtestutil.a
 
   SOURCE[igetest]=igetest.c
   INCLUDE[igetest]=../include ../apps/include
@@ -471,7 +481,7 @@ IF[{- !$disabled{tests} -}]
   DEPEND[conf_include_test]=../libcrypto libtestutil.a
 
   IF[{- !$disabled{cmp} -}]
-    PROGRAMS{noinst}=cmp_asn_test cmp_ctx_test
+    PROGRAMS{noinst}=cmp_asn_test cmp_ctx_test cmp_status_test cmp_hdr_test
   ENDIF
 
   SOURCE[cmp_asn_test]=cmp_asn_test.c cmp_testlib.c
@@ -481,6 +491,14 @@ IF[{- !$disabled{tests} -}]
   SOURCE[cmp_ctx_test]=cmp_ctx_test.c cmp_testlib.c
   INCLUDE[cmp_ctx_test]=.. ../include ../apps/include
   DEPEND[cmp_ctx_test]=../libcrypto.a libtestutil.a
+
+  SOURCE[cmp_hdr_test]=cmp_hdr_test.c cmp_testlib.c
+  INCLUDE[cmp_hdr_test]=.. ../include ../apps/include
+  DEPEND[cmp_hdr_test]=../libcrypto.a libtestutil.a
+
+  SOURCE[cmp_status_test]=cmp_status_test.c cmp_testlib.c
+  INCLUDE[cmp_status_test]=.. ../include ../apps/include
+  DEPEND[cmp_status_test]=../libcrypto.a libtestutil.a
 
   # Internal test programs.  These are essentially a collection of internal
   # test routines.  Some of them need to reach internal symbols that aren't
@@ -680,6 +698,10 @@ IF[{- !$disabled{tests} -}]
   INCLUDE[namemap_internal_test]=.. ../include ../apps/include
   DEPEND[namemap_internal_test]=../libcrypto.a libtestutil.a
 ENDIF
+
+  SOURCE[ssl_ctx_test]=ssl_ctx_test.c
+  INCLUDE[ssl_ctx_test]=../include ../apps/include
+  DEPEND[ssl_ctx_test]=../libcrypto ../libssl libtestutil.a
 
 {-
    use File::Spec::Functions;

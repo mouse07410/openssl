@@ -69,8 +69,10 @@ extern "C" {
 #define OSSL_CIPHER_PARAM_AEAD_MAC_KEY       "mackey"     /* octet_string */
 #define OSSL_CIPHER_PARAM_RANDOM_KEY         "randkey"    /* octet_string */
 #define OSSL_CIPHER_PARAM_RC2_KEYBITS        "keybits"    /* size_t */
+#define OSSL_CIPHER_PARAM_SPEED              "speed"      /* uint */
 /* For passing the AlgorithmIdentifier parameter in DER form */
 #define OSSL_CIPHER_PARAM_ALG_ID             "alg_id_param" /* octet_string */
+
 
 /* digest parameters */
 #define OSSL_DIGEST_PARAM_XOFLEN     "xoflen"    /* size_t */
@@ -133,6 +135,8 @@ extern "C" {
 #define OSSL_KDF_PARAM_SSHKDF_SESSION_ID "session_id" /* octet string */
 #define OSSL_KDF_PARAM_SSHKDF_TYPE  "type"      /* int */
 #define OSSL_KDF_PARAM_SIZE         "size"      /* size_t */
+#define OSSL_KDF_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER     /* utf8 string */
+#define OSSL_KDF_PARAM_CONSTANT     "constant"  /* octet string */
 
 /* Known KDF names */
 #define OSSL_KDF_NAME_HKDF          "HKDF"
@@ -144,6 +148,7 @@ extern "C" {
 #define OSSL_KDF_NAME_X942KDF       "X942KDF"
 #define OSSL_KDF_NAME_X963KDF       "X963KDF"
 #define OSSL_KDF_NAME_KBKDF         "KBKDF"
+#define OSSL_KDF_NAME_KRB5KDF       "KRB5KDF"
 
 /* PKEY parameters */
 /* Diffie-Hellman/DSA Parameters */

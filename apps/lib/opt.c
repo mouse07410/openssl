@@ -134,8 +134,9 @@ char *opt_init(int ac, char **av, const OPTIONS *o)
         int duplicated, i;
 #endif
 
-        if (o->name == OPT_HELP_STR || o->name == OPT_MORE_STR ||
-            o->name == OPT_SECTION_STR)
+        if (o->name == OPT_HELP_STR
+                || o->name == OPT_MORE_STR
+                || o->name == OPT_SECTION_STR)
             continue;
 #ifndef NDEBUG
         i = o->valtype;
@@ -146,7 +147,7 @@ char *opt_init(int ac, char **av, const OPTIONS *o)
         switch (i) {
         case   0: case '-': case '/': case '<': case '>': case 'E': case 'F':
         case 'M': case 'U': case 'f': case 'l': case 'n': case 'p': case 's':
-        case 'u': case 'c':
+        case 'u': case 'c': case ':':
             break;
         default:
             OPENSSL_assert(0);
@@ -686,6 +687,7 @@ int opt_next(void)
         switch (o->valtype) {
         default:
         case 's':
+        case ':':
             /* Just a string. */
             break;
         case '/':
@@ -804,6 +806,8 @@ static const char *valtype2param(const OPTIONS *o)
     case 0:
     case '-':
         return "";
+    case ':':
+        return "uri";
     case 's':
         return "val";
     case '/':
@@ -841,7 +845,12 @@ void opt_print(const OPTIONS *o, int width)
     char *p;
 
         help = o->helpstr ? o->helpstr : "(No additional info)";
-        if (o->name == OPT_HELP_STR || o->name == OPT_SECTION_STR) {
+        if (o->name == OPT_HELP_STR) {
+            opt_printf_stderr(help, prog);
+            return;
+        }
+        if (o->name == OPT_SECTION_STR) {
+            opt_printf_stderr("\n");
             opt_printf_stderr(help, prog);
             return;
         }

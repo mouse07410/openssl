@@ -49,36 +49,40 @@ const OPTIONS dgst_options[] = {
     {OPT_HELP_STR, 1, '-', "Usage: %s [options] [file...]\n"},
     {OPT_HELP_STR, 1, '-',
         "  file... files to digest (default is stdin)\n"},
+    OPT_SECTION("General"),
     {"help", OPT_HELP, '-', "Display this summary"},
     {"list", OPT_LIST, '-', "List digests"},
-    {"c", OPT_C, '-', "Print the digest with separating colons"},
-    {"r", OPT_R, '-', "Print the digest in coreutils format"},
-    {"out", OPT_OUT, '>', "Output to filename rather than stdout"},
-    {"passin", OPT_PASSIN, 's', "Input file pass phrase source"},
-    {"sign", OPT_SIGN, 's', "Sign digest using private key"},
-    {"verify", OPT_VERIFY, 's',
-     "Verify a signature using public key"},
-    {"prverify", OPT_PRVERIFY, 's',
-     "Verify a signature using private key"},
-    {"signature", OPT_SIGNATURE, '<', "File with signature to verify"},
-    {"keyform", OPT_KEYFORM, 'f', "Key file format (PEM or ENGINE)"},
-    {"hex", OPT_HEX, '-', "Print as hex dump"},
-    {"binary", OPT_BINARY, '-', "Print in binary form"},
-    {"d", OPT_DEBUG, '-', "Print debug info"},
-    {"debug", OPT_DEBUG, '-', "Print debug info"},
-    {"fips-fingerprint", OPT_FIPS_FINGERPRINT, '-',
-     "Compute HMAC with the key used in OpenSSL-FIPS fingerprint"},
-    {"hmac", OPT_HMAC, 's', "Create hashed MAC with key"},
-    {"mac", OPT_MAC, 's', "Create MAC (not necessarily HMAC)"},
-    {"sigopt", OPT_SIGOPT, 's', "Signature parameter in n:v form"},
-    {"macopt", OPT_MACOPT, 's', "MAC algorithm parameters in n:v form or key"},
-    {"", OPT_DIGEST, '-', "Any supported digest"},
-    OPT_R_OPTIONS,
 #ifndef OPENSSL_NO_ENGINE
     {"engine", OPT_ENGINE, 's', "Use engine e, possibly a hardware device"},
     {"engine_impl", OPT_ENGINE_IMPL, '-',
      "Also use engine given by -engine for digest operations"},
 #endif
+    {"passin", OPT_PASSIN, 's', "Input file pass phrase source"},
+
+    OPT_SECTION("Output"),
+    {"c", OPT_C, '-', "Print the digest with separating colons"},
+    {"r", OPT_R, '-', "Print the digest in coreutils format"},
+    {"out", OPT_OUT, '>', "Output to filename rather than stdout"},
+    {"keyform", OPT_KEYFORM, 'f', "Key file format (PEM or ENGINE)"},
+    {"hex", OPT_HEX, '-', "Print as hex dump"},
+    {"binary", OPT_BINARY, '-', "Print in binary form"},
+    {"d", OPT_DEBUG, '-', "Print debug info"},
+    {"debug", OPT_DEBUG, '-', "Print debug info"},
+
+    OPT_SECTION("Signing"),
+    {"sign", OPT_SIGN, 's', "Sign digest using private key"},
+    {"verify", OPT_VERIFY, 's', "Verify a signature using public key"},
+    {"prverify", OPT_PRVERIFY, 's', "Verify a signature using private key"},
+    {"sigopt", OPT_SIGOPT, 's', "Signature parameter in n:v form"},
+    {"signature", OPT_SIGNATURE, '<', "File with signature to verify"},
+    {"hmac", OPT_HMAC, 's', "Create hashed MAC with key"},
+    {"mac", OPT_MAC, 's', "Create MAC (not necessarily HMAC)"},
+    {"macopt", OPT_MACOPT, 's', "MAC algorithm parameters in n:v form or key"},
+    {"", OPT_DIGEST, '-', "Any supported digest"},
+    {"fips-fingerprint", OPT_FIPS_FINGERPRINT, '-',
+     "Compute HMAC with the key used in OpenSSL-FIPS fingerprint"},
+
+    OPT_R_OPTIONS,
     {NULL}
 };
 
@@ -502,15 +506,16 @@ int do_fp(BIO *out, unsigned char *buf, BIO *bp, int sep, int binout,
           const char *sig_name, const char *md_name,
           const char *file)
 {
-    size_t len;
-    int i, backslash = 0;
+    size_t len = BUFSIZE;
+    int i, backslash = 0, ret = 1;
+    unsigned char *sigbuf = NULL;
 
     while (BIO_pending(bp) || !BIO_eof(bp)) {
         i = BIO_read(bp, (char *)buf, BUFSIZE);
         if (i < 0) {
             BIO_printf(bio_err, "Read Error in %s\n", file);
             ERR_print_errors(bio_err);
-            return 1;
+            goto end;
         }
         if (i == 0)
             break;
@@ -523,28 +528,35 @@ int do_fp(BIO *out, unsigned char *buf, BIO *bp, int sep, int binout,
             BIO_printf(out, "Verified OK\n");
         } else if (i == 0) {
             BIO_printf(out, "Verification Failure\n");
-            return 1;
+            goto end;
         } else {
             BIO_printf(bio_err, "Error Verifying Data\n");
             ERR_print_errors(bio_err);
-            return 1;
+            goto end;
         }
-        return 0;
+        ret = 0;
+        goto end;
     }
     if (key != NULL) {
         EVP_MD_CTX *ctx;
+        int pkey_len;
         BIO_get_md_ctx(bp, &ctx);
-        len = BUFSIZE;
+        pkey_len = EVP_PKEY_size(key);
+        if (pkey_len > BUFSIZE) {
+            len = pkey_len;
+            sigbuf = app_malloc(len, "Signature buffer");
+            buf = sigbuf;
+        }
         if (!EVP_DigestSignFinal(ctx, buf, &len)) {
             BIO_printf(bio_err, "Error Signing Data\n");
             ERR_print_errors(bio_err);
-            return 1;
+            goto end;
         }
     } else {
         len = BIO_gets(bp, (char *)buf, BUFSIZE);
         if ((int)len < 0) {
             ERR_print_errors(bio_err);
-            return 1;
+            goto end;
         }
     }
 
@@ -579,5 +591,11 @@ int do_fp(BIO *out, unsigned char *buf, BIO *bp, int sep, int binout,
         }
         BIO_printf(out, "\n");
     }
-    return 0;
+
+    ret = 0;
+ end:
+    if (sigbuf != NULL)
+        OPENSSL_clear_free(sigbuf, len);
+
+    return ret;
 }

@@ -111,7 +111,8 @@ const EVP_PKEY_METHOD *EVP_PKEY_meth_find(int type)
     return (**ret)();
 }
 
-static EVP_PKEY_CTX *int_ctx_new(EVP_PKEY *pkey, ENGINE *e,
+static EVP_PKEY_CTX *int_ctx_new(OPENSSL_CTX *libctx,
+                                 EVP_PKEY *pkey, ENGINE *e,
                                  const char *name, const char *propquery,
                                  int id)
 {
@@ -132,8 +133,34 @@ static EVP_PKEY_CTX *int_ctx_new(EVP_PKEY *pkey, ENGINE *e,
             return 0;
         id = pkey->type;
     }
-    name = OBJ_nid2sn(id);
+
+    /*
+     * Here, we extract what information we can for the purpose of
+     * supporting usage with implementations from providers, to make
+     * for a smooth transition from legacy stuff to provider based stuff.
+     *
+     * If an engine is given, this is entirely legacy, and we should not
+     * pretend anything else, so we only set the name when no engine is
+     * given.  If both are already given, someone made a mistake, and
+     * since that can only happen internally, it's safe to make an
+     * assertion.
+     */
+    if (!ossl_assert(e == NULL || name == NULL))
+        return NULL;
+    if (e == NULL)
+        name = OBJ_nid2sn(id);
     propquery = NULL;
+    /*
+     * We were called using legacy data, or an EVP_PKEY, but an EVP_PKEY
+     * isn't tied to a specific library context, so we fall back to the
+     * default library context.
+     * TODO(v3.0): an EVP_PKEY that doesn't originate from a leagacy key
+     * structure only has the pkeys[] cache, where the first element is
+     * considered the "origin".  Investigate if that could be a suitable
+     * way to find a library context.
+     */
+    libctx = NULL;
+
 #ifndef OPENSSL_NO_ENGINE
     if (e == NULL && pkey != NULL)
         e = pkey->pmeth_engine != NULL ? pkey->pmeth_engine : pkey->engine;
@@ -175,6 +202,7 @@ static EVP_PKEY_CTX *int_ctx_new(EVP_PKEY *pkey, ENGINE *e,
         EVPerr(EVP_F_INT_CTX_NEW, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
+    ret->libctx = libctx;
     ret->algorithm = name;
     ret->propquery = propquery;
     ret->engine = e;
@@ -201,10 +229,14 @@ void evp_pkey_ctx_free_old_ops(EVP_PKEY_CTX *ctx)
         if (ctx->op.kex.exchprovctx != NULL && ctx->op.kex.exchange != NULL)
             ctx->op.kex.exchange->freectx(ctx->op.kex.exchprovctx);
         EVP_KEYEXCH_free(ctx->op.kex.exchange);
+        ctx->op.kex.exchprovctx = NULL;
+        ctx->op.kex.exchange = NULL;
     } else if (EVP_PKEY_CTX_IS_SIGNATURE_OP(ctx)) {
         if (ctx->op.sig.sigprovctx != NULL && ctx->op.sig.signature != NULL)
             ctx->op.sig.signature->freectx(ctx->op.sig.sigprovctx);
         EVP_SIGNATURE_free(ctx->op.sig.signature);
+        ctx->op.sig.sigprovctx = NULL;
+        ctx->op.sig.signature = NULL;
     }
 }
 
@@ -283,18 +315,19 @@ void EVP_PKEY_meth_free(EVP_PKEY_METHOD *pmeth)
 
 EVP_PKEY_CTX *EVP_PKEY_CTX_new(EVP_PKEY *pkey, ENGINE *e)
 {
-    return int_ctx_new(pkey, e, NULL, NULL, -1);
+    return int_ctx_new(NULL, pkey, e, NULL, NULL, -1);
 }
 
 EVP_PKEY_CTX *EVP_PKEY_CTX_new_id(int id, ENGINE *e)
 {
-    return int_ctx_new(NULL, e, NULL, NULL, id);
+    return int_ctx_new(NULL, NULL, e, NULL, NULL, id);
 }
 
-EVP_PKEY_CTX *EVP_PKEY_CTX_new_provided(const char *name,
+EVP_PKEY_CTX *EVP_PKEY_CTX_new_provided(OPENSSL_CTX *libctx,
+                                        const char *name,
                                         const char *propquery)
 {
-    return int_ctx_new(NULL, NULL, name, propquery, -1);
+    return int_ctx_new(libctx, NULL, NULL, name, propquery, -1);
 }
 
 EVP_PKEY_CTX *EVP_PKEY_CTX_dup(const EVP_PKEY_CTX *pctx)
@@ -324,6 +357,7 @@ EVP_PKEY_CTX *EVP_PKEY_CTX_dup(const EVP_PKEY_CTX *pctx)
         EVP_PKEY_up_ref(pctx->pkey);
     rctx->pkey = pctx->pkey;
     rctx->operation = pctx->operation;
+    rctx->libctx = pctx->libctx;
     rctx->algorithm = pctx->algorithm;
     rctx->propquery = pctx->propquery;
 
@@ -448,6 +482,7 @@ void EVP_PKEY_CTX_free(EVP_PKEY_CTX *ctx)
         ctx->pmeth->cleanup(ctx);
 
     evp_pkey_ctx_free_old_ops(ctx);
+    EVP_KEYMGMT_free(ctx->keymgmt);
 
     EVP_PKEY_free(ctx->pkey);
     EVP_PKEY_free(ctx->peerkey);
@@ -559,7 +594,7 @@ int EVP_PKEY_CTX_get_signature_md(EVP_PKEY_CTX *ctx, const EVP_MD **md)
     if (!EVP_PKEY_CTX_get_params(ctx, sig_md_params))
         return 0;
 
-    tmp = EVP_get_digestbyname(name);
+    tmp = evp_get_digestbyname_ex(ctx->libctx, name);
     if (tmp == NULL)
         return 0;
 

@@ -27,7 +27,8 @@ static int v_verbose = 0, vflags = 0;
 
 typedef enum OPTION_choice {
     OPT_ERR = -1, OPT_EOF = 0, OPT_HELP,
-    OPT_ENGINE, OPT_CAPATH, OPT_CAFILE, OPT_NOCAPATH, OPT_NOCAFILE,
+    OPT_ENGINE, OPT_CAPATH, OPT_CAFILE, OPT_CASTORE,
+    OPT_NOCAPATH, OPT_NOCAFILE, OPT_NOCASTORE,
     OPT_UNTRUSTED, OPT_TRUSTED, OPT_CRLFILE, OPT_CRL_DOWNLOAD, OPT_SHOW_CHAIN,
     OPT_V_ENUM, OPT_NAMEOPT,
     OPT_VERBOSE, OPT_SM2ID, OPT_SM2HEXID
@@ -35,16 +36,26 @@ typedef enum OPTION_choice {
 
 const OPTIONS verify_options[] = {
     {OPT_HELP_STR, 1, '-', "Usage: %s [options] cert.pem...\n"},
-    {OPT_HELP_STR, 1, '-', "Valid options are:\n"},
+
+    OPT_SECTION("General"),
     {"help", OPT_HELP, '-', "Display this summary"},
+#ifndef OPENSSL_NO_ENGINE
+    {"engine", OPT_ENGINE, 's', "Use engine, possibly a hardware device"},
+#endif
     {"verbose", OPT_VERBOSE, '-',
         "Print extra information about the operations being performed."},
+    {"nameopt", OPT_NAMEOPT, 's', "Various certificate name options"},
+
+    OPT_SECTION("Certificate chain"),
     {"CApath", OPT_CAPATH, '/', "A directory of trusted certificates"},
     {"CAfile", OPT_CAFILE, '<', "A file of trusted certificates"},
+    {"CAstore", OPT_CASTORE, ':', "URI to a store of trusted certificates"},
     {"no-CAfile", OPT_NOCAFILE, '-',
      "Do not load the default certificates file"},
     {"no-CApath", OPT_NOCAPATH, '-',
      "Do not load certificates from the default certificates directory"},
+    {"no-CAstore", OPT_NOCAPATH, '-',
+     "Do not load certificates from the default certificates store"},
     {"untrusted", OPT_UNTRUSTED, '<', "A file of untrusted certificates"},
     {"trusted", OPT_TRUSTED, '<', "A file of trusted certificates"},
     {"CRLfile", OPT_CRLFILE, '<',
@@ -53,11 +64,8 @@ const OPTIONS verify_options[] = {
         "Attempt to download CRL information for this certificate"},
     {"show_chain", OPT_SHOW_CHAIN, '-',
         "Display information about the certificate chain"},
-    {"nameopt", OPT_NAMEOPT, 's', "Various certificate name options"},
+
     OPT_V_OPTIONS,
-#ifndef OPENSSL_NO_ENGINE
-    {"engine", OPT_ENGINE, 's', "Use engine, possibly a hardware device"},
-#endif
 #ifndef OPENSSL_NO_SM2
     {"sm2-id", OPT_SM2ID, 's',
      "Specify an ID string to verify an SM2 certificate"},
@@ -74,8 +82,8 @@ int verify_main(int argc, char **argv)
     STACK_OF(X509_CRL) *crls = NULL;
     X509_STORE *store = NULL;
     X509_VERIFY_PARAM *vpm = NULL;
-    const char *prog, *CApath = NULL, *CAfile = NULL;
-    int noCApath = 0, noCAfile = 0;
+    const char *prog, *CApath = NULL, *CAfile = NULL, *CAstore = NULL;
+    int noCApath = 0, noCAfile = 0, noCAstore = 0;
     int vpmtouched = 0, crl_download = 0, show_chain = 0, i = 0, ret = 1;
     OPTION_CHOICE o;
     unsigned char *sm2_id = NULL;
@@ -123,11 +131,17 @@ int verify_main(int argc, char **argv)
         case OPT_CAFILE:
             CAfile = opt_arg();
             break;
+        case OPT_CASTORE:
+            CAstore = opt_arg();
+            break;
         case OPT_NOCAPATH:
             noCApath = 1;
             break;
         case OPT_NOCAFILE:
             noCAfile = 1;
+            break;
+        case OPT_NOCASTORE:
+            noCAstore = 1;
             break;
         case OPT_UNTRUSTED:
             /* Zero or more times */
@@ -139,6 +153,7 @@ int verify_main(int argc, char **argv)
             /* Zero or more times */
             noCAfile = 1;
             noCApath = 1;
+            noCAstore = 1;
             if (!load_certs(opt_arg(), &trusted, FORMAT_PEM, NULL,
                             "trusted certificates"))
                 goto end;
@@ -195,14 +210,16 @@ int verify_main(int argc, char **argv)
     }
     argc = opt_num_rest();
     argv = opt_rest();
-    if (trusted != NULL && (CAfile || CApath)) {
+    if (trusted != NULL
+        && (CAfile != NULL || CApath != NULL || CAstore != NULL)) {
         BIO_printf(bio_err,
-                   "%s: Cannot use -trusted with -CAfile or -CApath\n",
+                   "%s: Cannot use -trusted with -CAfile, -CApath or -CAstore\n",
                    prog);
         goto end;
     }
 
-    if ((store = setup_verify(CAfile, CApath, noCAfile, noCApath)) == NULL)
+    if ((store = setup_verify(CAfile, noCAfile, CApath, noCApath,
+                              CAstore, noCAstore)) == NULL)
         goto end;
     X509_STORE_set_verify_cb(store, cb);
 

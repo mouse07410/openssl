@@ -159,7 +159,7 @@ L<EVP_EncryptFinal(3)> and L<EVP_DecryptFinal(3)>.
 
 OP_cipher_cipher() performs encryption/decryption using the provider side cipher
 context in the I<cctx> parameter that should have been previously initialised via
-a call to OP_cipher_encrypt_init() or OP_cipher_decrypt_init.
+a call to OP_cipher_encrypt_init() or OP_cipher_decrypt_init().
 This should call the raw underlying cipher function without any padding.
 This will be invoked in the provider as a result of the application calling
 L<EVP_Cipher(3)>.
@@ -341,6 +341,13 @@ This is used by the RC5 cipher.
 
 Gets or sets the effective keybits used for a RC2 cipher.
 The length of the "keybits" parameter should not exceed that of a B<size_t>.
+
+=item "speed" (B<OSSL_CIPHER_PARAM_SPEED>) <unsigned integer>
+
+Sets the speed option for the associated cipher ctx. This is only supported
+by AES SIV ciphers which disallow multiple operations by default.
+Setting "speed" to 1 allows another encrypt or decrypt operation to be
+performed. This is used for performance testing.
 
 =back
 

@@ -88,6 +88,7 @@ static const unsigned char kExampleRSAKeyDER[] = {
 * kExampleDSAKeyDER is a DSA private key in ASN.1, DER format. Of course, you
  * should never use this key anywhere but in an example.
  */
+#ifndef OPENSSL_NO_DSA
 static const unsigned char kExampleDSAKeyDER[] = {
     0x30, 0x82, 0x01, 0xba, 0x02, 0x01, 0x00, 0x02, 0x81, 0x81, 0x00, 0x9a,
     0x05, 0x6d, 0x33, 0xcd, 0x5d, 0x78, 0xa1, 0xbb, 0xcb, 0x7d, 0x5b, 0x8d,
@@ -128,6 +129,7 @@ static const unsigned char kExampleDSAKeyDER[] = {
     0xf1, 0x8c, 0x82, 0x97, 0xf2, 0xf4, 0x19, 0xba, 0x2b, 0xf3, 0x16, 0xbe,
     0x40, 0x48
 };
+#endif
 
 /*
  * kExampleBadRSAKeyDER is an RSA private key in ASN.1, DER format. The private
@@ -422,6 +424,7 @@ end:
     return ret;
 }
 
+#ifndef OPENSSL_NO_DSA
 static EVP_PKEY *load_example_dsa_key(void)
 {
     EVP_PKEY *ret = NULL;
@@ -445,7 +448,7 @@ end:
 
     return ret;
 }
-
+#endif
 
 static int test_EVP_Enveloped(void)
 {
@@ -525,8 +528,13 @@ static int test_EVP_DigestSignInit(int tst)
         if (!TEST_ptr(pkey = load_example_rsa_key()))
                 goto out;
     } else {
+#ifndef OPENSSL_NO_DSA
         if (!TEST_ptr(pkey = load_example_dsa_key()))
                 goto out;
+#else
+        ret = 1;
+        goto out;
+#endif
     }
 
     if (!TEST_true(EVP_DigestSignInit(md_ctx, NULL, EVP_sha256(), NULL, pkey)))
@@ -1237,10 +1245,8 @@ static int test_EVP_PKEY_CTX_get_set_params(void)
 
     /* Initialise a sign operation */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    dsaimpl = EVP_SIGNATURE_fetch(NULL, "DSA", NULL);
     if (!TEST_ptr(ctx)
-            || !TEST_ptr(dsaimpl)
-            || !TEST_int_gt(EVP_PKEY_sign_init_ex(ctx, dsaimpl), 0))
+            || !TEST_int_gt(EVP_PKEY_sign_init(ctx), 0))
         goto err;
 
     /*
@@ -1299,8 +1305,7 @@ static int test_EVP_PKEY_CTX_get_set_params(void)
      */
     mdctx = EVP_MD_CTX_new();
     if (!TEST_ptr(mdctx)
-            || !TEST_true(EVP_DigestSignInit_ex(mdctx, NULL, "SHA1", NULL,
-                                                pkey, dsaimpl)))
+        || !TEST_true(EVP_DigestSignInit_ex(mdctx, NULL, "SHA1", NULL, pkey)))
         goto err;
 
     /*
