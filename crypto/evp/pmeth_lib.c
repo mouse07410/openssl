@@ -15,6 +15,7 @@
 #include <openssl/x509v3.h>
 #include <openssl/core_names.h>
 #include <openssl/dh.h>
+#include <openssl/rsa.h>
 #include "internal/cryptlib.h"
 #include "crypto/asn1.h"
 #include "crypto/evp.h"
@@ -237,6 +238,12 @@ void evp_pkey_ctx_free_old_ops(EVP_PKEY_CTX *ctx)
         EVP_SIGNATURE_free(ctx->op.sig.signature);
         ctx->op.sig.sigprovctx = NULL;
         ctx->op.sig.signature = NULL;
+    } else if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)) {
+        if (ctx->op.ciph.ciphprovctx != NULL && ctx->op.ciph.cipher != NULL)
+            ctx->op.ciph.cipher->freectx(ctx->op.ciph.ciphprovctx);
+        EVP_ASYM_CIPHER_free(ctx->op.ciph.cipher);
+        ctx->op.ciph.ciphprovctx = NULL;
+        ctx->op.ciph.cipher = NULL;
     }
 }
 
@@ -401,6 +408,26 @@ EVP_PKEY_CTX *EVP_PKEY_CTX_dup(const EVP_PKEY_CTX *pctx)
             }
             return rctx;
         }
+    } else if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(pctx)) {
+        if (pctx->op.ciph.cipher != NULL) {
+            rctx->op.ciph.cipher = pctx->op.ciph.cipher;
+            if (!EVP_ASYM_CIPHER_up_ref(rctx->op.ciph.cipher)) {
+                OPENSSL_free(rctx);
+                return NULL;
+            }
+        }
+        if (pctx->op.ciph.ciphprovctx != NULL) {
+            if (!ossl_assert(pctx->op.ciph.cipher != NULL))
+                return NULL;
+            rctx->op.ciph.ciphprovctx
+                = pctx->op.ciph.cipher->dupctx(pctx->op.ciph.ciphprovctx);
+            if (rctx->op.ciph.ciphprovctx == NULL) {
+                EVP_ASYM_CIPHER_free(rctx->op.ciph.cipher);
+                OPENSSL_free(rctx);
+                return NULL;
+            }
+            return rctx;
+        }
     }
 
     rctx->pmeth = pctx->pmeth;
@@ -500,6 +527,12 @@ int EVP_PKEY_CTX_get_params(EVP_PKEY_CTX *ctx, OSSL_PARAM *params)
             && ctx->op.sig.signature->get_ctx_params != NULL)
         return ctx->op.sig.signature->get_ctx_params(ctx->op.sig.sigprovctx,
                                                      params);
+    if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+            && ctx->op.ciph.ciphprovctx != NULL
+            && ctx->op.ciph.cipher != NULL
+            && ctx->op.ciph.cipher->get_ctx_params != NULL)
+        return ctx->op.ciph.cipher->get_ctx_params(ctx->op.ciph.ciphprovctx,
+                                                   params);
     return 0;
 }
 
@@ -509,6 +542,11 @@ const OSSL_PARAM *EVP_PKEY_CTX_gettable_params(EVP_PKEY_CTX *ctx)
             && ctx->op.sig.signature != NULL
             && ctx->op.sig.signature->gettable_ctx_params != NULL)
         return ctx->op.sig.signature->gettable_ctx_params();
+
+    if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+            && ctx->op.ciph.cipher != NULL
+            && ctx->op.ciph.cipher->gettable_ctx_params != NULL)
+        return ctx->op.ciph.cipher->gettable_ctx_params();
 
     return NULL;
 }
@@ -527,6 +565,12 @@ int EVP_PKEY_CTX_set_params(EVP_PKEY_CTX *ctx, OSSL_PARAM *params)
             && ctx->op.sig.signature->set_ctx_params != NULL)
         return ctx->op.sig.signature->set_ctx_params(ctx->op.sig.sigprovctx,
                                                      params);
+    if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+            && ctx->op.ciph.ciphprovctx != NULL
+            && ctx->op.ciph.cipher != NULL
+            && ctx->op.ciph.cipher->set_ctx_params != NULL)
+        return ctx->op.ciph.cipher->set_ctx_params(ctx->op.ciph.ciphprovctx,
+                                                     params);
     return 0;
 }
 
@@ -540,6 +584,10 @@ const OSSL_PARAM *EVP_PKEY_CTX_settable_params(EVP_PKEY_CTX *ctx)
             && ctx->op.sig.signature != NULL
             && ctx->op.sig.signature->settable_ctx_params != NULL)
         return ctx->op.sig.signature->settable_ctx_params();
+    if (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+            && ctx->op.ciph.cipher != NULL
+            && ctx->op.ciph.cipher->settable_ctx_params != NULL)
+        return ctx->op.ciph.cipher->settable_ctx_params();
 
     return NULL;
 }
@@ -654,6 +702,33 @@ static int legacy_ctrl_to_param(EVP_PKEY_CTX *ctx, int keytype, int optype,
         return EVP_PKEY_CTX_set_signature_md(ctx, p2);
     case EVP_PKEY_CTRL_GET_MD:
         return EVP_PKEY_CTX_get_signature_md(ctx, p2);
+    case EVP_PKEY_CTRL_RSA_PADDING:
+        return EVP_PKEY_CTX_set_rsa_padding(ctx, p1);
+    case EVP_PKEY_CTRL_GET_RSA_PADDING:
+        return EVP_PKEY_CTX_get_rsa_padding(ctx, p2);
+    case EVP_PKEY_CTRL_RSA_OAEP_MD:
+        return EVP_PKEY_CTX_set_rsa_oaep_md(ctx, p2);
+    case EVP_PKEY_CTRL_GET_RSA_OAEP_MD:
+        return EVP_PKEY_CTX_get_rsa_oaep_md(ctx, p2);
+    case EVP_PKEY_CTRL_RSA_MGF1_MD:
+        return EVP_PKEY_CTX_set_rsa_oaep_md(ctx, p2);
+    case EVP_PKEY_CTRL_GET_RSA_MGF1_MD:
+        return EVP_PKEY_CTX_get_rsa_oaep_md(ctx, p2);
+    case EVP_PKEY_CTRL_RSA_OAEP_LABEL:
+        return EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, p2, p1);
+    case EVP_PKEY_CTRL_GET_RSA_OAEP_LABEL:
+        return EVP_PKEY_CTX_get0_rsa_oaep_label(ctx, (unsigned char **)p2);
+    case EVP_PKEY_CTRL_PKCS7_ENCRYPT:
+    case EVP_PKEY_CTRL_PKCS7_DECRYPT:
+#ifndef OPENSSL_NO_CMS
+    case EVP_PKEY_CTRL_CMS_DECRYPT:
+    case EVP_PKEY_CTRL_CMS_ENCRYPT:
+#endif
+        if (ctx->pmeth->pkey_id != EVP_PKEY_RSA_PSS)
+            return 1;
+        ERR_raise(ERR_LIB_EVP,
+                  EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
+        return -2;
     }
     return 0;
 }
@@ -670,7 +745,9 @@ int EVP_PKEY_CTX_ctrl(EVP_PKEY_CTX *ctx, int keytype, int optype,
 
     if ((EVP_PKEY_CTX_IS_DERIVE_OP(ctx) && ctx->op.kex.exchprovctx != NULL)
             || (EVP_PKEY_CTX_IS_SIGNATURE_OP(ctx)
-                && ctx->op.sig.sigprovctx != NULL))
+                && ctx->op.sig.sigprovctx != NULL)
+            || (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+                && ctx->op.ciph.ciphprovctx != NULL))
         return legacy_ctrl_to_param(ctx, keytype, optype, cmd, p1, p2);
 
     if (ctx->pmeth == NULL || ctx->pmeth->ctrl == NULL) {
@@ -735,6 +812,52 @@ static int legacy_ctrl_str_to_param(EVP_PKEY_CTX *ctx, const char *name,
         return ret;
     }
 
+    if (strcmp(name, "rsa_padding_mode") == 0) {
+        int pm;
+
+        if (strcmp(value, "pkcs1") == 0) {
+            pm = RSA_PKCS1_PADDING;
+        } else if (strcmp(value, "sslv23") == 0) {
+            pm = RSA_SSLV23_PADDING;
+        } else if (strcmp(value, "none") == 0) {
+            pm = RSA_NO_PADDING;
+        } else if (strcmp(value, "oeap") == 0) {
+            pm = RSA_PKCS1_OAEP_PADDING;
+        } else if (strcmp(value, "oaep") == 0) {
+            pm = RSA_PKCS1_OAEP_PADDING;
+        } else if (strcmp(value, "x931") == 0) {
+            pm = RSA_X931_PADDING;
+        } else if (strcmp(value, "pss") == 0) {
+            pm = RSA_PKCS1_PSS_PADDING;
+        } else {
+            ERR_raise(ERR_LIB_RSA, RSA_R_UNKNOWN_PADDING_TYPE);
+            return -2;
+        }
+        return EVP_PKEY_CTX_set_rsa_padding(ctx, pm);
+    }
+
+    if (strcmp(name, "rsa_mgf1_md") == 0)
+        return EVP_PKEY_CTX_set_rsa_mgf1_md_name(ctx, value, NULL);
+
+    if (strcmp(name, "rsa_oaep_md") == 0)
+        return EVP_PKEY_CTX_set_rsa_oaep_md_name(ctx, value, NULL);
+
+    if (strcmp(name, "rsa_oaep_label") == 0) {
+        unsigned char *lab;
+        long lablen;
+        int ret;
+
+        lab = OPENSSL_hexstr2buf(value, &lablen);
+        if (lab == NULL)
+            return 0;
+        ret = EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, lab, lablen);
+        if (ret <= 0)
+            OPENSSL_free(lab);
+        return ret;
+    }
+
+
+
     return 0;
 }
 
@@ -748,7 +871,9 @@ int EVP_PKEY_CTX_ctrl_str(EVP_PKEY_CTX *ctx,
 
     if ((EVP_PKEY_CTX_IS_DERIVE_OP(ctx) && ctx->op.kex.exchprovctx != NULL)
             || (EVP_PKEY_CTX_IS_SIGNATURE_OP(ctx)
-                && ctx->op.sig.sigprovctx != NULL))
+                && ctx->op.sig.sigprovctx != NULL)
+            || (EVP_PKEY_CTX_IS_ASYM_CIPHER_OP(ctx)
+                && ctx->op.ciph.ciphprovctx != NULL))
         return legacy_ctrl_str_to_param(ctx, name, value);
 
     if (!ctx || !ctx->pmeth || !ctx->pmeth->ctrl_str) {
