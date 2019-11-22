@@ -72,9 +72,11 @@ static void stored_namemap_free(void *vnamemap)
 {
     OSSL_NAMEMAP *namemap = vnamemap;
 
-    /* Pretend it isn't stored, or ossl_namemap_free() will do nothing */
-    namemap->stored = 0;
-    ossl_namemap_free(namemap);
+    if (namemap != NULL) {
+        /* Pretend it isn't stored, or ossl_namemap_free() will do nothing */
+        namemap->stored = 0;
+        ossl_namemap_free(namemap);
+    }
 }
 
 static const OPENSSL_CTX_METHOD stored_namemap_method = {
@@ -117,6 +119,18 @@ void ossl_namemap_free(OSSL_NAMEMAP *namemap)
 
     CRYPTO_THREAD_lock_free(namemap->lock);
     OPENSSL_free(namemap);
+}
+
+int ossl_namemap_empty(OSSL_NAMEMAP *namemap)
+{
+    int rv = 0;
+
+    CRYPTO_THREAD_read_lock(namemap->lock);
+    if (namemap->max_number == 0)
+        rv = 1;
+    CRYPTO_THREAD_unlock(namemap->lock);
+
+    return rv;
 }
 
 typedef struct doall_names_data_st {
