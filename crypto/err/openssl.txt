@@ -2206,6 +2206,8 @@ CRMF_R_UNSUPPORTED_METHOD_FOR_CREATING_POPO:115:\
 	unsupported method for creating popo
 CRMF_R_UNSUPPORTED_POPO_METHOD:116:unsupported popo method
 CRMF_R_UNSUPPORTED_POPO_NOT_ACCEPTED:117:unsupported popo not accepted
+CRYPTO_R_BAD_ALGORITHM_NAME:117:bad algorithm name
+CRYPTO_R_CONFLICTING_NAMES:118:conflicting names
 CRYPTO_R_FIPS_MODE_NOT_SUPPORTED:101:fips mode not supported
 CRYPTO_R_ILLEGAL_HEX_DIGIT:102:illegal hex digit
 CRYPTO_R_INSUFFICIENT_DATA_SPACE:106:insufficient data space
@@ -2548,6 +2550,7 @@ OCSP_R_STATUS_TOO_OLD:127:status too old
 OCSP_R_UNKNOWN_MESSAGE_DIGEST:119:unknown message digest
 OCSP_R_UNKNOWN_NID:120:unknown nid
 OCSP_R_UNSUPPORTED_REQUESTORNAME_TYPE:129:unsupported requestorname type
+OSSL_SERIALIZER_R_INCORRECT_PROPERTY_QUERY:100:incorrect property query
 OSSL_STORE_R_AMBIGUOUS_CONTENT_TYPE:107:ambiguous content type
 OSSL_STORE_R_BAD_PASSWORD_READ:115:bad password read
 OSSL_STORE_R_ERROR_VERIFYING_PKCS12_MAC:113:error verifying pkcs12 mac
@@ -2681,6 +2684,7 @@ PROV_R_AES_KEY_SETUP_FAILED:101:aes key setup failed
 PROV_R_BAD_DECRYPT:100:bad decrypt
 PROV_R_BAD_ENCODING:141:bad encoding
 PROV_R_BAD_LENGTH:142:bad length
+PROV_R_BN_ERROR:160:bn error
 PROV_R_BOTH_MODE_AND_MODE_INT:127:both mode and mode int
 PROV_R_CIPHER_OPERATION_FAILED:102:cipher operation failed
 PROV_R_FAILED_TO_GENERATE_KEY:121:failed to generate key
@@ -2723,6 +2727,7 @@ PROV_R_NOT_SUPPORTED:136:not supported
 PROV_R_NOT_XOF_OR_INVALID_LENGTH:113:not xof or invalid length
 PROV_R_NO_KEY_SET:114:no key set
 PROV_R_OUTPUT_BUFFER_TOO_SMALL:106:output buffer too small
+PROV_R_READ_KEY:159:read key
 PROV_R_TAG_NOTSET:119:tag notset
 PROV_R_TAG_NOT_NEEDED:120:tag not needed
 PROV_R_UNABLE_TO_LOAD_SHA1:143:unable to load sha1

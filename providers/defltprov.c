@@ -14,6 +14,7 @@
 #include <openssl/core_numbers.h>
 #include <openssl/core_names.h>
 #include <openssl/params.h>
+#include "prov/bio.h"
 #include "prov/implementations.h"
 
 /* Functions provided by the core */
@@ -384,6 +385,42 @@ static const OSSL_ALGORITHM deflt_keymgmt[] = {
     { NULL, NULL, NULL }
 };
 
+static const OSSL_ALGORITHM deflt_serializer[] = {
+    { "RSA", "default=yes,format=text,type=private",
+      rsa_priv_text_serializer_functions },
+    { "RSA", "default=yes,format=text,type=public",
+      rsa_pub_text_serializer_functions },
+    { "RSA", "default=yes,format=der,type=private",
+      rsa_priv_der_serializer_functions },
+    { "RSA", "default=yes,format=der,type=public",
+      rsa_pub_der_serializer_functions },
+    { "RSA", "default=yes,format=pem,type=private",
+      rsa_priv_pem_serializer_functions },
+    { "RSA", "default=yes,format=pem,type=public",
+      rsa_pub_pem_serializer_functions },
+
+    { "DH", "default=yes,format=text,type=private",
+      dh_priv_text_serializer_functions },
+    { "DH", "default=yes,format=text,type=public",
+      dh_pub_text_serializer_functions },
+    { "DH", "default=yes,format=text,type=domainparams",
+      dh_param_text_serializer_functions },
+    { "DH", "default=yes,format=der,type=private",
+      dh_priv_der_serializer_functions },
+    { "DH", "default=yes,format=der,type=public",
+      dh_pub_der_serializer_functions },
+    { "DH", "default=yes,format=der,type=domainparams",
+      dh_param_der_serializer_functions },
+    { "DH", "default=yes,format=pem,type=private",
+      dh_priv_pem_serializer_functions },
+    { "DH", "default=yes,format=pem,type=public",
+      dh_pub_pem_serializer_functions },
+    { "DH", "default=yes,format=pem,type=domainparams",
+      dh_param_pem_serializer_functions },
+
+    { NULL, NULL, NULL }
+};
+
 static const OSSL_ALGORITHM *deflt_query(OSSL_PROVIDER *prov,
                                          int operation_id,
                                          int *no_cache)
@@ -406,6 +443,8 @@ static const OSSL_ALGORITHM *deflt_query(OSSL_PROVIDER *prov,
         return deflt_signature;
     case OSSL_OP_ASYM_CIPHER:
         return deflt_asym_cipher;
+    case OSSL_OP_SERIALIZER:
+        return deflt_serializer;
     }
     return NULL;
 }
@@ -427,6 +466,8 @@ int ossl_default_provider_init(const OSSL_PROVIDER *provider,
 {
     OSSL_core_get_library_context_fn *c_get_libctx = NULL;
 
+    if (!ossl_prov_bio_from_dispatch(in))
+        return 0;
     for (; in->function_id != 0; in++) {
         switch (in->function_id) {
         case OSSL_FUNC_CORE_GETTABLE_PARAMS:

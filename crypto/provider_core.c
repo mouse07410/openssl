@@ -873,6 +873,7 @@ static const OSSL_DISPATCH core_dispatch_[] = {
     { OSSL_FUNC_BIO_NEW_MEMBUF, (void (*)(void))BIO_new_mem_buf },
     { OSSL_FUNC_BIO_READ_EX, (void (*)(void))BIO_read_ex },
     { OSSL_FUNC_BIO_FREE, (void (*)(void))BIO_free },
+    { OSSL_FUNC_BIO_VPRINTF, (void (*)(void))BIO_vprintf },
 #endif
 
     { OSSL_FUNC_CRYPTO_MALLOC, (void (*)(void))CRYPTO_malloc },
@@ -889,6 +890,7 @@ static const OSSL_DISPATCH core_dispatch_[] = {
     { OSSL_FUNC_CRYPTO_SECURE_ALLOCATED,
         (void (*)(void))CRYPTO_secure_allocated },
     { OSSL_FUNC_OPENSSL_CLEANSE, (void (*)(void))OPENSSL_cleanse },
+    { OSSL_FUNC_CRYPTO_MEM_CTRL, (void (*)(void))CRYPTO_mem_ctrl },
 
     { 0, NULL }
 };

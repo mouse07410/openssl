@@ -66,6 +66,14 @@ extern "C" {
  * IMPLEMENT_PEM_rw_cb(...)
  */
 
+# define PEM_write_fnsig(name, type, OUTTYPE, writename)        \
+    int PEM_##writename##_##name(OUTTYPE *out, const type *x)
+# define PEM_write_cb_fnsig(name, type, OUTTYPE, writename)             \
+    int PEM_##writename##_##name(OUTTYPE *out, const type *x,           \
+                                 const EVP_CIPHER *enc,                 \
+                                 const unsigned char *kstr, int klen,   \
+                                 pem_password_cb *cb, void *u)
+
 # ifdef OPENSSL_NO_STDIO
 
 #  define IMPLEMENT_PEM_read_fp(name, type, str, asn1) /**/
@@ -87,9 +95,9 @@ extern "C" {
     }
 
 #  define IMPLEMENT_PEM_write_fp(name, type, str, asn1)                 \
-    int PEM_write_##name(FILE *fp, const type *x)                       \
+    PEM_write_fnsig(name, type, FILE, write)                            \
     {                                                                   \
-        return PEM_ASN1_write((i2d_of_void *)i2d_##asn1, str, fp,       \
+        return PEM_ASN1_write((i2d_of_void *)i2d_##asn1, str, out,      \
                               x, NULL, NULL, 0, NULL, NULL);            \
     }
 
@@ -99,12 +107,9 @@ extern "C" {
 #  endif
 
 #  define IMPLEMENT_PEM_write_cb_fp(name, type, str, asn1)              \
-    int PEM_write_##name(FILE *fp, const type *x,                       \
-                         const EVP_CIPHER *enc,                         \
-                         const unsigned char *kstr, int klen,           \
-                         pem_password_cb *cb, void *u)                  \
+    PEM_write_cb_fnsig(name, type, FILE, write)                         \
     {                                                                   \
-        return PEM_ASN1_write((i2d_of_void *)i2d_##asn1, str, fp,       \
+        return PEM_ASN1_write((i2d_of_void *)i2d_##asn1, str, out,      \
                               x, enc, kstr, klen, cb, u);               \
     }
 
@@ -123,9 +128,9 @@ extern "C" {
     }
 
 # define IMPLEMENT_PEM_write_bio(name, type, str, asn1)                 \
-    int PEM_write_bio_##name(BIO *bp, const type *x)                    \
+    PEM_write_fnsig(name, type, BIO, write_bio)                         \
     {                                                                   \
-        return PEM_ASN1_write_bio((i2d_of_void *)i2d_##asn1, str, bp,   \
+        return PEM_ASN1_write_bio((i2d_of_void *)i2d_##asn1, str, out,  \
                                   x, NULL,NULL,0,NULL,NULL);            \
     }
 
@@ -135,12 +140,9 @@ extern "C" {
 # endif
 
 # define IMPLEMENT_PEM_write_cb_bio(name, type, str, asn1)              \
-    int PEM_write_bio_##name(BIO *bp, const type *x,                    \
-                             const EVP_CIPHER *enc,                     \
-                             const unsigned char *kstr, int klen,       \
-                             pem_password_cb *cb, void *u)              \
+    PEM_write_cb_fnsig(name, type, BIO, write_bio)                      \
     {                                                                   \
-        return PEM_ASN1_write_bio((i2d_of_void *)i2d_##asn1, str, bp,   \
+        return PEM_ASN1_write_bio((i2d_of_void *)i2d_##asn1, str, out,  \
                                   x, enc, kstr, klen, cb, u);           \
     }
 
@@ -203,18 +205,15 @@ extern "C" {
     type *PEM_read_##name(FILE *fp, type **x, pem_password_cb *cb, void *u);
 
 #  define DECLARE_PEM_write_fp(name, type)              \
-    int PEM_write_##name(FILE *fp, const type *x);
+    PEM_write_fnsig(name, type, FILE, write);
 
 #  ifndef OPENSSL_NO_DEPRECATED_3_0
-#   define DECLARE_PEM_write_fp_const(name, type)        \
-    DECLARE_PEM_write_fp(name, type)
+#   define DECLARE_PEM_write_fp_const(name, type)       \
+    PEM_write_fnsig(name, type, FILE, write);
 #  endif
 
-#  define DECLARE_PEM_write_cb_fp(name, type)                   \
-    int PEM_write_##name(FILE *fp, const type *x,               \
-                         const EVP_CIPHER *enc,                 \
-                         const unsigned char *kstr, int klen,   \
-                         pem_password_cb *cb, void *u);
+#  define DECLARE_PEM_write_cb_fp(name, type)           \
+    PEM_write_cb_fnsig(name, type, FILE, write);
 
 # endif
 
@@ -223,18 +222,15 @@ extern "C" {
                               pem_password_cb *cb, void *u);
 
 #  define DECLARE_PEM_write_bio(name, type)             \
-    int PEM_write_bio_##name(BIO *bp, const type *x);
+    PEM_write_fnsig(name, type, BIO, write_bio);
 
 #  ifndef OPENSSL_NO_DEPRECATED_3_0
-#   define DECLARE_PEM_write_bio_const(name, type)       \
-    DECLARE_PEM_write_bio(name, type)
+#   define DECLARE_PEM_write_bio_const(name, type)      \
+    PEM_write_fnsig(name, type, BIO, write_bio);
 #  endif
 
-#  define DECLARE_PEM_write_cb_bio(name, type)                          \
-    int PEM_write_bio_##name(BIO *bp, const type *x,                    \
-                             const EVP_CIPHER *enc,                     \
-                             const unsigned char *kstr, int klen,       \
-                             pem_password_cb *cb, void *u);
+#  define DECLARE_PEM_write_cb_bio(name, type)          \
+    PEM_write_cb_fnsig(name, type, BIO, write_bio);
 
 # define DECLARE_PEM_write(name, type) \
         DECLARE_PEM_write_bio(name, type) \
@@ -261,7 +257,6 @@ extern "C" {
 # define DECLARE_PEM_rw_cb(name, type) \
         DECLARE_PEM_read(name, type) \
         DECLARE_PEM_write_cb(name, type)
-typedef int pem_password_cb (char *buf, int size, int rwflag, void *userdata);
 
 int PEM_get_EVP_CIPHER_INFO(char *header, EVP_CIPHER_INFO *cipher);
 int PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *len,
@@ -327,6 +322,7 @@ DECLARE_PEM_rw(X509_AUX, X509)
 DECLARE_PEM_rw(X509_REQ, X509_REQ)
 DECLARE_PEM_write(X509_REQ_NEW, X509_REQ)
 DECLARE_PEM_rw(X509_CRL, X509_CRL)
+DECLARE_PEM_rw(X509_PUBKEY, X509_PUBKEY)
 DECLARE_PEM_rw(PKCS7, PKCS7)
 DECLARE_PEM_rw(NETSCAPE_CERT_SEQUENCE, NETSCAPE_CERT_SEQUENCE)
 DECLARE_PEM_rw(PKCS8, X509_SIG)

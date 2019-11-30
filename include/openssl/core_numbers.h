@@ -119,18 +119,23 @@ OSSL_CORE_MAKE_FUNC(int,
 #define OSSL_FUNC_OPENSSL_CLEANSE             21
 OSSL_CORE_MAKE_FUNC(void,
         OPENSSL_cleanse, (void *ptr, size_t len))
+#define OSSL_FUNC_CRYPTO_MEM_CTRL             22
+OSSL_CORE_MAKE_FUNC(int, CRYPTO_mem_ctrl, (int mode))
 
 /* Bio functions provided by the core */
-#define OSSL_FUNC_BIO_NEW_FILE                22
-#define OSSL_FUNC_BIO_NEW_MEMBUF              23
-#define OSSL_FUNC_BIO_READ_EX                 24
-#define OSSL_FUNC_BIO_FREE                    25
+#define OSSL_FUNC_BIO_NEW_FILE                23
+#define OSSL_FUNC_BIO_NEW_MEMBUF              24
+#define OSSL_FUNC_BIO_READ_EX                 25
+#define OSSL_FUNC_BIO_FREE                    26
+#define OSSL_FUNC_BIO_VPRINTF                 27
 
 OSSL_CORE_MAKE_FUNC(BIO *, BIO_new_file, (const char *filename, const char *mode))
 OSSL_CORE_MAKE_FUNC(BIO *, BIO_new_membuf, (const void *buf, int len))
 OSSL_CORE_MAKE_FUNC(int, BIO_read_ex, (BIO *bio, void *data, size_t data_len,
                                        size_t *bytes_read))
 OSSL_CORE_MAKE_FUNC(int, BIO_free, (BIO *bio))
+OSSL_CORE_MAKE_FUNC(int, BIO_vprintf, (BIO *bio, const char *format,
+                                       va_list args))
 
 /* Functions provided by the provider to the Core, reserved numbers 1024-1535 */
 # define OSSL_FUNC_PROVIDER_TEARDOWN         1024
@@ -158,8 +163,10 @@ OSSL_CORE_MAKE_FUNC(const OSSL_ITEM *,provider_get_reason_strings,
 # define OSSL_OP_KEYEXCH                            11
 # define OSSL_OP_SIGNATURE                          12
 # define OSSL_OP_ASYM_CIPHER                        13
+/* New section for non-EVP operations */
+# define OSSL_OP_SERIALIZER                         20
 /* Highest known operation number */
-# define OSSL_OP__HIGHEST                           13
+# define OSSL_OP__HIGHEST                           20
 
 /* Digests */
 
@@ -531,6 +538,27 @@ OSSL_CORE_MAKE_FUNC(int, OP_asym_cipher_set_ctx_params,
                     (void *ctx, const OSSL_PARAM params[]))
 OSSL_CORE_MAKE_FUNC(const OSSL_PARAM *, OP_asym_cipher_settable_ctx_params,
                     (void))
+
+/* Serializers */
+# define OSSL_FUNC_SERIALIZER_NEWCTX                1
+# define OSSL_FUNC_SERIALIZER_FREECTX               2
+# define OSSL_FUNC_SERIALIZER_SET_CTX_PARAMS        3
+# define OSSL_FUNC_SERIALIZER_SETTABLE_CTX_PARAMS   4
+# define OSSL_FUNC_SERIALIZER_SERIALIZE_DATA       10
+# define OSSL_FUNC_SERIALIZER_SERIALIZE_OBJECT     11
+OSSL_CORE_MAKE_FUNC(void *, OP_serializer_newctx, (void *provctx))
+OSSL_CORE_MAKE_FUNC(void, OP_serializer_freectx, (void *ctx))
+OSSL_CORE_MAKE_FUNC(int, OP_serializer_set_ctx_params,
+                    (void *ctx, const OSSL_PARAM params[]))
+OSSL_CORE_MAKE_FUNC(const OSSL_PARAM *, OP_serializer_settable_ctx_params,
+                    (void))
+
+OSSL_CORE_MAKE_FUNC(int, OP_serializer_serialize_data,
+                    (void *ctx, const OSSL_PARAM[], BIO *out,
+                     OSSL_PASSPHRASE_CALLBACK *cb, void *cbarg))
+OSSL_CORE_MAKE_FUNC(int, OP_serializer_serialize_object,
+                    (void *ctx, void *obj, BIO *out,
+                     OSSL_PASSPHRASE_CALLBACK *cb, void *cbarg))
 
 # ifdef __cplusplus
 }

@@ -130,6 +130,7 @@ typedef struct dsa_method DSA_METHOD;
 
 typedef struct rsa_st RSA;
 typedef struct rsa_meth_st RSA_METHOD;
+typedef struct rsa_pss_params_st RSA_PSS_PARAMS;
 
 typedef struct ec_key_st EC_KEY;
 typedef struct ec_key_method_st EC_KEY_METHOD;
@@ -202,6 +203,11 @@ typedef struct ossl_dispatch_st OSSL_DISPATCH;
 typedef struct ossl_item_st OSSL_ITEM;
 typedef struct ossl_algorithm_st OSSL_ALGORITHM;
 typedef struct ossl_param_st OSSL_PARAM;
+
+typedef int pem_password_cb (char *buf, int size, int rwflag, void *userdata);
+
+typedef struct ossl_serializer_st OSSL_SERIALIZER;
+typedef struct ossl_serializer_ctx_st OSSL_SERIALIZER_CTX;
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && \
     defined(INTMAX_MAX) && defined(UINTMAX_MAX)

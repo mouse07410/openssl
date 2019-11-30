@@ -53,6 +53,7 @@ int ERR_load_PROV_strings(void);
 # define PROV_R_BAD_DECRYPT                               100
 # define PROV_R_BAD_ENCODING                              141
 # define PROV_R_BAD_LENGTH                                142
+# define PROV_R_BN_ERROR                                  160
 # define PROV_R_BOTH_MODE_AND_MODE_INT                    127
 # define PROV_R_CIPHER_OPERATION_FAILED                   102
 # define PROV_R_FAILED_TO_GENERATE_KEY                    121
@@ -95,6 +96,7 @@ int ERR_load_PROV_strings(void);
 # define PROV_R_NOT_XOF_OR_INVALID_LENGTH                 113
 # define PROV_R_NO_KEY_SET                                114
 # define PROV_R_OUTPUT_BUFFER_TOO_SMALL                   106
+# define PROV_R_READ_KEY                                  159
 # define PROV_R_TAG_NOTSET                                119
 # define PROV_R_TAG_NOT_NEEDED                            120
 # define PROV_R_UNABLE_TO_LOAD_SHA1                       143
