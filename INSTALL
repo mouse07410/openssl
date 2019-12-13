@@ -836,8 +836,8 @@
 
      Configure creates a build file ("Makefile" on Unix, "makefile" on Windows
      and "descrip.mms" on OpenVMS) from a suitable template in Configurations,
-     and defines various macros in include/openssl/opensslconf.h (generated from
-     include/openssl/opensslconf.h.in).
+     and defines various macros in include/openssl/configuration.h (generated
+     from include/openssl/configuration.h.in).
 
  1c. Configure OpenSSL for building outside of the source tree.
 
@@ -1129,7 +1129,7 @@
 
  HASHBANGPERL
                 The command string for the Perl executable to insert in the
-                #! line of perl scripts that will be publically installed.
+                #! line of perl scripts that will be publicly installed.
                 Default: /usr/bin/env perl
                 Note: the value of this variable is added to the same scripts
                 on all platforms, but it's only relevant on Unix-like platforms.
