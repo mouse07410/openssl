@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2018-2019 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -10,8 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <openssl/bio.h>
-#include "apps.h"
+#include "bio_local.h"
 
 static int prefix_write(BIO *b, const char *out, size_t outl,
                         size_t *numwritten);
@@ -23,31 +22,31 @@ static int prefix_create(BIO *b);
 static int prefix_destroy(BIO *b);
 static long prefix_callback_ctrl(BIO *b, int cmd, BIO_info_cb *fp);
 
-static BIO_METHOD *prefix_meth = NULL;
+static const BIO_METHOD prefix_meth = {
+    BIO_TYPE_BUFFER,
+    "prefix",
+    prefix_write,
+    NULL,
+    prefix_read,
+    NULL,
+    prefix_puts,
+    prefix_gets,
+    prefix_ctrl,
+    prefix_create,
+    prefix_destroy,
+    prefix_callback_ctrl,
+};
 
-BIO_METHOD *apps_bf_prefix(void)
+const BIO_METHOD *BIO_f_prefix(void)
 {
-    if (prefix_meth == NULL) {
-        if ((prefix_meth =
-             BIO_meth_new(BIO_TYPE_FILTER, "Prefix filter")) == NULL
-            || !BIO_meth_set_create(prefix_meth, prefix_create)
-            || !BIO_meth_set_destroy(prefix_meth, prefix_destroy)
-            || !BIO_meth_set_write_ex(prefix_meth, prefix_write)
-            || !BIO_meth_set_read_ex(prefix_meth, prefix_read)
-            || !BIO_meth_set_puts(prefix_meth, prefix_puts)
-            || !BIO_meth_set_gets(prefix_meth, prefix_gets)
-            || !BIO_meth_set_ctrl(prefix_meth, prefix_ctrl)
-            || !BIO_meth_set_callback_ctrl(prefix_meth, prefix_callback_ctrl)) {
-            BIO_meth_free(prefix_meth);
-            prefix_meth = NULL;
-        }
-    }
-    return prefix_meth;
+    return &prefix_meth;
 }
 
 typedef struct prefix_ctx_st {
-    char *prefix;
-    int linestart;               /* flag to indicate we're at the line start */
+    char *prefix;              /* Text prefix, given by user */
+    unsigned int indent;       /* Indentation amount, given by user */
+
+    int linestart;             /* flag to indicate we're at the line start */
 } PREFIX_CTX;
 
 static int prefix_create(BIO *b)
@@ -58,6 +57,7 @@ static int prefix_create(BIO *b)
         return 0;
 
     ctx->prefix = NULL;
+    ctx->indent = 0;
     ctx->linestart = 1;
     BIO_set_data(b, ctx);
     BIO_set_init(b, 1);
@@ -86,9 +86,16 @@ static int prefix_write(BIO *b, const char *out, size_t outl,
     if (ctx == NULL)
         return 0;
 
-    /* If no prefix is set or if it's empty, we've got nothing to do here */
-    if (ctx->prefix == NULL || *ctx->prefix == '\0') {
-        /* We do note if what comes next will be a new line, though */
+    /*
+     * If no prefix is set or if it's empty, and no indentation amount is set,
+     * we've got nothing to do here
+     */
+    if ((ctx->prefix == NULL || *ctx->prefix == '\0')
+        && ctx->indent == 0) {
+        /*
+         * We do note if what comes next will be a new line, though, so we're
+         * prepared to handle prefix and indentation the next time around.
+         */
         if (outl > 0)
             ctx->linestart = (out[outl-1] == '\n');
         return BIO_write_ex(BIO_next(b), out, outl, numwritten);
@@ -100,13 +107,18 @@ static int prefix_write(BIO *b, const char *out, size_t outl,
         size_t i;
         char c;
 
-        /* If we know that we're at the start of the line, output the prefix */
+        /*
+         * If we know that we're at the start of the line, output prefix and
+         * indentation.
+         */
         if (ctx->linestart) {
             size_t dontcare;
 
-            if (!BIO_write_ex(BIO_next(b), ctx->prefix, strlen(ctx->prefix),
-                              &dontcare))
+            if (ctx->prefix != NULL
+                && !BIO_write_ex(BIO_next(b), ctx->prefix, strlen(ctx->prefix),
+                                 &dontcare))
                 return 0;
+            BIO_printf(BIO_next(b), "%*s", ctx->indent, "");
             ctx->linestart = 0;
         }
 
@@ -139,21 +151,39 @@ static int prefix_write(BIO *b, const char *out, size_t outl,
 static long prefix_ctrl(BIO *b, int cmd, long num, void *ptr)
 {
     long ret = 0;
+    PREFIX_CTX *ctx = BIO_get_data(b);
+
+    if (ctx == NULL)
+        return -1;
 
     switch (cmd) {
-    case PREFIX_CTRL_SET_PREFIX:
-        {
-            PREFIX_CTX *ctx = BIO_get_data(b);
-
-            if (ctx == NULL)
-                break;
-
-            OPENSSL_free(ctx->prefix);
+    case BIO_CTRL_SET_PREFIX:
+        OPENSSL_free(ctx->prefix);
+        if (ptr == NULL) {
+            ctx->prefix = NULL;
+            ret = 1;
+        } else {
             ctx->prefix = OPENSSL_strdup((const char *)ptr);
             ret = ctx->prefix != NULL;
         }
         break;
+    case BIO_CTRL_SET_INDENT:
+        if (num >= 0) {
+            ctx->indent = (unsigned int)num;
+            ret = 1;
+        }
+        break;
+    case BIO_CTRL_GET_INDENT:
+        ret = (long)ctx->indent;
+        break;
     default:
+        /* Commands that we intercept before passing them along */
+        switch (cmd) {
+        case BIO_C_FILE_SEEK:
+        case BIO_CTRL_RESET:
+            ctx->linestart = 1;
+            break;
+        }
         if (BIO_next(b) != NULL)
             ret = BIO_ctrl(BIO_next(b), cmd, num, ptr);
         break;

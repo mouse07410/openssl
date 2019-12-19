@@ -14,7 +14,7 @@ ENDIF
 IF[{- $config{target} =~ /^vms-/ -}]
   $AUXLIBAPPSSRC=../apps/lib/vms_term_sock.c ../apps/lib/vms_decc_argv.c
 ENDIF
-$LIBAPPSSRC=../apps/lib/opt.c ../apps/lib/bf_prefix.c $AUXLIBAPPSSRC
+$LIBAPPSSRC=../apps/lib/opt.c $AUXLIBAPPSSRC
 
 IF[{- !$disabled{tests} -}]
   LIBS{noinst,has_main}=libtestutil.a
@@ -706,6 +706,11 @@ IF[{- !$disabled{tests} -}]
   SOURCE[namemap_internal_test]=namemap_internal_test.c
   INCLUDE[namemap_internal_test]=.. ../include ../apps/include
   DEPEND[namemap_internal_test]=../libcrypto.a libtestutil.a
+
+  PROGRAMS{noinst}=bio_prefix_text
+  SOURCE[bio_prefix_text]=bio_prefix_text.c $LIBAPPSSRC
+  INCLUDE[bio_prefix_text]=.. ../include ../apps/include
+  DEPEND[bio_prefix_text]=../libcrypto
 ENDIF
 
   SOURCE[ssl_ctx_test]=ssl_ctx_test.c
