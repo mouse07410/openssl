@@ -131,7 +131,7 @@ static EVP_PKEY_CTX *int_ctx_new(OPENSSL_CTX *libctx,
      * If the key doesn't contain anything legacy, then it must be provided,
      * so we extract the necessary information and use that.
      */
-    if (pkey != NULL && pkey->pkey.ptr == NULL) {
+    if (pkey != NULL && pkey->ameth == NULL) {
         /* If we have an engine, something went wrong somewhere... */
         if (!ossl_assert(e == NULL))
             return NULL;
@@ -221,7 +221,7 @@ static EVP_PKEY_CTX *int_ctx_new(OPENSSL_CTX *libctx,
         return NULL;
     }
     ret->libctx = libctx;
-    ret->algorithm = name;
+    ret->keytype = name;
     ret->propquery = propquery;
     ret->engine = e;
     ret->pmeth = pmeth;
@@ -382,7 +382,7 @@ EVP_PKEY_CTX *EVP_PKEY_CTX_dup(const EVP_PKEY_CTX *pctx)
     rctx->pkey = pctx->pkey;
     rctx->operation = pctx->operation;
     rctx->libctx = pctx->libctx;
-    rctx->algorithm = pctx->algorithm;
+    rctx->keytype = pctx->keytype;
     rctx->propquery = pctx->propquery;
 
     if (EVP_PKEY_CTX_IS_DERIVE_OP(pctx)) {

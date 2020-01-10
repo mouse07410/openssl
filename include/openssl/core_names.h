@@ -51,28 +51,46 @@ extern "C" {
 #define OSSL_ALG_PARAM_PROPERTIES   "properties"/* utf8_string */
 
 /* cipher parameters */
-#define OSSL_CIPHER_PARAM_PADDING   "padding"    /* uint */
-#define OSSL_CIPHER_PARAM_MODE      "mode"       /* uint */
-#define OSSL_CIPHER_PARAM_BLOCK_SIZE "blocksize" /* size_t */
-#define OSSL_CIPHER_PARAM_FLAGS     "flags"      /* ulong */
-#define OSSL_CIPHER_PARAM_KEYLEN    "keylen"     /* size_t */
-#define OSSL_CIPHER_PARAM_IVLEN     "ivlen"      /* size_t */
-#define OSSL_CIPHER_PARAM_IV        "iv"         /* octet_string OR octet_ptr */
-#define OSSL_CIPHER_PARAM_NUM       "num"        /* uint */
-#define OSSL_CIPHER_PARAM_ROUNDS    "rounds"     /* uint */
-#define OSSL_CIPHER_PARAM_AEAD_TAG           "tag"        /* octet_string */
-#define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD      "tlsaad"     /* octet_string */
-#define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD_PAD  "tlsaadpad"  /* size_t */
-#define OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED "tlsivfixed" /* octet_string */
-#define OSSL_CIPHER_PARAM_AEAD_IVLEN         OSSL_CIPHER_PARAM_IVLEN
-#define OSSL_CIPHER_PARAM_AEAD_TAGLEN        "taglen"     /* size_t */
-#define OSSL_CIPHER_PARAM_AEAD_MAC_KEY       "mackey"     /* octet_string */
-#define OSSL_CIPHER_PARAM_RANDOM_KEY         "randkey"    /* octet_string */
-#define OSSL_CIPHER_PARAM_RC2_KEYBITS        "keybits"    /* size_t */
-#define OSSL_CIPHER_PARAM_SPEED              "speed"      /* uint */
+#define OSSL_CIPHER_PARAM_PADDING              "padding"    /* uint */
+#define OSSL_CIPHER_PARAM_MODE                 "mode"       /* uint */
+#define OSSL_CIPHER_PARAM_BLOCK_SIZE           "blocksize" /* size_t */
+#define OSSL_CIPHER_PARAM_FLAGS                "flags"      /* ulong */
+#define OSSL_CIPHER_PARAM_KEYLEN               "keylen"     /* size_t */
+#define OSSL_CIPHER_PARAM_IVLEN                "ivlen"      /* size_t */
+#define OSSL_CIPHER_PARAM_IV                   "iv"         /* octet_string OR octet_ptr */
+#define OSSL_CIPHER_PARAM_NUM                  "num"        /* uint */
+#define OSSL_CIPHER_PARAM_ROUNDS               "rounds"     /* uint */
+#define OSSL_CIPHER_PARAM_AEAD_TAG             "tag"        /* octet_string */
+#define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD        "tlsaad"     /* octet_string */
+#define OSSL_CIPHER_PARAM_AEAD_TLS1_AAD_PAD    "tlsaadpad"  /* size_t */
+#define OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED   "tlsivfixed" /* octet_string */
+#define OSSL_CIPHER_PARAM_AEAD_TLS1_GET_IV_GEN "tlsivgen" /* octet_string */
+#define OSSL_CIPHER_PARAM_AEAD_TLS1_SET_IV_INV "tlsivinv" /* octet_string */
+#define OSSL_CIPHER_PARAM_AEAD_IVLEN           OSSL_CIPHER_PARAM_IVLEN
+#define OSSL_CIPHER_PARAM_AEAD_TAGLEN          "taglen"     /* size_t */
+#define OSSL_CIPHER_PARAM_AEAD_MAC_KEY         "mackey"     /* octet_string */
+#define OSSL_CIPHER_PARAM_RANDOM_KEY           "randkey"    /* octet_string */
+#define OSSL_CIPHER_PARAM_RC2_KEYBITS          "keybits"    /* size_t */
+#define OSSL_CIPHER_PARAM_SPEED                "speed"      /* uint */
 /* For passing the AlgorithmIdentifier parameter in DER form */
-#define OSSL_CIPHER_PARAM_ALG_ID             "alg_id_param" /* octet_string */
+#define OSSL_CIPHER_PARAM_ALG_ID               "alg_id_param" /* octet_string */
 
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_MAX_SEND_FRAGMENT                    \
+    "tls1multi_maxsndfrag" /* uint */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_MAX_BUFSIZE                          \
+    "tls1multi_maxbufsz"   /* size_t */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_INTERLEAVE                           \
+    "tls1multi_interleave" /* uint */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_AAD                                  \
+    "tls1multi_aad"        /* octet_string */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_AAD_PACKLEN                          \
+    "tls1multi_aadpacklen" /* uint */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_ENC                                  \
+    "tls1multi_enc"        /* octet_string */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_ENC_IN                               \
+    "tls1multi_encin"      /* octet_string */
+#define OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_ENC_LEN                              \
+    "tls1multi_enclen"     /* size_t */
 
 /* digest parameters */
 #define OSSL_DIGEST_PARAM_XOFLEN     "xoflen"    /* size_t */

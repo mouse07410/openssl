@@ -173,20 +173,32 @@ int EVP_PKEY_derive_init(EVP_PKEY_CTX *ctx)
     evp_pkey_ctx_free_old_ops(ctx);
     ctx->operation = EVP_PKEY_OP_DERIVE;
 
-    if (ctx->engine != NULL || ctx->algorithm == NULL)
+    if (ctx->engine != NULL || ctx->keytype == NULL)
         goto legacy;
 
-    /*
-     * Because we cleared out old ops, we shouldn't need to worry about
-     * checking if exchange is already there.  Keymgmt is a different
-     * matter, as it isn't tied to a specific EVP_PKEY op.
-     */
-    exchange = EVP_KEYEXCH_fetch(ctx->libctx, ctx->algorithm, ctx->propquery);
-    if (exchange != NULL && ctx->keymgmt == NULL) {
-        int name_id = EVP_KEYEXCH_number(exchange);
-
+    if (ctx->keymgmt == NULL)
         ctx->keymgmt =
-            evp_keymgmt_fetch_by_number(ctx->libctx, name_id, ctx->propquery);
+            EVP_KEYMGMT_fetch(ctx->libctx, ctx->keytype, ctx->propquery);
+    if (ctx->keymgmt != NULL) {
+        const char *supported_exch = NULL;
+
+        if (ctx->keymgmt->query_operation_name != NULL)
+            supported_exch =
+                ctx->keymgmt->query_operation_name(OSSL_OP_KEYEXCH);
+
+        /*
+         * If we didn't get a supported exch, assume there is one with the
+         * same name as the key type.
+         */
+        if (supported_exch == NULL)
+            supported_exch = ctx->keytype;
+
+        /*
+         * Because we cleared out old ops, we shouldn't need to worry about
+         * checking if exchange is already there.
+         */
+        exchange =
+            EVP_KEYEXCH_fetch(ctx->libctx, supported_exch, ctx->propquery);
     }
 
     if (ctx->keymgmt == NULL
@@ -208,10 +220,9 @@ int EVP_PKEY_derive_init(EVP_PKEY_CTX *ctx)
 
     if (ctx->pkey != NULL) {
         provkey = evp_keymgmt_export_to_provider(ctx->pkey, ctx->keymgmt, 0);
-        if (provkey == NULL) {
-            EVPerr(0, EVP_R_INITIALIZATION_ERROR);
-            goto err;
-        }
+        /* If export failed, legacy may be able to pick it up */
+        if (provkey == NULL)
+            goto legacy;
     }
     ctx->op.kex.exchprovctx = exchange->newctx(ossl_provider_ctx(exchange->prov));
     if (ctx->op.kex.exchprovctx == NULL) {
@@ -227,7 +238,7 @@ int EVP_PKEY_derive_init(EVP_PKEY_CTX *ctx)
     return 0;
 
  legacy:
-    if (ctx == NULL || ctx->pmeth == NULL || ctx->pmeth->derive == NULL) {
+    if (ctx->pmeth == NULL || ctx->pmeth->derive == NULL) {
         EVPerr(0, EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
         return -2;
     }
@@ -261,10 +272,9 @@ int EVP_PKEY_derive_set_peer(EVP_PKEY_CTX *ctx, EVP_PKEY *peer)
     }
 
     provkey = evp_keymgmt_export_to_provider(peer, ctx->keymgmt, 0);
-    if (provkey == NULL) {
-        EVPerr(EVP_F_EVP_PKEY_DERIVE_SET_PEER, ERR_R_INTERNAL_ERROR);
-        return 0;
-    }
+    /* If export failed, legacy may be able to pick it up */
+    if (provkey == NULL)
+        goto legacy;
     return ctx->op.kex.exchange->set_peer(ctx->op.kex.exchprovctx, provkey);
 
  legacy:
