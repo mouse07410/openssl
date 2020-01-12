@@ -329,13 +329,13 @@ static const char *names[ALGOR_NUM] = {
 
 /* list of configured algorithm (remaining), with some few alias */
 static const OPT_PAIR doit_choices[] = {
-#ifndef OPENSSL_NO_MD2
+#if !defined(OPENSSL_NO_MD2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"md2", D_MD2},
 #endif
-#ifndef OPENSSL_NO_MDC2
+#if !defined(OPENSSL_NO_MDC2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"mdc2", D_MDC2},
 #endif
-#ifndef OPENSSL_NO_MD4
+#if !defined(OPENSSL_NO_MD4) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"md4", D_MD4},
 #endif
 #ifndef OPENSSL_NO_MD5
@@ -345,10 +345,10 @@ static const OPT_PAIR doit_choices[] = {
     {"sha1", D_SHA1},
     {"sha256", D_SHA256},
     {"sha512", D_SHA512},
-#ifndef OPENSSL_NO_WHIRLPOOL
+#if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"whirlpool", D_WHIRLPOOL},
 #endif
-#ifndef OPENSSL_NO_RMD160
+#if !defined(OPENSSL_NO_RMD160) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"ripemd", D_RMD160},
     {"rmd160", D_RMD160},
     {"ripemd160", D_RMD160},
@@ -570,7 +570,7 @@ static unsigned int testnum;
 /* Nb of iterations to do per algorithm and key-size */
 static long c[ALGOR_NUM][SIZE_NUM];
 
-#ifndef OPENSSL_NO_MD2
+#if !defined(OPENSSL_NO_MD2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int EVP_Digest_MD2_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -587,7 +587,7 @@ static int EVP_Digest_MD2_loop(void *args)
 }
 #endif
 
-#ifndef OPENSSL_NO_MDC2
+#if !defined(OPENSSL_NO_MDC2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int EVP_Digest_MDC2_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -604,7 +604,7 @@ static int EVP_Digest_MDC2_loop(void *args)
 }
 #endif
 
-#ifndef OPENSSL_NO_MD4
+#if !defined(OPENSSL_NO_MD4) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int EVP_Digest_MD4_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -683,7 +683,7 @@ static int SHA512_loop(void *args)
     return count;
 }
 
-#ifndef OPENSSL_NO_WHIRLPOOL
+#if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int WHIRLPOOL_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -696,7 +696,7 @@ static int WHIRLPOOL_loop(void *args)
 }
 #endif
 
-#ifndef OPENSSL_NO_RMD160
+#if !defined(OPENSSL_NO_RMD160) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int EVP_Digest_RMD160_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -2241,7 +2241,7 @@ int speed_main(int argc, char **argv)
     signal(SIGALRM, alarmed);
 #endif                          /* SIGALRM */
 
-#ifndef OPENSSL_NO_MD2
+#if !defined(OPENSSL_NO_MD2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_MD2]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_MD2], c[D_MD2][testnum], lengths[testnum],
@@ -2253,7 +2253,7 @@ int speed_main(int argc, char **argv)
         }
     }
 #endif
-#ifndef OPENSSL_NO_MDC2
+#if !defined(OPENSSL_NO_MDC2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_MDC2]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_MDC2], c[D_MDC2][testnum], lengths[testnum],
@@ -2268,7 +2268,7 @@ int speed_main(int argc, char **argv)
     }
 #endif
 
-#ifndef OPENSSL_NO_MD4
+#if !defined(OPENSSL_NO_MD4) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_MD4]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_MD4], c[D_MD4][testnum], lengths[testnum],
@@ -2350,7 +2350,7 @@ int speed_main(int argc, char **argv)
             print_result(D_SHA512, testnum, count, d);
         }
     }
-#ifndef OPENSSL_NO_WHIRLPOOL
+#if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_WHIRLPOOL]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_WHIRLPOOL], c[D_WHIRLPOOL][testnum],
@@ -2363,7 +2363,7 @@ int speed_main(int argc, char **argv)
     }
 #endif
 
-#ifndef OPENSSL_NO_RMD160
+#if !defined(OPENSSL_NO_RMD160) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_RMD160]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_RMD160], c[D_RMD160][testnum],
@@ -3487,7 +3487,7 @@ int speed_main(int argc, char **argv)
         printf("built on: %s\n", OpenSSL_version(OPENSSL_BUILT_ON));
         printf("options:");
         printf("%s ", BN_options());
-#ifndef OPENSSL_NO_MD2
+#if !defined(OPENSSL_NO_MD2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         printf("%s ", MD2_options());
 #endif
 #ifndef OPENSSL_NO_RC4
