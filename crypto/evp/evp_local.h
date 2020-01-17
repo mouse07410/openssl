@@ -80,6 +80,8 @@ struct evp_keymgmt_st {
     OSSL_OP_keymgmt_exportdomparams_fn *exportdomparams;
     OSSL_OP_keymgmt_importdomparam_types_fn *importdomparam_types;
     OSSL_OP_keymgmt_exportdomparam_types_fn *exportdomparam_types;
+    OSSL_OP_keymgmt_get_domparam_params_fn *get_domparam_params;
+    OSSL_OP_keymgmt_gettable_domparam_params_fn *gettable_domparam_params;
 
     /* Key routines */
     OSSL_OP_keymgmt_importkey_fn *importkey;
@@ -89,6 +91,9 @@ struct evp_keymgmt_st {
     OSSL_OP_keymgmt_exportkey_fn *exportkey;
     OSSL_OP_keymgmt_importkey_types_fn *importkey_types;
     OSSL_OP_keymgmt_exportkey_types_fn *exportkey_types;
+    OSSL_OP_keymgmt_get_key_params_fn *get_key_params;
+    OSSL_OP_keymgmt_gettable_key_params_fn *gettable_key_params;
+
     OSSL_OP_keymgmt_query_operation_name_fn *query_operation_name;
 } /* EVP_KEYMGMT */ ;
 
@@ -270,7 +275,8 @@ void evp_pkey_ctx_free_old_ops(EVP_PKEY_CTX *ctx);
 
 /* OSSL_PROVIDER * is only used to get the library context */
 const char *evp_first_name(OSSL_PROVIDER *prov, int name_id);
-int evp_is_a(OSSL_PROVIDER *prov, int number, const char *name);
+int evp_is_a(OSSL_PROVIDER *prov, int number,
+             const char *legacy_name, const char *name);
 void evp_names_do_all(OSSL_PROVIDER *prov, int number,
                       void (*fn)(const char *name, void *data),
                       void *data);
