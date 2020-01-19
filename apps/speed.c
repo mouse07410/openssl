@@ -338,13 +338,15 @@ static const OPT_PAIR doit_choices[] = {
 #if !defined(OPENSSL_NO_MD4) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"md4", D_MD4},
 #endif
-#ifndef OPENSSL_NO_MD5
+#if !defined(OPENSSL_NO_MD5) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"md5", D_MD5},
     {"hmac", D_HMAC},
 #endif
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     {"sha1", D_SHA1},
     {"sha256", D_SHA256},
     {"sha512", D_SHA512},
+#endif
 #if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"whirlpool", D_WHIRLPOOL},
 #endif
@@ -376,7 +378,7 @@ static const OPT_PAIR doit_choices[] = {
     {"rc5-cbc", D_CBC_RC5},
     {"rc5", D_CBC_RC5},
 #endif
-#ifndef OPENSSL_NO_IDEA
+#if !defined(OPENSSL_NO_IDEA) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     {"idea-cbc", D_CBC_IDEA},
     {"idea", D_CBC_IDEA},
 #endif
@@ -621,7 +623,7 @@ static int EVP_Digest_MD4_loop(void *args)
 }
 #endif
 
-#ifndef OPENSSL_NO_MD5
+#if !defined(OPENSSL_NO_MD5) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int MD5_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -650,6 +652,7 @@ static int HMAC_loop(void *args)
 }
 #endif
 
+#ifndef OPENSSL_NO_DEPRECATED_3_0
 static int SHA1_loop(void *args)
 {
     loopargs_t *tempargs = *(loopargs_t **) args;
@@ -682,6 +685,7 @@ static int SHA512_loop(void *args)
         SHA512(buf, lengths[testnum], sha512);
     return count;
 }
+#endif
 
 #if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 static int WHIRLPOOL_loop(void *args)
@@ -1455,7 +1459,7 @@ int speed_main(int argc, char **argv)
 #if !defined(OPENSSL_NO_RC2) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     RC2_KEY rc2_ks;
 #endif
-#ifndef OPENSSL_NO_IDEA
+#if !defined(OPENSSL_NO_IDEA) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     IDEA_KEY_SCHEDULE idea_ks;
 #endif
 #if !defined(OPENSSL_NO_SEED) && !defined(OPENSSL_NO_DEPRECATED_3_0)
@@ -1467,11 +1471,11 @@ int speed_main(int argc, char **argv)
 #if !defined(OPENSSL_NO_CAST) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     CAST_KEY cast_ks;
 #endif
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     static const unsigned char key16[16] = {
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
         0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12
     };
-#ifndef OPENSSL_NO_DEPRECATED_3_0
     static const unsigned char key24[24] = {
         0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
         0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12,
@@ -1965,7 +1969,7 @@ int speed_main(int argc, char **argv)
         Camellia_set_key(key32, 256, &camellia_ks[2]);
     }
 #endif
-#ifndef OPENSSL_NO_IDEA
+#if !defined(OPENSSL_NO_IDEA) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_CBC_IDEA])
         IDEA_set_encrypt_key(key16, &idea_ks);
 #endif
@@ -2285,7 +2289,7 @@ int speed_main(int argc, char **argv)
     }
 #endif
 
-#ifndef OPENSSL_NO_MD5
+#if !defined(OPENSSL_NO_MD5) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_MD5]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_MD5], c[D_MD5][testnum], lengths[testnum],
@@ -2322,6 +2326,7 @@ int speed_main(int argc, char **argv)
             HMAC_CTX_free(loopargs[i].hctx);
     }
 #endif
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if (doit[D_SHA1]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_SHA1], c[D_SHA1][testnum], lengths[testnum],
@@ -2352,6 +2357,7 @@ int speed_main(int argc, char **argv)
             print_result(D_SHA512, testnum, count, d);
         }
     }
+#endif
 #if !defined(OPENSSL_NO_WHIRLPOOL) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_WHIRLPOOL]) {
         for (testnum = 0; testnum < size_num; testnum++) {
@@ -2565,7 +2571,7 @@ int speed_main(int argc, char **argv)
         }
     }
 #endif
-#ifndef OPENSSL_NO_IDEA
+#if !defined(OPENSSL_NO_IDEA) && !defined(OPENSSL_NO_DEPRECATED_3_0)
     if (doit[D_CBC_IDEA]) {
         if (async_jobs > 0) {
             BIO_printf(bio_err, "Async mode is not supported with %s\n",
@@ -3501,7 +3507,7 @@ int speed_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DEPRECATED_3_0
         printf("%s ", AES_options());
 #endif
-#ifndef OPENSSL_NO_IDEA
+#if !defined(OPENSSL_NO_IDEA) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         printf("%s ", IDEA_options());
 #endif
 #if !defined(OPENSSL_NO_BF) && !defined(OPENSSL_NO_DEPRECATED_3_0)

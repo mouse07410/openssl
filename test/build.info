@@ -32,9 +32,8 @@ IF[{- !$disabled{tests} -}]
           versions \
           aborttest test_test \
           sanitytest rsa_complex exdatatest bntest \
-          ectest ecstresstest ecdsatest gmdifftest pbelutest ideatest \
+          ectest ecstresstest ecdsatest gmdifftest pbelutest \
           hmactest \
-          rc2test rc4test rc5test \
           destest mdc2test \
           dhtest enginetest \
           ssltest_old dsatest dsa_no_digest_size_test exptest rsa_test \
@@ -110,10 +109,6 @@ IF[{- !$disabled{tests} -}]
   SOURCE[pbelutest]=pbelutest.c
   INCLUDE[pbelutest]=../include ../apps/include
   DEPEND[pbelutest]=../libcrypto libtestutil.a
-
-  SOURCE[ideatest]=ideatest.c
-  INCLUDE[ideatest]=../include ../apps/include
-  DEPEND[ideatest]=../libcrypto libtestutil.a
 
   SOURCE[hmactest]=hmactest.c
   INCLUDE[hmactest]=../include ../apps/include
@@ -506,8 +501,9 @@ IF[{- !$disabled{tests} -}]
   IF[1]
     PROGRAMS{noinst}=asn1_internal_test modes_internal_test x509_internal_test \
                      tls13encryptiontest wpackettest ctype_internal_test \
-                     rdrand_sanitytest property_test \
+                     rdrand_sanitytest property_test ideatest \
                      rsa_sp800_56b_test bn_internal_test \
+                     rc2test rc4test rc5test \
                      asn1_dsa_internal_test
 
     IF[{- !$disabled{poly1305} -}]
@@ -552,6 +548,10 @@ IF[{- !$disabled{tests} -}]
     SOURCE[tls13encryptiontest]=tls13encryptiontest.c
     INCLUDE[tls13encryptiontest]=.. ../include ../apps/include
     DEPEND[tls13encryptiontest]=../libcrypto ../libssl.a libtestutil.a
+
+    SOURCE[ideatest]=ideatest.c
+    INCLUDE[ideatest]=../include ../apps/include
+    DEPEND[ideatest]=../libcrypto.a libtestutil.a
 
     SOURCE[wpackettest]=wpackettest.c
     INCLUDE[wpackettest]=../include ../apps/include
@@ -600,6 +600,10 @@ IF[{- !$disabled{tests} -}]
     SOURCE[curve448_internal_test]=curve448_internal_test.c
     INCLUDE[curve448_internal_test]=.. ../include ../apps/include ../crypto/ec/curve448
     DEPEND[curve448_internal_test]=../libcrypto.a libtestutil.a
+
+    SOURCE[rc4test]=rc4test.c
+    INCLUDE[rc4test]=../include ../apps/include
+    DEPEND[rc4test]=../libcrypto.a libtestutil.a
 
     SOURCE[rdrand_sanitytest]=rdrand_sanitytest.c
     INCLUDE[rdrand_sanitytest]=../include ../apps/include
