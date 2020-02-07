@@ -12,19 +12,25 @@
 #include <openssl/bn.h>
 #include <openssl/params.h>
 #include "internal/param_build.h"
+#include "crypto/dsa.h"
 #include "prov/implementations.h"
 #include "prov/providercommon.h"
 #include "prov/provider_ctx.h"
 #include "crypto/dsa.h"
 
-static OSSL_OP_keymgmt_importdomparams_fn dsa_importdomparams;
-static OSSL_OP_keymgmt_exportdomparams_fn dsa_exportdomparams;
-static OSSL_OP_keymgmt_get_domparam_params_fn dsa_get_domparam_params;
-static OSSL_OP_keymgmt_importkey_fn dsa_importkey;
-static OSSL_OP_keymgmt_exportkey_fn dsa_exportkey;
-static OSSL_OP_keymgmt_get_key_params_fn dsa_get_key_params;
+static OSSL_OP_keymgmt_new_fn dsa_newdata;
+static OSSL_OP_keymgmt_free_fn dsa_freedata;
+static OSSL_OP_keymgmt_get_params_fn dsa_get_params;
+static OSSL_OP_keymgmt_gettable_params_fn dsa_gettable_params;
+static OSSL_OP_keymgmt_has_fn dsa_has;
+static OSSL_OP_keymgmt_import_fn dsa_import;
+static OSSL_OP_keymgmt_import_types_fn dsa_import_types;
+static OSSL_OP_keymgmt_export_fn dsa_export;
+static OSSL_OP_keymgmt_export_types_fn dsa_export_types;
 
 #define DSA_DEFAULT_MD "SHA256"
+#define DSA_POSSIBLE_SELECTIONS                 \
+    (OSSL_KEYMGMT_SELECT_KEYPAIR | OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS)
 
 static int params_to_domparams(DSA *dsa, const OSSL_PARAM params[])
 {
@@ -136,70 +142,133 @@ static int key_to_params(DSA *dsa, OSSL_PARAM_BLD *tmpl)
     return 1;
 }
 
-static void *dsa_importdomparams(void *provctx, const OSSL_PARAM params[])
+static void *dsa_newdata(void *provctx)
 {
-    DSA *dsa;
-
-    if ((dsa = DSA_new()) == NULL
-        || !params_to_domparams(dsa, params)) {
-        DSA_free(dsa);
-        dsa = NULL;
-    }
-    return dsa;
+    return DSA_new();
 }
 
-static int dsa_exportdomparams(void *domparams,
-                               OSSL_CALLBACK *param_cb, void *cbarg)
+static void dsa_freedata(void *keydata)
 {
-    DSA *dsa = domparams;
+    DSA_free(keydata);
+}
+
+static int dsa_has(void *keydata, int selection)
+{
+    DSA *dsa = keydata;
+    int ok = 0;
+
+    if ((selection & DSA_POSSIBLE_SELECTIONS) != 0)
+        ok = 1;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
+        ok = ok && (DSA_get0_pub_key(dsa) != NULL);
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        ok = ok && (DSA_get0_priv_key(dsa) != NULL);
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0)
+        ok = ok && (DSA_get0_p(dsa) != NULL && DSA_get0_g(dsa) != NULL);
+    return ok;
+}
+
+static int dsa_import(void *keydata, int selection, const OSSL_PARAM params[])
+{
+    DSA *dsa = keydata;
+    int ok = 0;
+
+    if (dsa == NULL)
+        return 0;
+
+    if ((selection & DSA_POSSIBLE_SELECTIONS) != 0)
+        ok = 1;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) != 0)
+        ok = ok && params_to_domparams(dsa, params);
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
+        ok = ok && params_to_key(dsa, params);
+
+    return ok;
+}
+
+static int dsa_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
+                      void *cbarg)
+{
+    DSA *dsa = keydata;
     OSSL_PARAM_BLD tmpl;
     OSSL_PARAM *params = NULL;
-    int ret;
+    int ok = 1;
+
+    if (dsa == NULL)
+        return 0;
 
     ossl_param_bld_init(&tmpl);
-    if (dsa == NULL
-        || !domparams_to_params(dsa, &tmpl)
+
+    if ((selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) != 0)
+        ok = ok && domparams_to_params(dsa, &tmpl);
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
+        ok = ok && key_to_params(dsa, &tmpl);
+
+    if (!ok
         || (params = ossl_param_bld_to_param(&tmpl)) == NULL)
         return 0;
-    ret = param_cb(params, cbarg);
+
+    ok = param_cb(params, cbarg);
     ossl_param_bld_free(params);
-    return ret;
+    return ok;
 }
 
-static void *dsa_importkey(void *provctx, const OSSL_PARAM params[])
+/* IMEXPORT = IMPORT + EXPORT */
+
+# define DSA_IMEXPORTABLE_PARAMETERS                    \
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_FFC_P, NULL, 0),      \
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_FFC_Q, NULL, 0),      \
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_FFC_G, NULL, 0)
+# define DSA_IMEXPORTABLE_PUBLIC_KEY                    \
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_DSA_PUB_KEY, NULL, 0)
+# define DSA_IMEXPORTABLE_PRIVATE_KEY                   \
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_DSA_PRIV_KEY, NULL, 0)
+static const OSSL_PARAM dsa_all_types[] = {
+    DSA_IMEXPORTABLE_PARAMETERS,
+    DSA_IMEXPORTABLE_PUBLIC_KEY,
+    DSA_IMEXPORTABLE_PRIVATE_KEY,
+    OSSL_PARAM_END
+};
+static const OSSL_PARAM dsa_parameter_types[] = {
+    DSA_IMEXPORTABLE_PARAMETERS,
+    OSSL_PARAM_END
+};
+static const OSSL_PARAM dsa_key_types[] = {
+    DSA_IMEXPORTABLE_PUBLIC_KEY,
+    DSA_IMEXPORTABLE_PRIVATE_KEY,
+    OSSL_PARAM_END
+};
+static const OSSL_PARAM *dsa_types[] = {
+    NULL,                        /* Index 0 = none of them */
+    dsa_parameter_types,          /* Index 1 = parameter types */
+    dsa_key_types,                /* Index 2 = key types */
+    dsa_all_types                 /* Index 3 = 1 + 2 */
+};
+
+static const OSSL_PARAM *dsa_imexport_types(int selection)
 {
-    DSA *dsa;
+    int type_select = 0;
 
-    if ((dsa = DSA_new()) == NULL
-        || !params_to_key(dsa, params)) {
-        DSA_free(dsa);
-        dsa = NULL;
-    }
-    return dsa;
+    if ((selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) != 0)
+        type_select += 1;
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
+        type_select += 2;
+    return dsa_types[type_select];
 }
 
-static int dsa_exportkey(void *key, OSSL_CALLBACK *param_cb, void *cbarg)
+static const OSSL_PARAM *dsa_import_types(int selection)
 {
-    DSA *dsa = key;
-    OSSL_PARAM_BLD tmpl;
-    OSSL_PARAM *params = NULL;
-    int ret;
-
-    ossl_param_bld_init(&tmpl);
-    if (dsa == NULL
-        || !key_to_params(dsa, &tmpl)
-        || (params = ossl_param_bld_to_param(&tmpl)) == NULL)
-        return 0;
-    ret = param_cb(params, cbarg);
-    ossl_param_bld_free(params);
-    return ret;
+    return dsa_imexport_types(selection);
 }
 
-/*
- * Same function for domain parameters and for keys.
- * "dpk" = "domain parameters & keys"
- */
-static ossl_inline int dsa_get_dpk_params(void *key, OSSL_PARAM params[])
+static const OSSL_PARAM *dsa_export_types(int selection)
+{
+    return dsa_imexport_types(selection);
+}
+
+static ossl_inline int dsa_get_params(void *key, OSSL_PARAM params[])
 {
     DSA *dsa = key;
     OSSL_PARAM *p;
@@ -219,29 +288,28 @@ static ossl_inline int dsa_get_dpk_params(void *key, OSSL_PARAM params[])
     return 1;
 }
 
-/*
- * We have wrapper functions to make sure we get signatures right, see
- * the forward declarations at the beginning of this file.
- */
-static int dsa_get_domparam_params(void *domparams, OSSL_PARAM params[])
-{
-    return dsa_get_dpk_params(domparams, params);
-}
+static const OSSL_PARAM dsa_params[] = {
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_SECURITY_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_MAX_SIZE, NULL),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_DEFAULT_DIGEST, NULL, 0),
+    OSSL_PARAM_END
+};
 
-static int dsa_get_key_params(void *key, OSSL_PARAM params[])
+static const OSSL_PARAM *dsa_gettable_params(void)
 {
-    return dsa_get_dpk_params(key, params);
+    return dsa_params;
 }
 
 const OSSL_DISPATCH dsa_keymgmt_functions[] = {
-    { OSSL_FUNC_KEYMGMT_IMPORTDOMPARAMS, (void (*)(void))dsa_importdomparams },
-    { OSSL_FUNC_KEYMGMT_EXPORTDOMPARAMS, (void (*)(void))dsa_exportdomparams },
-    { OSSL_FUNC_KEYMGMT_FREEDOMPARAMS, (void (*)(void))DSA_free },
-    { OSSL_FUNC_KEYMGMT_GET_DOMPARAM_PARAMS,
-      (void (*) (void))dsa_get_domparam_params },
-    { OSSL_FUNC_KEYMGMT_IMPORTKEY, (void (*)(void))dsa_importkey },
-    { OSSL_FUNC_KEYMGMT_EXPORTKEY, (void (*)(void))dsa_exportkey },
-    { OSSL_FUNC_KEYMGMT_FREEKEY, (void (*)(void))DSA_free },
-    { OSSL_FUNC_KEYMGMT_GET_KEY_PARAMS,  (void (*) (void))dsa_get_key_params },
+    { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))dsa_newdata },
+    { OSSL_FUNC_KEYMGMT_FREE, (void (*)(void))dsa_freedata },
+    { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))dsa_get_params },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))dsa_gettable_params },
+    { OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))dsa_has },
+    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))dsa_import },
+    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))dsa_import_types },
+    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))dsa_export },
+    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))dsa_export_types },
     { 0, NULL }
 };

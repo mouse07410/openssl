@@ -403,12 +403,14 @@ int EVP_PKEY_assign(EVP_PKEY *pkey, int type, void *key)
 {
     int alias = type;
 
+#ifndef OPENSSL_NO_EC
     if (EVP_PKEY_type(type) == EVP_PKEY_EC) {
         const EC_GROUP *group = EC_KEY_get0_group(key);
 
         if (group != NULL && EC_GROUP_get_curve_name(group) == NID_sm2)
             alias = EVP_PKEY_SM2;
     }
+#endif
 
     if (pkey == NULL || !EVP_PKEY_set_type(pkey, type))
         return 0;
@@ -760,9 +762,9 @@ int EVP_PKEY_get_default_digest_name(EVP_PKEY *pkey,
                                              mdmandatory,
                                              sizeof(mdmandatory));
         params[2] = OSSL_PARAM_construct_end();
-        if (!evp_keymgmt_get_key_params(pkey->pkeys[0].keymgmt,
-                                        pkey->pkeys[0].provdata,
-                                        params))
+        if (!evp_keymgmt_get_params(pkey->pkeys[0].keymgmt,
+                                    pkey->pkeys[0].keydata,
+                                    params))
             return 0;
         if (mdmandatory[0] != '\0') {
             OPENSSL_strlcpy(mdname, mdmandatory, mdname_sz);
@@ -864,7 +866,7 @@ static void evp_pkey_free_it(EVP_PKEY *x)
 {
     /* internal function; x is never NULL */
 
-    evp_keymgmt_clear_pkey_cache(x);
+    evp_keymgmt_util_clear_pkey_cache(x);
 
     if (x->ameth && x->ameth->pkey_free) {
         x->ameth->pkey_free(x);
@@ -910,12 +912,11 @@ int EVP_PKEY_size(const EVP_PKEY *pkey)
 }
 
 void *evp_pkey_make_provided(EVP_PKEY *pk, OPENSSL_CTX *libctx,
-                             EVP_KEYMGMT **keymgmt, const char *propquery,
-                             int domainparams)
+                             EVP_KEYMGMT **keymgmt, const char *propquery)
 {
     EVP_KEYMGMT *allocated_keymgmt = NULL;
     EVP_KEYMGMT *tmp_keymgmt = NULL;
-    void *provdata = NULL;
+    void *keydata = NULL;
 
     if (pk == NULL)
         return NULL;
@@ -935,20 +936,20 @@ void *evp_pkey_make_provided(EVP_PKEY *pk, OPENSSL_CTX *libctx,
     }
 
     if (tmp_keymgmt != NULL)
-        provdata =
-            evp_keymgmt_export_to_provider(pk, tmp_keymgmt, domainparams);
+        keydata =
+            evp_keymgmt_util_export_to_provider(pk, tmp_keymgmt);
 
     /*
      * If nothing was exported, |tmp_keymgmt| might point at a freed
      * EVP_KEYMGMT, so we clear it to be safe.  It shouldn't be useful for
      * the caller either way in that case.
      */
-    if (provdata == NULL)
+    if (keydata == NULL)
         tmp_keymgmt = NULL;
 
     if (keymgmt != NULL)
         *keymgmt = tmp_keymgmt;
 
     EVP_KEYMGMT_free(allocated_keymgmt);
-    return provdata;
+    return keydata;
 }
