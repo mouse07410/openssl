@@ -1238,8 +1238,9 @@ int tls_parse_ctos_psk(SSL *s, PACKET *pkt, unsigned int context, X509 *x,
             }
         }
 
-        md = ssl_md(sess->cipher->algorithm2);
-        if (md != ssl_md(s->s3.tmp.new_cipher->algorithm2)) {
+        md = ssl_md(s->ctx, sess->cipher->algorithm2);
+        if (!EVP_MD_is_a(md,
+                EVP_MD_name(ssl_md(s->ctx, s->s3.tmp.new_cipher->algorithm2)))) {
             /* The ciphersuite is not compatible with this session. */
             SSL_SESSION_free(sess);
             sess = NULL;
@@ -1727,7 +1728,7 @@ EXT_RETURN tls_construct_stoc_key_share(SSL *s, WPACKET *pkt,
         return EXT_RETURN_FAIL;
     }
 
-    skey = ssl_generate_pkey(ckey);
+    skey = ssl_generate_pkey(s, ckey);
     if (skey == NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_STOC_KEY_SHARE,
                  ERR_R_MALLOC_FAILURE);

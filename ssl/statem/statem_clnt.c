@@ -1376,8 +1376,8 @@ static int set_client_ciphersuite(SSL *s, const unsigned char *cipherchars)
              * In TLSv1.3 it is valid for the server to select a different
              * ciphersuite as long as the hash is the same.
              */
-            if (ssl_md(c->algorithm2)
-                    != ssl_md(s->session->cipher->algorithm2)) {
+            if (ssl_md(s->ctx, c->algorithm2)
+                    != ssl_md(s->ctx, s->session->cipher->algorithm2)) {
                 SSLfatal(s, SSL_AD_ILLEGAL_PARAMETER,
                          SSL_F_SET_CLIENT_CIPHERSUITE,
                          SSL_R_CIPHERSUITE_DIGEST_HAS_CHANGED);
@@ -2337,7 +2337,7 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
             goto err;
         }
 
-        if (!tls1_lookup_md(s->s3.tmp.peer_sigalg, &md)) {
+        if (!tls1_lookup_md(s->ctx, s->s3.tmp.peer_sigalg, &md)) {
             SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_PROCESS_KEY_EXCHANGE,
                      ERR_R_INTERNAL_ERROR);
             goto err;
@@ -3049,7 +3049,7 @@ static int tls_construct_cke_dhe(SSL *s, WPACKET *pkt)
         goto err;
     }
 
-    ckey = ssl_generate_pkey(skey);
+    ckey = ssl_generate_pkey(s, skey);
     if (ckey == NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_CKE_DHE,
                  ERR_R_INTERNAL_ERROR);
@@ -3107,7 +3107,7 @@ static int tls_construct_cke_ecdhe(SSL *s, WPACKET *pkt)
         return 0;
     }
 
-    ckey = ssl_generate_pkey(skey);
+    ckey = ssl_generate_pkey(s, skey);
     if (ckey == NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_CKE_ECDHE,
                  ERR_R_MALLOC_FAILURE);
@@ -3173,7 +3173,9 @@ static int tls_construct_cke_gost(SSL *s, WPACKET *pkt)
         return 0;
     }
 
-    pkey_ctx = EVP_PKEY_CTX_new(X509_get0_pubkey(peer_cert), NULL);
+    pkey_ctx = EVP_PKEY_CTX_new_from_pkey(s->ctx->libctx,
+                                          X509_get0_pubkey(peer_cert),
+                                          s->ctx->propq);
     if (pkey_ctx == NULL) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_F_TLS_CONSTRUCT_CKE_GOST,
                  ERR_R_MALLOC_FAILURE);

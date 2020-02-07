@@ -3317,6 +3317,9 @@ void ssl3_free(SSL *s)
     s->s3.tmp.pkey = NULL;
 #endif
 
+    ssl_evp_cipher_free(s->s3.tmp.new_sym_enc);
+    ssl_evp_md_free(s->s3.tmp.new_hash);
+
     OPENSSL_free(s->s3.tmp.ctype);
     sk_X509_NAME_pop_free(s->s3.tmp.peer_ca_names, X509_NAME_free);
     OPENSSL_free(s->s3.tmp.ciphers_raw);
@@ -4136,7 +4139,6 @@ const SSL_CIPHER *ssl3_choose_cipher(SSL *s, STACK_OF(SSL_CIPHER) *clnt,
     STACK_OF(SSL_CIPHER) *prio, *allow;
     int i, ii, ok, prefer_sha256 = 0;
     unsigned long alg_k = 0, alg_a = 0, mask_k = 0, mask_a = 0;
-    const EVP_MD *mdsha256 = EVP_sha256();
 #ifndef OPENSSL_NO_CHACHA
     STACK_OF(SSL_CIPHER) *prio_chacha = NULL;
 #endif
@@ -4310,7 +4312,12 @@ const SSL_CIPHER *ssl3_choose_cipher(SSL *s, STACK_OF(SSL_CIPHER) *clnt,
             if (prefer_sha256) {
                 const SSL_CIPHER *tmp = sk_SSL_CIPHER_value(allow, ii);
 
-                if (ssl_md(tmp->algorithm2) == mdsha256) {
+                /*
+                 * TODO: When there are no more legacy digests we can just use
+                 * OSSL_DIGEST_NAME_SHA2_256 instead of calling OBJ_nid2sn
+                 */
+                if (EVP_MD_is_a(ssl_md(s->ctx, tmp->algorithm2),
+                                       OBJ_nid2sn(NID_sha256))) {
                     ret = tmp;
                     break;
                 }
@@ -4669,14 +4676,14 @@ int ssl_generate_master_secret(SSL *s, unsigned char *pms, size_t pmslen,
 }
 
 /* Generate a private key from parameters */
-EVP_PKEY *ssl_generate_pkey(EVP_PKEY *pm)
+EVP_PKEY *ssl_generate_pkey(SSL *s, EVP_PKEY *pm)
 {
     EVP_PKEY_CTX *pctx = NULL;
     EVP_PKEY *pkey = NULL;
 
     if (pm == NULL)
         return NULL;
-    pctx = EVP_PKEY_CTX_new(pm, NULL);
+    pctx = EVP_PKEY_CTX_new_from_pkey(s->ctx->libctx, pm, s->ctx->propq);
     if (pctx == NULL)
         goto err;
     if (EVP_PKEY_keygen_init(pctx) <= 0)
@@ -4709,6 +4716,11 @@ EVP_PKEY *ssl_generate_pkey_group(SSL *s, uint16_t id)
         goto err;
     }
     gtype = ginf->flags & TLS_GROUP_TYPE;
+    /*
+     * TODO(3.0): Convert these EVP_PKEY_CTX_new_id calls to ones that take
+     * s->ctx->libctx and s->ctx->propq when keygen has been updated to be
+     * provider aware.
+     */
 # ifndef OPENSSL_NO_DH
     if (gtype == TLS_GROUP_FFDHE)
         pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
@@ -4802,6 +4814,11 @@ EVP_PKEY *ssl_generate_param_group(uint16_t id)
         return NULL;
     }
 
+    /*
+     * TODO(3.0): Convert this EVP_PKEY_CTX_new_id call to one that takes
+     * s->ctx->libctx and s->ctx->propq when paramgen has been updated to be
+     * provider aware.
+     */
     pkey_ctx_id = (ginf->flags & TLS_GROUP_FFDHE)
                         ? EVP_PKEY_DH : EVP_PKEY_EC;
     pctx = EVP_PKEY_CTX_new_id(pkey_ctx_id, NULL);
@@ -4848,7 +4865,7 @@ int ssl_derive(SSL *s, EVP_PKEY *privkey, EVP_PKEY *pubkey, int gensecret)
         return 0;
     }
 
-    pctx = EVP_PKEY_CTX_new(privkey, NULL);
+    pctx = EVP_PKEY_CTX_new_from_pkey(s->ctx->libctx, privkey, s->ctx->propq);
 
     if (EVP_PKEY_derive_init(pctx) <= 0
         || EVP_PKEY_derive_set_peer(pctx, pubkey) <= 0
