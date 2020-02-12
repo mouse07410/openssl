@@ -7,6 +7,12 @@
  * https://www.openssl.org/source/license.html
  */
 
+/*
+ * DSA low level APIs are deprecated for public use, but still ok for
+ * internal use.
+ */
+#include "internal/deprecated.h"
+
 #include <openssl/core_numbers.h>
 #include <openssl/core_names.h>
 #include <openssl/bn.h>
@@ -94,9 +100,9 @@ static int params_to_key(DSA *dsa, const OSSL_PARAM params[])
         return 0;
 
     param_priv_key =
-        OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_DSA_PRIV_KEY);
+        OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PRIV_KEY);
     param_pub_key =
-        OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_DSA_PUB_KEY);
+        OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PUB_KEY);
 
     /*
      * DSA documentation says that a public key must be present if a private key
@@ -133,10 +139,10 @@ static int key_to_params(DSA *dsa, OSSL_PARAM_BLD *tmpl)
 
     DSA_get0_key(dsa, &pub_key, &priv_key);
     if (priv_key != NULL
-        && !ossl_param_bld_push_BN(tmpl, OSSL_PKEY_PARAM_DSA_PRIV_KEY, priv_key))
+        && !ossl_param_bld_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, priv_key))
         return 0;
     if (pub_key != NULL
-        && !ossl_param_bld_push_BN(tmpl, OSSL_PKEY_PARAM_DSA_PUB_KEY, pub_key))
+        && !ossl_param_bld_push_BN(tmpl, OSSL_PKEY_PARAM_PUB_KEY, pub_key))
         return 0;
 
     return 1;
@@ -222,9 +228,9 @@ static int dsa_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     OSSL_PARAM_BN(OSSL_PKEY_PARAM_FFC_Q, NULL, 0),      \
     OSSL_PARAM_BN(OSSL_PKEY_PARAM_FFC_G, NULL, 0)
 # define DSA_IMEXPORTABLE_PUBLIC_KEY                    \
-    OSSL_PARAM_BN(OSSL_PKEY_PARAM_DSA_PUB_KEY, NULL, 0)
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_PUB_KEY, NULL, 0)
 # define DSA_IMEXPORTABLE_PRIVATE_KEY                   \
-    OSSL_PARAM_BN(OSSL_PKEY_PARAM_DSA_PRIV_KEY, NULL, 0)
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0)
 static const OSSL_PARAM dsa_all_types[] = {
     DSA_IMEXPORTABLE_PARAMETERS,
     DSA_IMEXPORTABLE_PUBLIC_KEY,

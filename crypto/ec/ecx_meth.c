@@ -18,21 +18,13 @@
 #include <openssl/x509.h>
 #include <openssl/ec.h>
 #include <openssl/rand.h>
+#include <openssl/core_names.h>
+#include "internal/param_build.h"
 #include "crypto/asn1.h"
 #include "crypto/evp.h"
+#include "crypto/ecx.h"
 #include "ec_local.h"
 #include "curve448/curve448_local.h"
-
-#define X25519_BITS          253
-#define X25519_SECURITY_BITS 128
-
-#define ED25519_SIGSIZE      64
-
-#define X448_BITS            448
-#define ED448_BITS           456
-#define X448_SECURITY_BITS   224
-
-#define ED448_SIGSIZE        114
 
 #define ISX448(id)      ((id) == EVP_PKEY_X448)
 #define IS25519(id)     ((id) == EVP_PKEY_X25519 || (id) == EVP_PKEY_ED25519)
@@ -73,7 +65,7 @@ static int ecx_key_op(EVP_PKEY *pkey, int id, const X509_ALGOR *palg,
         }
     }
 
-    key = OPENSSL_zalloc(sizeof(*key));
+    key = ecx_key_new(KEYLENID(id), 1);
     if (key == NULL) {
         ECerr(EC_F_ECX_KEY_OP, ERR_R_MALLOC_FAILURE);
         return 0;
@@ -83,17 +75,14 @@ static int ecx_key_op(EVP_PKEY *pkey, int id, const X509_ALGOR *palg,
     if (op == KEY_OP_PUBLIC) {
         memcpy(pubkey, p, plen);
     } else {
-        privkey = key->privkey = OPENSSL_secure_malloc(KEYLENID(id));
+        privkey = ecx_key_allocate_privkey(key);
         if (privkey == NULL) {
             ECerr(EC_F_ECX_KEY_OP, ERR_R_MALLOC_FAILURE);
             goto err;
         }
         if (op == KEY_OP_KEYGEN) {
-            if (RAND_priv_bytes(privkey, KEYLENID(id)) <= 0) {
-                OPENSSL_secure_free(privkey);
-                key->privkey = NULL;
+            if (RAND_priv_bytes(privkey, KEYLENID(id)) <= 0)
                 goto err;
-            }
             if (id == EVP_PKEY_X25519) {
                 privkey[0] &= 248;
                 privkey[X25519_KEYLEN - 1] &= 127;
@@ -128,7 +117,7 @@ static int ecx_key_op(EVP_PKEY *pkey, int id, const X509_ALGOR *palg,
     EVP_PKEY_assign(pkey, id, key);
     return 1;
  err:
-    OPENSSL_free(key);
+    ecx_key_free(key);
     return 0;
 }
 
@@ -264,9 +253,7 @@ static int ecx_security_bits(const EVP_PKEY *pkey)
 
 static void ecx_free(EVP_PKEY *pkey)
 {
-    if (pkey->pkey.ecx != NULL)
-        OPENSSL_secure_clear_free(pkey->pkey.ecx->privkey, KEYLEN(pkey));
-    OPENSSL_free(pkey->pkey.ecx);
+    ecx_key_free(pkey->pkey.ecx);
 }
 
 /* "parameters" are always equal */
@@ -416,6 +403,48 @@ static int ecx_get_pub_key(const EVP_PKEY *pkey, unsigned char *pub,
     return 1;
 }
 
+static size_t ecx_pkey_dirty_cnt(const EVP_PKEY *pkey)
+{
+    /*
+     * We provide no mechanism to "update" an ECX key once it has been set,
+     * therefore we do not have to maintain a dirty count.
+     */
+    return 1;
+}
+
+static int ecx_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
+                              EVP_KEYMGMT *to_keymgmt)
+{
+    const ECX_KEY *key = from->pkey.ecx;
+    OSSL_PARAM_BLD tmpl;
+    OSSL_PARAM *params = NULL;
+    int rv = 0;
+
+    ossl_param_bld_init(&tmpl);
+
+    /* A key must at least have a public part */
+    if (!ossl_param_bld_push_octet_string(&tmpl, OSSL_PKEY_PARAM_PUB_KEY,
+                                          key->pubkey, key->keylen))
+        goto err;
+
+    if (key->privkey != NULL) {
+        if (!ossl_param_bld_push_octet_string(&tmpl,
+                                              OSSL_PKEY_PARAM_PRIV_KEY,
+                                              key->privkey, key->keylen))
+            goto err;
+    }
+
+    params = ossl_param_bld_to_param(&tmpl);
+
+    /* We export, the provider imports */
+    rv = evp_keymgmt_import(to_keymgmt, to_keydata, OSSL_KEYMGMT_SELECT_ALL,
+                            params);
+
+ err:
+    ossl_param_bld_free(params);
+    return rv;
+}
+
 const EVP_PKEY_ASN1_METHOD ecx25519_asn1_meth = {
     EVP_PKEY_X25519,
     EVP_PKEY_X25519,
@@ -457,6 +486,8 @@ const EVP_PKEY_ASN1_METHOD ecx25519_asn1_meth = {
     ecx_set_pub_key,
     ecx_get_priv_key,
     ecx_get_pub_key,
+    ecx_pkey_dirty_cnt,
+    ecx_pkey_export_to
 };
 
 const EVP_PKEY_ASN1_METHOD ecx448_asn1_meth = {
@@ -500,6 +531,8 @@ const EVP_PKEY_ASN1_METHOD ecx448_asn1_meth = {
     ecx_set_pub_key,
     ecx_get_priv_key,
     ecx_get_pub_key,
+    ecx_pkey_dirty_cnt,
+    ecx_pkey_export_to
 };
 
 static int ecd_size25519(const EVP_PKEY *pkey)
@@ -918,9 +951,9 @@ static void s390x_x448_mod_p(unsigned char u[56])
                                  u, u_red, sizeof(u_red));
 }
 
-static int s390x_x25519_mul(unsigned char u_dst[32],
-                            const unsigned char u_src[32],
-                            const unsigned char d_src[32])
+int s390x_x25519_mul(unsigned char u_dst[32],
+                     const unsigned char u_src[32],
+                     const unsigned char d_src[32])
 {
     union {
         struct {
@@ -951,9 +984,9 @@ static int s390x_x25519_mul(unsigned char u_dst[32],
     return rc;
 }
 
-static int s390x_x448_mul(unsigned char u_dst[56],
-                          const unsigned char u_src[56],
-                          const unsigned char d_src[56])
+int s390x_x448_mul(unsigned char u_dst[56],
+                   const unsigned char u_src[56],
+                   const unsigned char d_src[56])
 {
     union {
         struct {
@@ -1067,10 +1100,9 @@ static int s390x_pkey_ecx_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
-    ECX_KEY *key;
+    ECX_KEY *key = ecx_key_new(X25519_KEYLEN, 1);
     unsigned char *privkey = NULL, *pubkey;
 
-    key = OPENSSL_zalloc(sizeof(*key));
     if (key == NULL) {
         ECerr(EC_F_S390X_PKEY_ECX_KEYGEN25519, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1078,7 +1110,7 @@ static int s390x_pkey_ecx_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     pubkey = key->pubkey;
 
-    privkey = key->privkey = OPENSSL_secure_malloc(X25519_KEYLEN);
+    privkey = ecx_key_allocate_privkey(key);
     if (privkey == NULL) {
         ECerr(EC_F_S390X_PKEY_ECX_KEYGEN25519, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1097,9 +1129,7 @@ static int s390x_pkey_ecx_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     EVP_PKEY_assign(pkey, ctx->pmeth->pkey_id, key);
     return 1;
  err:
-    OPENSSL_secure_clear_free(privkey, X25519_KEYLEN);
-    key->privkey = NULL;
-    OPENSSL_free(key);
+    ecx_key_free(key);
     return 0;
 }
 
@@ -1112,10 +1142,9 @@ static int s390x_pkey_ecx_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
-    ECX_KEY *key;
+    ECX_KEY *key = ecx_key_new(X448_KEYLEN, 1);
     unsigned char *privkey = NULL, *pubkey;
 
-    key = OPENSSL_zalloc(sizeof(*key));
     if (key == NULL) {
         ECerr(EC_F_S390X_PKEY_ECX_KEYGEN448, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1123,7 +1152,7 @@ static int s390x_pkey_ecx_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     pubkey = key->pubkey;
 
-    privkey = key->privkey = OPENSSL_secure_malloc(X448_KEYLEN);
+    privkey = ecx_key_allocate_privkey(key);
     if (privkey == NULL) {
         ECerr(EC_F_S390X_PKEY_ECX_KEYGEN448, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1141,9 +1170,7 @@ static int s390x_pkey_ecx_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     EVP_PKEY_assign(pkey, ctx->pmeth->pkey_id, key);
     return 1;
  err:
-    OPENSSL_secure_clear_free(privkey, X448_KEYLEN);
-    key->privkey = NULL;
-    OPENSSL_free(key);
+    ecx_key_free(key);
     return 0;
 }
 
@@ -1160,11 +1187,10 @@ static int s390x_pkey_ecd_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66,
     };
     unsigned char x_dst[32], buff[SHA512_DIGEST_LENGTH];
-    ECX_KEY *key;
+    ECX_KEY *key = ecx_key_new(ED25519_KEYLEN, 1);
     unsigned char *privkey = NULL, *pubkey;
     unsigned int sz;
 
-    key = OPENSSL_zalloc(sizeof(*key));
     if (key == NULL) {
         ECerr(EC_F_S390X_PKEY_ECD_KEYGEN25519, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1172,7 +1198,7 @@ static int s390x_pkey_ecd_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     pubkey = key->pubkey;
 
-    privkey = key->privkey = OPENSSL_secure_malloc(ED25519_KEYLEN);
+    privkey = ecx_key_allocate_privkey(key);
     if (privkey == NULL) {
         ECerr(EC_F_S390X_PKEY_ECD_KEYGEN25519, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1197,9 +1223,7 @@ static int s390x_pkey_ecd_keygen25519(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     EVP_PKEY_assign(pkey, ctx->pmeth->pkey_id, key);
     return 1;
  err:
-    OPENSSL_secure_clear_free(privkey, ED25519_KEYLEN);
-    key->privkey = NULL;
-    OPENSSL_free(key);
+    ecx_key_free(key);
     return 0;
 }
 
@@ -1220,11 +1244,10 @@ static int s390x_pkey_ecd_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         0x24, 0xbc, 0xb6, 0x6e, 0x71, 0x46, 0x3f, 0x69, 0x00
     };
     unsigned char x_dst[57], buff[114];
-    ECX_KEY *key;
+    ECX_KEY *key = ecx_key_new(ED448_KEYLEN, 1);
     unsigned char *privkey = NULL, *pubkey;
     EVP_MD_CTX *hashctx = NULL;
 
-    key = OPENSSL_zalloc(sizeof(*key));
     if (key == NULL) {
         ECerr(EC_F_S390X_PKEY_ECD_KEYGEN448, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1232,7 +1255,7 @@ static int s390x_pkey_ecd_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     pubkey = key->pubkey;
 
-    privkey = key->privkey = OPENSSL_secure_malloc(ED448_KEYLEN);
+    privkey = ecx_key_allocate_privkey(key);
     if (privkey == NULL) {
         ECerr(EC_F_S390X_PKEY_ECD_KEYGEN448, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1265,9 +1288,7 @@ static int s390x_pkey_ecd_keygen448(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     EVP_MD_CTX_free(hashctx);
     return 1;
  err:
-    OPENSSL_secure_clear_free(privkey, ED448_KEYLEN);
-    key->privkey = NULL;
-    OPENSSL_free(key);
+    ecx_key_free(key);
     EVP_MD_CTX_free(hashctx);
     return 0;
 }

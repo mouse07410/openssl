@@ -7,6 +7,12 @@
  * https://www.openssl.org/source/license.html
  */
 
+/*
+ * DSA low level APIs are deprecated for public use, but still ok for
+ * internal use.
+ */
+#include "internal/deprecated.h"
+
 #include <string.h>
 
 #include <openssl/crypto.h>
@@ -157,6 +163,8 @@ static int dsa_setup_md(PROV_DSA_CTX *ctx,
 
         ctx->md = md;
         OPENSSL_strlcpy(ctx->mdname, mdname, sizeof(ctx->mdname));
+        memcpy(ctx->aid, algorithmidentifier, algorithmidentifier_len);
+        ctx->aid_len = algorithmidentifier_len;
     }
     return 1;
 }
