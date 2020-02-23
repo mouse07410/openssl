@@ -7,6 +7,12 @@
  * https://www.openssl.org/source/license.html
  */
 
+/*
+ * RSA low level APIs are deprecated for public use, but still ok for
+ * internal use.
+ */
+#include "internal/deprecated.h"
+
 #include "internal/constant_time.h"
 
 #include <stdio.h>
@@ -19,6 +25,7 @@
 #include <openssl/x509v3.h>
 #include <openssl/cms.h>
 #include "crypto/evp.h"
+#include "crypto/rsa.h"
 #include "rsa_local.h"
 
 /* RSA pkey context structure */

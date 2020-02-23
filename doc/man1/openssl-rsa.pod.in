@@ -45,6 +45,9 @@ B<openssl> B<rsa>
 
 =head1 DESCRIPTION
 
+This command has been deprecated.
+The L<openssl-pkey(1)> command should be used instead.
+
 This command processes RSA keys. They can be converted between
 various forms and their components printed out. B<Note> this command uses the
 traditional SSLeay compatible format for private key encryption: newer
@@ -137,6 +140,9 @@ Like B<-pubin> and B<-pubout> except B<RSAPublicKey> format is used instead.
 
 =head1 EXAMPLES
 
+Examples equivalent to these can be found in the documentation for the
+non-deprecated L<openssl-pkey(1)> command.
+
 To remove the pass phrase on an RSA private key:
 
  openssl rsa -in key.pem -out keyout.pem
@@ -169,10 +175,15 @@ without having to manually edit them.
 =head1 SEE ALSO
 
 L<openssl(1)>,
+L<openssl-pkey(1)>,
 L<openssl-pkcs8(1)>,
 L<openssl-dsa(1)>,
 L<openssl-genrsa(1)>,
 L<openssl-gendsa(1)>
+
+=head1 HISTORY
+
+This command was deprecated in OpenSSL 3.0.
 
 =head1 COPYRIGHT
 

@@ -7,6 +7,12 @@
  * https://www.openssl.org/source/license.html
  */
 
+/*
+ * RSA low level APIs are deprecated for public use, but still ok for
+ * internal use.
+ */
+#include "internal/deprecated.h"
+
 #include <stdio.h>
 #include "internal/cryptlib.h"
 #include <openssl/asn1t.h>
@@ -1114,7 +1120,13 @@ static int rsa_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
         numexps = sk_BIGNUM_const_num(exps);
         numcoeffs = sk_BIGNUM_const_num(coeffs);
 
-        if (numprimes < 2 || numexps < 2 || numcoeffs < 1)
+        /*
+         * It's permisssible to have zero primes, i.e. no CRT params.
+         * Otherwise, there must be at least two, as many exponents,
+         * and one coefficient less.
+         */
+        if (numprimes != 0
+            && (numprimes < 2 || numexps < 2 || numcoeffs < 1))
             goto err;
 
         /* assert that an OSSL_PARAM_BLD has enough space. */
