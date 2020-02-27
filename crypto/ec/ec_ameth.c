@@ -632,6 +632,13 @@ int ec_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
     const EC_POINT *pub_point = NULL;
     int rv = 0;
 
+    /*
+     * If the DH method is foreign, then we can't be sure of anything, and
+     * can therefore not export or pretend to export.
+     */
+    if (EC_KEY_get_method(eckey) != EC_KEY_get_default_method())
+        return 0;
+
     if (from == NULL
             || (eckey = from->pkey.ec) == NULL
             || (ecg = EC_KEY_get0_group(eckey)) == NULL)
