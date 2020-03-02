@@ -30,7 +30,6 @@
 #include <openssl/serializer.h>
 #include <openssl/core_names.h>
 
-#include "crypto/dh.h"
 #include "crypto/asn1.h"
 #include "crypto/evp.h"
 #include "internal/provider.h"
