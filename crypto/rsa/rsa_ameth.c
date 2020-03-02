@@ -1093,7 +1093,7 @@ static int rsa_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
     int rv = 0;
 
     /*
-     * If the DH method is foreign, then we can't be sure of anything, and
+     * If the RSA method is foreign, then we can't be sure of anything, and
      * can therefore not export or pretend to export.
      */
     if (RSA_get_method(rsa) != RSA_get_default_method())
