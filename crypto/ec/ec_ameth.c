@@ -638,8 +638,8 @@ int ec_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
         return 0;
 
     /*
-     * If the DH method is foreign, then we can't be sure of anything, and
-     * can therefore not export or pretend to export.
+     * If the EC_KEY method is foreign, then we can't be sure of anything,
+     * and can therefore not export or pretend to export.
      */
     if (EC_KEY_get_method(eckey) != EC_KEY_get_default_method())
         return 0;
