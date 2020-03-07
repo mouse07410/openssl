@@ -21,5 +21,5 @@ make distclean || true
 # For OpenSSL-1.0.2-stable
 #./Configure debug-darwin64-x86_64-cc --debug --prefix=/opt/local --openssldir=/opt/local/etc/openssl shared threads enable-rfc3779
 
-make update && make depend && make clean && make -j 2 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGINE_SO="${OPENSSL_GOST_ENGINE_SO}" make test 2>&1 | tee test-out.txt  && make install
+make update && make depend && make -j 2 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGINE_SO="${OPENSSL_GOST_ENGINE_SO}" make test 2>&1 | tee test-out.txt  && make install
 
