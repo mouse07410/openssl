@@ -1112,12 +1112,14 @@ DEPRECATEDIN_3_0(int EVP_PKEY_decrypt_old(unsigned char *dec_key,
 DEPRECATEDIN_3_0(int EVP_PKEY_encrypt_old(unsigned char *enc_key,
                                           const unsigned char *key,
                                           int key_len, EVP_PKEY *pub_key))
+int EVP_PKEY_is_a(const EVP_PKEY *pkey, const char *name);
 int EVP_PKEY_type(int type);
 int EVP_PKEY_id(const EVP_PKEY *pkey);
 int EVP_PKEY_base_id(const EVP_PKEY *pkey);
 int EVP_PKEY_bits(const EVP_PKEY *pkey);
 int EVP_PKEY_security_bits(const EVP_PKEY *pkey);
 int EVP_PKEY_size(const EVP_PKEY *pkey);
+int EVP_PKEY_can_sign(const EVP_PKEY *pkey);
 int EVP_PKEY_set_type(EVP_PKEY *pkey, int type);
 int EVP_PKEY_set_type_str(EVP_PKEY *pkey, const char *str, int len);
 int EVP_PKEY_set_type_by_keymgmt(EVP_PKEY *pkey, EVP_KEYMGMT *keymgmt);
