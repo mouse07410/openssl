@@ -406,7 +406,8 @@ static size_t ecx_pkey_dirty_cnt(const EVP_PKEY *pkey)
 }
 
 static int ecx_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
-                              EVP_KEYMGMT *to_keymgmt)
+                              EVP_KEYMGMT *to_keymgmt, OPENSSL_CTX *libctx,
+                              const char *propq)
 {
     const ECX_KEY *key = from->pkey.ecx;
     OSSL_PARAM_BLD *tmpl = OSSL_PARAM_BLD_new();
@@ -836,7 +837,8 @@ static int pkey_ecd_digestsign25519(EVP_MD_CTX *ctx, unsigned char *sig,
         return 0;
     }
 
-    if (ED25519_sign(sig, tbs, tbslen, edkey->pubkey, edkey->privkey) == 0)
+    if (ED25519_sign(sig, tbs, tbslen, edkey->pubkey, edkey->privkey, NULL,
+                     NULL) == 0)
         return 0;
     *siglen = ED25519_SIGSIZE;
     return 1;
@@ -877,7 +879,7 @@ static int pkey_ecd_digestverify25519(EVP_MD_CTX *ctx, const unsigned char *sig,
     if (siglen != ED25519_SIGSIZE)
         return 0;
 
-    return ED25519_verify(tbs, tbslen, sig, edkey->pubkey);
+    return ED25519_verify(tbs, tbslen, sig, edkey->pubkey, NULL, NULL);
 }
 
 static int pkey_ecd_digestverify448(EVP_MD_CTX *ctx, const unsigned char *sig,
