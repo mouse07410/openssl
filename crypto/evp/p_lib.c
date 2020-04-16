@@ -627,14 +627,6 @@ RSA *EVP_PKEY_get1_RSA(EVP_PKEY *pkey)
 # endif
 
 # ifndef OPENSSL_NO_DSA
-int EVP_PKEY_set1_DSA(EVP_PKEY *pkey, DSA *key)
-{
-    int ret = EVP_PKEY_assign_DSA(pkey, key);
-    if (ret)
-        DSA_up_ref(key);
-    return ret;
-}
-
 DSA *EVP_PKEY_get0_DSA(const EVP_PKEY *pkey)
 {
     if (!evp_pkey_downgrade((EVP_PKEY *)pkey)) {
@@ -648,6 +640,13 @@ DSA *EVP_PKEY_get0_DSA(const EVP_PKEY *pkey)
     return pkey->pkey.dsa;
 }
 
+int EVP_PKEY_set1_DSA(EVP_PKEY *pkey, DSA *key)
+{
+    int ret = EVP_PKEY_assign_DSA(pkey, key);
+    if (ret)
+        DSA_up_ref(key);
+    return ret;
+}
 DSA *EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
 {
     DSA *ret = EVP_PKEY_get0_DSA(pkey);
@@ -655,10 +654,11 @@ DSA *EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
         DSA_up_ref(ret);
     return ret;
 }
-# endif
+# endif /*  OPENSSL_NO_DSA */
+#endif /* FIPS_MODE */
 
+#ifndef FIPS_MODE
 # ifndef OPENSSL_NO_EC
-
 int EVP_PKEY_set1_EC_KEY(EVP_PKEY *pkey, EC_KEY *key)
 {
     int ret = EVP_PKEY_assign_EC_KEY(pkey, key);
@@ -1559,8 +1559,11 @@ int evp_pkey_downgrade(EVP_PKEY *pk)
     evp_pkey_free_it(pk);
     if (EVP_PKEY_set_type(pk, type)) {
         /* If the key is typed but empty, we're done */
-        if (keydata == NULL)
+        if (keydata == NULL) {
+            /* We're dropping the EVP_KEYMGMT */
+            EVP_KEYMGMT_free(keymgmt);
             return 1;
+        }
 
         if (pk->ameth->import_from == NULL) {
             ERR_raise_data(ERR_LIB_EVP, EVP_R_NO_IMPORT_FUNCTION,
@@ -1579,6 +1582,9 @@ int evp_pkey_downgrade(EVP_PKEY *pk)
 
             /* Synchronize the dirty count */
             pk->dirty_cnt_copy = pk->ameth->dirty_cnt(pk);
+
+            /* evp_keymgmt_export() increased the refcount... */
+            EVP_KEYMGMT_free(keymgmt);
             return 1;
         }
 
@@ -1597,6 +1603,8 @@ int evp_pkey_downgrade(EVP_PKEY *pk)
         ERR_raise(ERR_LIB_EVP, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+    /* EVP_PKEY_set_type_by_keymgmt() increased the refcount... */
+    EVP_KEYMGMT_free(keymgmt);
     pk->keydata = keydata;
     evp_keymgmt_util_cache_keyinfo(pk);
     return 0;     /* No downgrade, but at least the key is restored */

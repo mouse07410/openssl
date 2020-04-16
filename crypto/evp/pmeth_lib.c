@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2006-2018 The OpenSSL Project Authors. All Rights Reserved.
  *
@@ -9,7 +8,7 @@
  */
 
 /*
- * DH low level APIs are deprecated for public use, but still ok for
+ * Low level key APIs (DH etc) are deprecated for public use, but still ok for
  * internal use.
  */
 #include "internal/deprecated.h"
@@ -25,6 +24,8 @@
 #include "internal/cryptlib.h"
 #include "crypto/asn1.h"
 #include "crypto/evp.h"
+#include "crypto/dh.h"
+#include "internal/ffc.h"
 #include "internal/numbers.h"
 #include "internal/provider.h"
 #include "evp_local.h"
@@ -611,6 +612,12 @@ int EVP_PKEY_CTX_get_params(EVP_PKEY_CTX *ctx, OSSL_PARAM *params)
             && ctx->op.ciph.cipher->get_ctx_params != NULL)
         return ctx->op.ciph.cipher->get_ctx_params(ctx->op.ciph.ciphprovctx,
                                                    params);
+    if (EVP_PKEY_CTX_IS_GEN_OP(ctx)
+        && ctx->op.keymgmt.genctx != NULL
+        && ctx->keymgmt != NULL
+        && ctx->keymgmt->gen_get_params != NULL)
+        return evp_keymgmt_gen_get_params(ctx->keymgmt, ctx->op.keymgmt.genctx,
+                                          params);
     return 0;
 }
 
@@ -803,17 +810,42 @@ static int legacy_ctrl_to_param(EVP_PKEY_CTX *ctx, int keytype, int optype,
      */
     if (cmd == EVP_PKEY_CTRL_CIPHER)
         return -2;
+
 # ifndef OPENSSL_NO_DH
     if (keytype == EVP_PKEY_DH) {
         switch (cmd) {
             case EVP_PKEY_CTRL_DH_PAD:
                 return EVP_PKEY_CTX_set_dh_pad(ctx, p1);
+            case EVP_PKEY_CTRL_DH_PARAMGEN_PRIME_LEN:
+                return EVP_PKEY_CTX_set_dh_paramgen_prime_len(ctx, p1);
+            case EVP_PKEY_CTRL_DH_PARAMGEN_SUBPRIME_LEN:
+                return EVP_PKEY_CTX_set_dh_paramgen_subprime_len(ctx, p1);
+            case EVP_PKEY_CTRL_DH_PARAMGEN_GENERATOR:
+                return EVP_PKEY_CTX_set_dh_paramgen_generator(ctx, p1);
+            case EVP_PKEY_CTRL_DH_PARAMGEN_TYPE:
+                return EVP_PKEY_CTX_set_dh_paramgen_type(ctx, p1);
+            case EVP_PKEY_CTRL_DH_RFC5114:
+                return EVP_PKEY_CTX_set_dh_rfc5114(ctx, p1);
+        }
+    }
+# endif
+# ifndef OPENSSL_NO_DSA
+    if (keytype == EVP_PKEY_DSA) {
+        switch (cmd) {
+        case EVP_PKEY_CTRL_DSA_PARAMGEN_BITS:
+            return EVP_PKEY_CTX_set_dsa_paramgen_bits(ctx, p1);
+        case EVP_PKEY_CTRL_DSA_PARAMGEN_Q_BITS:
+            return EVP_PKEY_CTX_set_dsa_paramgen_q_bits(ctx, p1);
+        case EVP_PKEY_CTRL_DSA_PARAMGEN_MD:
+            return EVP_PKEY_CTX_set_dsa_paramgen_md(ctx, p2);
         }
     }
 # endif
 # ifndef OPENSSL_NO_EC
     if (keytype == EVP_PKEY_EC) {
         switch (cmd) {
+        case EVP_PKEY_CTRL_EC_PARAMGEN_CURVE_NID:
+            return EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, p1);
         case EVP_PKEY_CTRL_EC_ECDH_COFACTOR:
             if (p1 == -2) {
                 return EVP_PKEY_CTX_get_ecdh_cofactor_mode(ctx);
@@ -959,6 +991,24 @@ int EVP_PKEY_CTX_ctrl_uint64(EVP_PKEY_CTX *ctx, int keytype, int optype,
 static int legacy_ctrl_str_to_param(EVP_PKEY_CTX *ctx, const char *name,
                                     const char *value)
 {
+
+    /* Special cases that we intercept */
+# ifndef OPENSSL_NO_EC
+    /*
+     * We don't support encoding settings for providers, i.e. the only
+     * possible encoding is "named_curve", so we simply fail when something
+     * else is given, and otherwise just pretend all is fine.
+     */
+    if (strcmp(name, "ec_param_enc") == 0) {
+        if (strcmp(value, "named_curve") == 0) {
+            return 1;
+        } else {
+            ERR_raise(ERR_LIB_EVP, EVP_R_COMMAND_NOT_SUPPORTED);
+            return -2;
+        }
+    }
+# endif
+
     if (strcmp(name, "rsa_padding_mode") == 0)
         name = OSSL_ASYM_CIPHER_PARAM_PAD_MODE;
     else if (strcmp(name, "rsa_mgf1_md") == 0)
@@ -975,11 +1025,35 @@ static int legacy_ctrl_str_to_param(EVP_PKEY_CTX *ctx, const char *name,
         name = OSSL_PKEY_PARAM_RSA_E;
     else if (strcmp(name, "rsa_keygen_primes") == 0)
         name = OSSL_PKEY_PARAM_RSA_PRIMES;
+# ifndef OPENSSL_NO_DSA
+    else if (strcmp(name, "dsa_paramgen_bits") == 0)
+        name = OSSL_PKEY_PARAM_FFC_PBITS;
+    else if (strcmp(name, "dsa_paramgen_q_bits") == 0)
+        name = OSSL_PKEY_PARAM_FFC_QBITS;
+    else if (strcmp(name, "dsa_paramgen_md") == 0)
+        name = OSSL_PKEY_PARAM_FFC_DIGEST;
+# endif
 # ifndef OPENSSL_NO_DH
-    else if (strcmp(name, "dh_pad") == 0)
+    else if (strcmp(name, "dh_paramgen_generator") == 0)
+        name = OSSL_PKEY_PARAM_FFC_GENERATOR;
+    else if (strcmp(name, "dh_paramgen_prime_len") == 0)
+        name = OSSL_PKEY_PARAM_FFC_PBITS;
+    else if (strcmp(name, "dh_paramgen_subprime_len") == 0)
+        name = OSSL_PKEY_PARAM_FFC_QBITS;
+    else if (strcmp(name, "dh_paramgen_type") == 0) {
+        name = OSSL_PKEY_PARAM_FFC_TYPE;
+        value = dh_gen_type_id2name(atoi(value));
+    } else if (strcmp(name, "dh_param") == 0)
+        name = OSSL_PKEY_PARAM_FFC_GROUP;
+    else if (strcmp(name, "dh_rfc5114") == 0) {
+        name = OSSL_PKEY_PARAM_FFC_GROUP;
+        value = ffc_named_group_from_uid(atoi(value));
+    } else if (strcmp(name, "dh_pad") == 0)
         name = OSSL_EXCHANGE_PARAM_PAD;
 # endif
 # ifndef OPENSSL_NO_EC
+    else if (strcmp(name, "ec_paramgen_curve") == 0)
+        name = OSSL_PKEY_PARAM_EC_NAME;
     else if (strcmp(name, "ecdh_cofactor_mode") == 0)
         name = OSSL_EXCHANGE_PARAM_EC_ECDH_COFACTOR_MODE;
     else if (strcmp(name, "ecdh_kdf_md") == 0)
