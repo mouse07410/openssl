@@ -196,7 +196,7 @@ DH *DH_get_2048_256(void);
 /* Named parameters, currently RFC7919 and RFC3526 */
 /* TODO(3.0): deprecate DH_new_by_nid() after converting ssl/s3_lib.c */
 DH *DH_new_by_nid(int nid);
-DEPRECATEDIN_3_0(int DH_get_nid(DH *dh))
+DEPRECATEDIN_3_0(int DH_get_nid(const DH *dh))
 
 #  ifndef OPENSSL_NO_CMS
 /* RFC2631 KDF */
@@ -222,8 +222,8 @@ void DH_clear_flags(DH *dh, int flags);
 int DH_test_flags(const DH *dh, int flags);
 void DH_set_flags(DH *dh, int flags);
 DEPRECATEDIN_3_0(ENGINE *DH_get0_engine(DH *d))
-DEPRECATEDIN_3_0(long DH_get_length(const DH *dh))
-DEPRECATEDIN_3_0(int DH_set_length(DH *dh, long length))
+long DH_get_length(const DH *dh);
+int DH_set_length(DH *dh, long length);
 
 DEPRECATEDIN_3_0(DH_METHOD *DH_meth_new(const char *name, int flags))
 DEPRECATEDIN_3_0(void DH_meth_free(DH_METHOD *dhm))
