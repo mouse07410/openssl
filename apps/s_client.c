@@ -1714,18 +1714,14 @@ int s_client_main(int argc, char **argv)
     if (key_file != NULL) {
         key = load_key(key_file, key_format, 0, pass, e,
                        "client certificate private key file");
-        if (key == NULL) {
-            ERR_print_errors(bio_err);
+        if (key == NULL)
             goto end;
-        }
     }
 
     if (cert_file != NULL) {
         cert = load_cert(cert_file, cert_format, "client certificate file");
-        if (cert == NULL) {
-            ERR_print_errors(bio_err);
+        if (cert == NULL)
             goto end;
-        }
     }
 
     if (chain_file != NULL) {
@@ -1736,12 +1732,9 @@ int s_client_main(int argc, char **argv)
 
     if (crl_file != NULL) {
         X509_CRL *crl;
-        crl = load_crl(crl_file, crl_format);
-        if (crl == NULL) {
-            BIO_puts(bio_err, "Error loading CRL\n");
-            ERR_print_errors(bio_err);
+        crl = load_crl(crl_file, crl_format, "CRL");
+        if (crl == NULL)
             goto end;
-        }
         crls = sk_X509_CRL_new_null();
         if (crls == NULL || !sk_X509_CRL_push(crls, crl)) {
             BIO_puts(bio_err, "Error adding CRL\n");
