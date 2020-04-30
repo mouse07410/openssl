@@ -230,9 +230,11 @@ static int evp_pkey_cmp_any(const EVP_PKEY *a, const EVP_PKEY *b,
      * us to compare types using legacy NIDs.
      */
     if ((a->type != EVP_PKEY_NONE
-         && !EVP_KEYMGMT_is_a(b->keymgmt, OBJ_nid2sn(a->type)))
+         && (b->keymgmt == NULL
+             || !EVP_KEYMGMT_is_a(b->keymgmt, OBJ_nid2sn(a->type))))
         || (b->type != EVP_PKEY_NONE
-            && !EVP_KEYMGMT_is_a(a->keymgmt, OBJ_nid2sn(b->type))))
+            && (a->keymgmt == NULL
+                || !EVP_KEYMGMT_is_a(a->keymgmt, OBJ_nid2sn(b->type)))))
         return -1;               /* not the same key type */
 
     /*
@@ -1210,10 +1212,12 @@ static int pkey_set_type(EVP_PKEY *pkey, ENGINE *e, int type, const char *str,
          * to the |save_type| field, because |type| is supposed to be set
          * to EVP_PKEY_NONE in that case.
          */
-        if (keymgmt != NULL)
-            pkey->save_type = ameth->pkey_id;
-        else if (pkey->ameth != NULL)
-            pkey->type = ameth->pkey_id;
+        if (ameth != NULL) {
+            if (keymgmt != NULL)
+                pkey->save_type = ameth->pkey_id;
+            else if (pkey->ameth != NULL)
+                pkey->type = ameth->pkey_id;
+        }
 #endif
     }
     return 1;
