@@ -368,8 +368,8 @@ init = 0
 engine_id = gost
 dynamic_path = /Users/uri/openssl-3/lib/engines-3/gost.dylib
 default_algorithms = ALL
-#CRYPT_PARAMS = id_Gost28147-89-CryptoPro-A-ParamSet
-#CRYPT_PARAMS = id_GostR3410_2001_CryptoPro_A_ParamSet
+#CRYPT_PARAMS = id-Gost28147-89-CryptoPro-A-ParamSet
+CRYPT-PARAMS = id-GostR3410-2001-CryptoPro-A-ParamSet
 PBE_PARAMS = "gost12_512"
 init = 0
 
