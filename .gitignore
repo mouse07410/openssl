@@ -18,6 +18,7 @@
 /apps/tsget
 /apps/tsget.pl
 /apps/md4.c
+/apps/openssl-vms.cnf
 
 # Auto generated headers
 /crypto/buildinf.h
