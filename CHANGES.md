@@ -23,12 +23,18 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
-* Deprecated EC_GROUP_precompute_mult(), EC_GROUP_have_precompute_mult(), and
-  EC_KEY_precompute_mult() These functions are not widely used and applications
-  should instead switch to named curves which OpenSSL has hardcoded lookup
-  tables for.
+ * Deprecated EC_POINT_make_affine() and EC_POINTs_make_affine(). These
+   functions are not widely used and now OpenSSL automatically perform this
+   conversion when needed.
 
-  *Billy Bob Brumley*
+   *Billy Bob Brumley*
+
+ * Deprecated EC_GROUP_precompute_mult(), EC_GROUP_have_precompute_mult(), and
+   EC_KEY_precompute_mult(). These functions are not widely used and
+   applications should instead switch to named curves which OpenSSL has
+   hardcoded lookup tables for.
+
+   *Billy Bob Brumley*
 
  * Deprecated EC_POINTs_mul(). This function is not widely used and applications
    should instead use the L<EC_POINT_mul(3)> function.
@@ -41,6 +47,12 @@ OpenSSL 3.0
    EVP_default_properties_enable_fips().
 
    *Shane Lontis*
+
+ * The SSL option SSL_OP_IGNORE_UNEXPECTED_EOF is introduced. If that option
+   is set, an unexpected EOF is ignored, it pretends a close notify was received
+   instead and so the returned error becomes SSL_ERROR_ZERO_RETURN.
+
+   *Dmitry Belyavskiy*
 
  * Deprecated EC_POINT_set_Jprojective_coordinates_GFp() and
    EC_POINT_get_Jprojective_coordinates_GFp(). These functions are not widely
