@@ -411,8 +411,8 @@ static void *gen_init(void *provctx, int selection, int rsa_type)
         } else {
             gctx->nbits = 2048;
             gctx->primes = RSA_DEFAULT_PRIME_NUM;
+            gctx->rsa_type = rsa_type;
         }
-        gctx->rsa_type = rsa_type;
     }
     return gctx;
 }
@@ -496,6 +496,9 @@ static void *rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
     RSA *rsa = NULL, *rsa_tmp = NULL;
     BN_GENCB *gencb = NULL;
 
+    if (gctx == NULL)
+        return NULL;
+
     switch (gctx->rsa_type) {
     case RSA_FLAG_TYPE_RSA:
         /* For plain RSA keys, PSS parameters must not be set */
@@ -513,8 +516,7 @@ static void *rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
         return NULL;
     }
 
-    if (gctx == NULL
-        || (rsa_tmp = rsa_new_with_ctx(gctx->libctx)) == NULL)
+    if ((rsa_tmp = rsa_new_with_ctx(gctx->libctx)) == NULL)
         return NULL;
 
     gctx->cb = osslcb;
