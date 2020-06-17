@@ -257,6 +257,7 @@ static OSSL_CRMF_MSG *crm_new(OSSL_CMP_CTX *ctx, int bodytype, int rid)
 
         notBefore = time(NULL);
         notAfter = notBefore + 60 * 60 * 24 * ctx->days;
+        /* potential overflow is checked by OSSL_CMP_CTX_set_option() */
         if (!OSSL_CRMF_MSG_set_validity(crm, notBefore, notAfter))
             goto err;
     }
