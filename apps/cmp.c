@@ -1883,7 +1883,7 @@ static int setup_request_ctx(OSSL_CMP_CTX *ctx, ENGINE *e)
     if (opt_days > 0
             && !OSSL_CMP_CTX_set_option(ctx, OSSL_CMP_OPT_VALIDITY_DAYS,
                                         opt_days)) {
-        CMP_err("-days argument is too large: resulting epoch value exceeds INT_MAX");
+        CMP_err("could to set requested cert validity period");
         goto err;
     }
 
