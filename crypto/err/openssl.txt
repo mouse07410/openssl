@@ -2522,6 +2522,7 @@ EVP_R_CTRL_NOT_IMPLEMENTED:132:ctrl not implemented
 EVP_R_CTRL_OPERATION_NOT_IMPLEMENTED:133:ctrl operation not implemented
 EVP_R_DATA_NOT_MULTIPLE_OF_BLOCK_LENGTH:138:data not multiple of block length
 EVP_R_DECODE_ERROR:114:decode error
+EVP_R_DEFAULT_QUERY_PARSE_ERROR:210:default query parse error
 EVP_R_DIFFERENT_KEY_TYPES:101:different key types
 EVP_R_DIFFERENT_PARAMETERS:153:different parameters
 EVP_R_ERROR_LOADING_SECTION:165:error loading section
@@ -2682,6 +2683,7 @@ OCSP_R_UNKNOWN_MESSAGE_DIGEST:119:unknown message digest
 OCSP_R_UNKNOWN_NID:120:unknown nid
 OCSP_R_UNSUPPORTED_REQUESTORNAME_TYPE:129:unsupported requestorname type
 OSSL_SERIALIZER_R_INCORRECT_PROPERTY_QUERY:100:incorrect property query
+OSSL_SERIALIZER_R_SERIALIZER_NOT_FOUND:101:serializer not found
 OSSL_STORE_R_AMBIGUOUS_CONTENT_TYPE:107:ambiguous content type
 OSSL_STORE_R_BAD_PASSWORD_READ:115:bad password read
 OSSL_STORE_R_ERROR_VERIFYING_PKCS12_MAC:113:error verifying pkcs12 mac
