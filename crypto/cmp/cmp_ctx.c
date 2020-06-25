@@ -941,10 +941,6 @@ int OSSL_CMP_CTX_set_option(OSSL_CMP_CTX *ctx, int opt, int val)
         ctx->unprotectedErrors = val;
         break;
     case OSSL_CMP_OPT_VALIDITY_DAYS:
-        if (val >= (INT_MAX - time(NULL)) / (60 * 60 * 24)) {
-            CMPerr(0, CMP_R_VALUE_TOO_LARGE);
-            return 0;
-        }
         ctx->days = val;
         break;
     case OSSL_CMP_OPT_SUBJECTALTNAME_NODEFAULT:
