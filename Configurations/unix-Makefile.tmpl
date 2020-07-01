@@ -1125,7 +1125,7 @@ tar:
 link-utils: $(BLDDIR)/util/opensslwrap.sh $(BLDDIR)/util/wrap.pl
 
 $(BLDDIR)/util/opensslwrap.sh $(BLDDIR)/util/wrap.pl: configdata.pm
-	@if [ "`readlink $(SRCDIR)`" != "`readlink $(BLDDIR)`" ]; then \
+	@if [ "$(SRCDIR)" != "$(BLDDIR)" ]; then \
 	    mkdir -p "$(BLDDIR)/util"; \
 	    ln -sf "../$(SRCDIR)/util/`basename "$@"`" "$(BLDDIR)/util"; \
 	fi
