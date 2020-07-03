@@ -9,15 +9,16 @@
 use strict;
 use warnings;
 
-# Recognise VERBOSE and V which is common on other projects.
-# Additionally, also recognise VERBOSE_FAILURE and VF.
+# Recognise VERBOSE aka V which is common on other projects.
+# Additionally, recognise VERBOSE_FAILURE aka VF aka REPORT_FAILURES
+# and recognise VERBOSE_FAILURE_PROGRESS aka VFP aka REPORT_FAILURES_PROGRESS.
 BEGIN {
     $ENV{HARNESS_VERBOSE} = "yes" if $ENV{VERBOSE} || $ENV{V};
-    $ENV{HARNESS_VERBOSE_FAILURE} = "yes" if $ENV{VERBOSE_FAILURE} || $ENV{VF};
-    $ENV{HARNESS_VERBOSE_FAILURES_ONLY} = "yes"
-        if $ENV{VERBOSE_FAILURES_ONLY} || $ENV{VFO};
-    $ENV{HARNESS_VERBOSE_FAILURES_PROGRESS} = "yes"
-        if $ENV{VERBOSE_FAILURES_PROGRESS} || $ENV{VFP};
+    $ENV{HARNESS_VERBOSE_FAILURE} = "yes"
+        if $ENV{VERBOSE_FAILURE} || $ENV{VF} || $ENV{REPORT_FAILURES};
+    $ENV{HARNESS_VERBOSE_FAILURE_PROGRESS} = "yes"
+        if ($ENV{VERBOSE_FAILURE_PROGRESS} || $ENV{VFP}
+            || $ENV{REPORT_FAILURES_PROGRESS});
 }
 
 use File::Spec::Functions qw/catdir catfile curdir abs2rel rel2abs/;
@@ -53,9 +54,13 @@ $tapargs{jobs} = $jobs if defined $jobs;
 my %openssl_args = ();
 
 $openssl_args{'failure_verbosity'} = $ENV{HARNESS_VERBOSE} ? 0 :
-    $ENV{HARNESS_VERBOSE_FAILURE} ? 3 :
-    $ENV{HARNESS_VERBOSE_FAILURES_PROGRESS} ? 2 :
-    $ENV{HARNESS_VERBOSE_FAILURES_ONLY} ? 1 : 0;
+    $ENV{HARNESS_VERBOSE_FAILURE_PROGRESS} ? 2 :
+    1; # $ENV{HARNESS_VERBOSE_FAILURE}
+print "Warning: HARNESS_VERBOSE overrides HARNESS_VERBOSE_FAILURE*\n"
+    if ($ENV{HARNESS_VERBOSE} && ($ENV{HARNESS_VERBOSE_FAILURE}
+                                  || $ENV{HARNESS_VERBOSE_FAILURE_PROGRESS}));
+print "Warning: HARNESS_VERBOSE_FAILURE_PROGRESS overrides HARNESS_VERBOSE_FAILURE\n"
+    if ($ENV{HARNESS_VERBOSE_FAILURE_PROGRESS} && $ENV{HARNESS_VERBOSE_FAILURE});
 
 my $outfilename = $ENV{HARNESS_TAP_COPY};
 open $openssl_args{'tap_copy'}, ">$outfilename"
@@ -153,9 +158,7 @@ $eres = eval {
                     if defined $fh;
 
                 my $failure_verbosity = $openssl_args{failure_verbosity};
-                if ($failure_verbosity == 3) {
-                    push @failure_output, $self->as_string;
-                } elsif ($failure_verbosity > 0) {
+                if ($failure_verbosity > 0) {
                     my $is_plan = $self->is_plan;
                     my $tests_planned = $is_plan && $self->tests_planned;
                     my $is_test = $self->is_test;
@@ -180,6 +183,7 @@ $eres = eval {
                         print $output_buffer if !$is_ok;
                         print "\n".$self->as_string
                             if !$is_ok || $failure_verbosity == 2;
+                        print "\n# ------------------------------------------------------------------------------" if !$is_ok;
                         $output_buffer = "";
                     } elsif ($self->as_string ne "") {
                         # typically is_comment or is_unknown
@@ -201,7 +205,7 @@ $eres = eval {
                     print $_, "\n" foreach (("", @failure_output));
                 }
                 # Echo any trailing comments etc.
-                print "$output_buffer" if $failure_verbosity != 3;
+                print "$output_buffer";
             };
         }
 
