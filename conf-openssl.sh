@@ -12,7 +12,7 @@ OPENSSL_GOST_ENGINE_SO=${OPENSSL_DIR}/lib/engines-3/gost.dylib
 
 CFLAGS="$CFLAGS -g"
 
-export KERNEL_BITS="64"
+export KERNEL_BITS=64
 
 make distclean || true
 
@@ -26,5 +26,5 @@ make distclean || true
 #./Configure debug-darwin64-x86_64-cc --debug --prefix=/opt/local --openssldir=/opt/local/etc/openssl shared threads enable-rfc3779
 
 #make update && 
-time (make depend && make -j 12 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGINE_SO="${OPENSSL_GOST_ENGINE_SO}" make -j4 test 2>&1 | tee test-out.txt  && make install 2>&1 | tee install-out.txt && cp apps/openssl-3.cnf $OPENSSL_DIR/etc/openssl.cnf && tail test-out.txt)
+time (make depend && make -j 4 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGINE_SO="${OPENSSL_GOST_ENGINE_SO}" make -j4 test 2>&1 | tee test-out.txt  && make install 2>&1 | tee install-out.txt && cp apps/openssl-3.cnf $OPENSSL_DIR/etc/openssl.cnf && tail test-out.txt)
 
