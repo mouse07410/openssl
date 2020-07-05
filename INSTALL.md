@@ -48,8 +48,8 @@ Prerequisites
 To install OpenSSL, you will need:
 
  * A "make" implementation
- * Perl 5 with core modules (please read [NOTES.PERL](NOTES.PERL))
- * The Perl module Text::Template (please read [NOTES.PERL](NOTES.PERL))
+ * Perl 5 with core modules (please read [NOTES-Perl.md](NOTES-Perl.md))
+ * The Perl module `Text::Template` (please read [NOTES-PERL.md](NOTES-Perl.md))
  * an ANSI C compiler
  * a development environment in the form of development libraries and C
    header files
@@ -58,13 +58,13 @@ To install OpenSSL, you will need:
 For additional platform specific requirements, solutions to specific
 issues and other details, please read one of these:
 
- * [NOTES.UNIX](NOTES.UNIX) - notes for Unix like systems
- * [NOTES.VMS](NOTES.VMS) - notes related to OpenVMS
- * [NOTES.WIN](NOTES.WIN) - notes related to the Windows platform
- * [NOTES.DJGPP](NOTES.DJGPP) - building for DOS with DJGPP
- * [NOTES.ANDROID](NOTES.ANDROID) - building for Android platforms (using NDK)
- * [NOTES.VALGRIND](NOTES.VALGRIND) - testing with Valgrind
- * [NOTES.PERL](NOTES.PERL) - some notes on Perl
+ * [NOTES-Unix.md](NOTES-Unix.md) - notes for Unix like systems
+ * [NOTES-VMS.md](NOTES-VMS.md) - notes related to OpenVMS
+ * [NOTES-Windows.txt](NOTES-Windows.txt) - notes related to the Windows platform
+ * [NOTES-DJGPP.md](NOTES-DJGPP.md) - building for DOS with DJGPP
+ * [NOTES-Android.md](NOTES-Android.md) - building for Android platforms (using NDK)
+ * [NOTES-Valgrind.md](NOTES-Valgrind.md) - testing with Valgrind
+ * [NOTES-Perl.m](NOTES-Perl.md) - some notes on Perl
 
 Notational conventions
 ======================
@@ -275,7 +275,7 @@ On OpenVMS:
     $ perl Configure --prefix=PROGRAM:[INSTALLS] --openssldir=SYS$MANAGER:[OPENSSL]
 
 Note: if you do add options to the configuration command, please make sure
-you've read more than just this Quick Start, such as relevant `NOTES.*` files,
+you've read more than just this Quick Start, such as relevant `NOTES-*` files,
 the options outline below, as configuration options may change the outcome
 in otherwise unexpected ways.
 
@@ -285,7 +285,7 @@ Configuration Options
 There are several options to `./Configure` to customize the build (note that
 for Windows, the defaults for `--prefix` and `--openssldir` depend on what
 configuration is used and what Windows implementation OpenSSL is built on.
-More notes on this in [NOTES.WIN](NOTES.WIN)):
+More notes on this in [NOTES-Windows.txt](NOTES-Windows.txt):
 
 API Level
 ---------
@@ -680,7 +680,8 @@ external test suites are currently supported:
  - Python PYCA/Cryptography test suite
  - krb5 test suite
 
-See the file [test/README.external](test/README.external) for further details.
+See the file [test/README-external.md](test/README-external.md)
+for further details.
 
 ### no-filenames
 
@@ -1152,8 +1153,8 @@ run:
 If your system isn't listed, you will have to create a configuration
 file named `Configurations/{{ something }}.conf` and add the correct
 configuration for your system.  See the available configs as examples
-and read [Configurations/README](Configurations/README)
-and [Configurations/README.design](Configurations/README.design)
+and read [Configurations/README.md](Configurations/README.md) and
+[Configurations/README-design.md](Configurations/README-design.md)
 for more information.
 
 The generic configurations `cc` or `gcc` should usually work on 32 bit
@@ -1223,7 +1224,9 @@ be tested.  Run:
 **Warning:** you MUST run the tests from an unprivileged account (or disable
 your privileges temporarily if your platform allows it).
 
-See the file [test/README.md](test/README.md) for further details.
+See [test/README.md](test/README.md) for further details how run tests.
+
+See [test/README-dev.md](test/README-dev.md) for guidelines on adding tests.
 
 Install OpenSSL
 ---------------
@@ -1359,7 +1362,8 @@ over the build process.  Typically these should be defined prior to running
                    Use a different build file name than the platform default
                    ("Makefile" on Unix-like platforms, "makefile" on native Windows,
                    "descrip.mms" on OpenVMS).  This requires that there is a
-                   corresponding build file template.  See Configurations/README
+                   corresponding build file template.
+                   See [Configurations/README.md](Configurations/README.md)
                    for further information.
 
     CC
@@ -1382,15 +1386,15 @@ over the build process.  Typically these should be defined prior to running
                    templates for those platforms. The database is comprised of
                    ".conf" files in the Configurations directory.  The build
                    file templates reside there as well as ".tmpl" files. See the
-                   file Configurations/README for further information about the
-                   format of ".conf" files as well as information on the ".tmpl"
-                   files.
+                   file [Configurations/README.md](Configurations/README.md)
+                   for further information about the format of ".conf" files
+                   as well as information on the ".tmpl" files.
                    In addition to the standard ".conf" and ".tmpl" files, it is
-                   possible to create your own ".conf" and ".tmpl" files and store
-                   them locally, outside the OpenSSL source tree. This environment
-                   variable can be set to the directory where these files are held
-                   and will be considered by Configure before it looks in the
-                   standard directories.
+                   possible to create your own ".conf" and ".tmpl" files and
+                   store them locally, outside the OpenSSL source tree.
+                   This environment variable can be set to the directory where
+                   these files are held and will be considered by Configure
+                   before it looks in the standard directories.
 
     PERL
                    The name of the Perl executable to use when building OpenSSL.
@@ -1501,7 +1505,7 @@ cases it does not succeed. You will see a message like the following:
 
     $ ./Configure
     Operating system: x86-whatever-minix
-    This system (minix) is not supported. See file INSTALL for details.
+    This system (minix) is not supported. See file INSTALL.md for details.
 
 Even if the automatic target selection by the `./Configure` script fails,
 chances are that you still might find a suitable target in the `Configurations`
@@ -1534,8 +1538,8 @@ known targets. Using `grep`, you can lookup the target definition in the
 The directory contains two README files, which explain the general syntax and
 design of the configuration files.
 
- - [Configurations/README](Configurations/README)
- - [Configurations/README.design](Configurations/README.design)
+ - [Configurations/README.md](Configurations/README.md)
+ - [Configurations/README-design.md](Configurations/README-design.md)
 
 If you need further help, try to search the [openssl-users][] mailing list
 or the [GitHub Issues][] for existing solutions. If you don't find anything,
