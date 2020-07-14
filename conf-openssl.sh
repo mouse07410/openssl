@@ -16,7 +16,7 @@ export KERNEL_BITS=64
 
 make distclean || true
 
-date
+START_BUILD="`date`"
 
 # For OpenSSL-3 master (development branch)
 ./config --prefix=${OPENSSL_DIR} --debug --openssldir=${OPENSSL_DIR}/etc --with-rand-seed=rdcpu,os enable-ec_nistp_64_gcc_128 enable-md2 enable-rc5 enable-weak-ssl-ciphers zlib-dynamic enable-ssl-trace enable-trace threads enable-buildtest-c++
@@ -30,4 +30,8 @@ date
 #make update && 
 time (make depend && make -j 4 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGINE_SO="${OPENSSL_GOST_ENGINE_SO}" make -j4 test 2>&1 | tee test-out.txt  && make install 2>&1 | tee install-out.txt && cp apps/openssl-3.cnf $OPENSSL_DIR/etc/openssl.cnf && tail test-out.txt)
 
-date
+END_BUILD="`date'"
+
+echo "Start: ${START_BUILD}"
+echo "End:   ${END_BUILD}"
+#
