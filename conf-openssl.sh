@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash
 
 unset OPENSSL_INCLUDE_DIR
 unset OPENSSL_LIB_DIR
