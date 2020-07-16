@@ -9,6 +9,9 @@
  * https://www.openssl.org/source/license.html
  */
 
+/* We need to use some engine deprecated APIs */
+#define OPENSSL_SUPPRESS_DEPRECATED
+
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
@@ -2551,7 +2554,7 @@ MSG_PROCESS_RETURN tls_process_certificate_request(SSL *s, PACKET *pkt)
      * after the CertificateVerify message has been received. This is because
      * in TLSv1.3 the CertificateRequest arrives before the Certificate message
      * but in TLSv1.2 it is the other way around. We want to make sure that
-     * SSL_get_peer_certificate() returns something sensible in
+     * SSL_get1_peer_certificate() returns something sensible in
      * client_cert_cb.
      */
     if (SSL_IS_TLS13(s) && s->post_handshake_auth != SSL_PHA_REQUESTED)

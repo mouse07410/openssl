@@ -514,6 +514,7 @@ typedef struct cipher_data_st {
     unsigned char *aad[AAD_NUM];
     size_t aad_len[AAD_NUM];
     unsigned char *tag;
+    const char *cts_mode;
     size_t tag_len;
     int tag_late;
 } CIPHER_DATA;
@@ -628,6 +629,10 @@ static int cipher_test_parse(EVP_TEST *t, const char *keyword,
             return -1;
         return 1;
     }
+    if (strcmp(keyword, "CTSMode") == 0) {
+        cdat->cts_mode = value;
+        return 1;
+    }
     return 0;
 }
 
@@ -686,6 +691,18 @@ static int cipher_test_enc(EVP_TEST *t, int enc,
     if (!EVP_CipherInit_ex(ctx_base, expected->cipher, NULL, NULL, NULL, enc)) {
         t->err = "CIPHERINIT_ERROR";
         goto err;
+    }
+    if (expected->cts_mode != NULL) {
+        OSSL_PARAM params[2];
+
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_CIPHER_PARAM_CTS_MODE,
+                                                     (char *)expected->cts_mode,
+                                                     0);
+        params[1] = OSSL_PARAM_construct_end();
+        if (!EVP_CIPHER_CTX_set_params(ctx_base, params)) {
+            t->err = "INVALID_CTS_MODE";
+            goto err;
+        }
     }
     if (expected->iv) {
         if (expected->aead) {
@@ -939,6 +956,7 @@ static int cipher_test_run(EVP_TEST *t)
              * lengths so we don't fragment for those
              */
             if (cdat->aead == EVP_CIPH_CCM_MODE
+                    || ((EVP_CIPHER_flags(cdat->cipher) & EVP_CIPH_FLAG_CTS) != 0)
                     || EVP_CIPHER_mode(cdat->cipher) == EVP_CIPH_SIV_MODE
                     || EVP_CIPHER_mode(cdat->cipher) == EVP_CIPH_XTS_MODE
                     || EVP_CIPHER_mode(cdat->cipher) == EVP_CIPH_WRAP_MODE)
@@ -1323,12 +1341,12 @@ static int mac_test_run_mac(EVP_TEST *t)
     }
     params[params_n] = OSSL_PARAM_construct_end();
 
-    if ((ctx = EVP_MAC_new_ctx(expected->mac)) == NULL) {
+    if ((ctx = EVP_MAC_CTX_new(expected->mac)) == NULL) {
         t->err = "MAC_CREATE_ERROR";
         goto err;
     }
 
-    if (!EVP_MAC_set_ctx_params(ctx, params)) {
+    if (!EVP_MAC_CTX_set_params(ctx, params)) {
         t->err = "MAC_BAD_PARAMS";
         goto err;
     }
@@ -1360,7 +1378,7 @@ static int mac_test_run_mac(EVP_TEST *t)
     while (params_n-- > params_n_allocstart) {
         OPENSSL_free(params[params_n].data);
     }
-    EVP_MAC_free_ctx(ctx);
+    EVP_MAC_CTX_free(ctx);
     OPENSSL_free(got);
     return 1;
 }
@@ -2380,7 +2398,7 @@ static int kdf_test_init(EVP_TEST *t, const char *name)
         OPENSSL_free(kdata);
         return 0;
     }
-    kdata->ctx = EVP_KDF_new_ctx(kdf);
+    kdata->ctx = EVP_KDF_CTX_new(kdf);
     EVP_KDF_free(kdf);
     if (kdata->ctx == NULL) {
         OPENSSL_free(kdata);
@@ -2398,7 +2416,7 @@ static void kdf_test_cleanup(EVP_TEST *t)
     for (p = kdata->params; p->key != NULL; p++)
         OPENSSL_free(p->data);
     OPENSSL_free(kdata->output);
-    EVP_KDF_free_ctx(kdata->ctx);
+    EVP_KDF_CTX_free(kdata->ctx);
 }
 
 static int kdf_test_ctrl(EVP_TEST *t, EVP_KDF_CTX *kctx,
@@ -2407,8 +2425,7 @@ static int kdf_test_ctrl(EVP_TEST *t, EVP_KDF_CTX *kctx,
     KDF_DATA *kdata = t->data;
     int rv;
     char *p, *name;
-    const OSSL_PARAM *defs =
-        EVP_KDF_settable_ctx_params(EVP_KDF_get_ctx_kdf(kctx));
+    const OSSL_PARAM *defs = EVP_KDF_settable_ctx_params(EVP_KDF_CTX_kdf(kctx));
 
     if (!TEST_ptr(name = OPENSSL_strdup(value)))
         return 0;
@@ -2464,7 +2481,7 @@ static int kdf_test_run(EVP_TEST *t)
     unsigned char *got = NULL;
     size_t got_len = expected->output_len;
 
-    if (!EVP_KDF_set_ctx_params(expected->ctx, expected->params)) {
+    if (!EVP_KDF_CTX_set_params(expected->ctx, expected->params)) {
         t->err = "KDF_CTRL_ERROR";
         return 1;
     }

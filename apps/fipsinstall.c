@@ -22,8 +22,6 @@
 DEFINE_STACK_OF_STRING()
 
 #define BUFSIZE 4096
-#define DEFAULT_MAC_NAME "HMAC"
-#define DEFAULT_FIPS_SECTION "fips_check_section"
 
 /* Configuration file values */
 #define VERSION_KEY  "version"
@@ -268,10 +266,12 @@ end:
 int fipsinstall_main(int argc, char **argv)
 {
     int ret = 1, verify = 0, gotkey = 0, gotdigest = 0;
+    const char *section_name = "fips_sect";
+    const char *mac_name = "HMAC";
+    const char *prov_name = "fips";
     BIO *module_bio = NULL, *mem_bio = NULL, *fout = NULL;
-    char *in_fname = NULL, *out_fname = NULL, *prog, *section_name = NULL;
-    char *prov_name = NULL, *module_fname = NULL;
-    static const char *mac_name = DEFAULT_MAC_NAME;
+    char *in_fname = NULL, *out_fname = NULL, *prog;
+    char *module_fname = NULL;
     EVP_MAC_CTX *ctx = NULL, *ctx2 = NULL;
     STACK_OF(OPENSSL_STRING) *opts = NULL;
     OPTION_CHOICE o;
@@ -283,7 +283,6 @@ int fipsinstall_main(int argc, char **argv)
     EVP_MAC *mac = NULL;
     CONF *conf = NULL;
 
-    section_name = DEFAULT_FIPS_SECTION;
     if ((opts = sk_OPENSSL_STRING_new_null()) == NULL)
         goto end;
 
@@ -345,7 +344,7 @@ opthelp:
     argc = opt_num_rest();
     if (module_fname == NULL
         || (verify && in_fname == NULL)
-        || (!verify && (out_fname == NULL || prov_name == NULL))
+        || (!verify && out_fname == NULL)
         || argc != 0)
         goto opthelp;
 
@@ -376,7 +375,7 @@ opthelp:
         goto end;
     }
 
-    ctx = EVP_MAC_new_ctx(mac);
+    ctx = EVP_MAC_CTX_new(mac);
     if (ctx == NULL) {
         BIO_printf(bio_err, "Unable to create MAC CTX for module check\n");
         goto end;
@@ -390,7 +389,7 @@ opthelp:
         if (params == NULL)
             goto end;
 
-        if (!EVP_MAC_set_ctx_params(ctx, params)) {
+        if (!EVP_MAC_CTX_set_params(ctx, params)) {
             BIO_printf(bio_err, "MAC parameter error\n");
             ERR_print_errors(bio_err);
             ok = 0;
@@ -400,7 +399,7 @@ opthelp:
             goto end;
     }
 
-    ctx2 = EVP_MAC_dup_ctx(ctx);
+    ctx2 = EVP_MAC_CTX_dup(ctx);
     if (ctx2 == NULL) {
         BIO_printf(bio_err, "Unable to create MAC CTX for install indicator\n");
         goto end;
@@ -460,8 +459,8 @@ cleanup:
     BIO_free(module_bio);
     sk_OPENSSL_STRING_free(opts);
     EVP_MAC_free(mac);
-    EVP_MAC_free_ctx(ctx2);
-    EVP_MAC_free_ctx(ctx);
+    EVP_MAC_CTX_free(ctx2);
+    EVP_MAC_CTX_free(ctx);
     OPENSSL_free(read_buffer);
     free_config_and_unload(conf);
     return ret;

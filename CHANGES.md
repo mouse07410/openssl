@@ -23,6 +23,26 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
+ * Deprecated the `ENGINE` API.  Engines should be replaced with providers
+   going forward.
+
+   *Paul Dale*
+
+ * Reworked the recorded ERR codes to make better space for system errors.
+   To distinguish them, the macro `ERR_SYSTEM_ERROR()` indicates if the
+   given code is a system error (true) or an OpenSSL error (false).
+
+   *Richard Levitte*
+
+ * Reworked the test perl framework to better allow parallel testing.
+
+   *Nicola Tuveri and David von Oheimb*
+
+ * Added ciphertext stealing algorithms AES-128-CBC-CTS, AES-192-CBC-CTS and
+   AES-256-CBC-CTS to the providers. CS1, CS2 and CS3 variants are supported.
+
+   *Shane Lontis*
+
  * 'Configure' has been changed to figure out the configuration target if
    none is given on the command line.  Consequently, the 'config' script is
    now only a mere wrapper.  All documentation is changed to only mention
@@ -404,8 +424,8 @@ OpenSSL 3.0
    and HMAC_CTX_get_md.
 
    Use of these low level functions has been informally discouraged for a long
-   time.  Instead applications should use L<EVP_MAC_new_ctx(3)>,
-   L<EVP_MAC_free_ctx(3)>, L<EVP_MAC_init(3)>, L<EVP_MAC_update(3)>
+   time.  Instead applications should use L<EVP_MAC_CTX_new(3)>,
+   L<EVP_MAC_CTX_free(3)>, L<EVP_MAC_init(3)>, L<EVP_MAC_update(3)>
    and L<EVP_MAC_final(3)>.
 
    *Paul Dale*
@@ -428,8 +448,8 @@ OpenSSL 3.0
    CMAC_CTX_copy, CMAC_Init, CMAC_Update, CMAC_Final and CMAC_resume.
 
    Use of these low level functions has been informally discouraged for a long
-   time.  Instead applications should use L<EVP_MAC_new_ctx(3)>,
-   L<EVP_MAC_free_ctx(3)>, L<EVP_MAC_init(3)>, L<EVP_MAC_update(3)>
+   time.  Instead applications should use L<EVP_MAC_CTX_new(3)>,
+   L<EVP_MAC_CTX_free(3)>, L<EVP_MAC_init(3)>, L<EVP_MAC_update(3)>
    and L<EVP_MAC_final(3)>.
 
    *Paul Dale*

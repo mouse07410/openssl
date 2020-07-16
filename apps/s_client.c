@@ -8,6 +8,9 @@
  * https://www.openssl.org/source/license.html
  */
 
+/* We need to use some engine deprecated APIs */
+#define OPENSSL_SUPPRESS_DEPRECATED
+
 #include "e_os.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -3241,7 +3244,7 @@ static void print_stuff(BIO *bio, SSL *s, int full)
         }
 
         BIO_printf(bio, "---\n");
-        peer = SSL_get_peer_certificate(s);
+        peer = SSL_get0_peer_certificate(s);
         if (peer != NULL) {
             BIO_printf(bio, "Server certificate\n");
 
@@ -3421,7 +3424,6 @@ static void print_stuff(BIO *bio, SSL *s, int full)
         OPENSSL_free(exportedkeymat);
     }
     BIO_printf(bio, "---\n");
-    X509_free(peer);
     /* flush, or debugging output gets mixed with http response */
     (void)BIO_flush(bio);
 }
