@@ -32,6 +32,7 @@ time (make depend && make -j 4 all 2>&1 | tee make-out.txt && OPENSSL_GOST_ENGIN
 
 END_BUILD="`date`"
 
+echo ""
 echo "Start: ${START_BUILD}"
 echo "End:   ${END_BUILD}"
 #
