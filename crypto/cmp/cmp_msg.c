@@ -1008,19 +1008,39 @@ int OSSL_CMP_MSG_update_transactionID(OSSL_CMP_CTX *ctx, OSSL_CMP_MSG *msg)
             || ossl_cmp_msg_protect(ctx, msg);
 }
 
-OSSL_CMP_MSG *ossl_cmp_msg_load(const char *file)
+OSSL_CMP_MSG *OSSL_CMP_MSG_read(const char *file)
 {
     OSSL_CMP_MSG *msg = NULL;
     BIO *bio = NULL;
 
-    if (!ossl_assert(file != NULL))
+    if (file == NULL) {
+        CMPerr(0, CMP_R_NULL_ARGUMENT);
         return NULL;
+    }
 
     if ((bio = BIO_new_file(file, "rb")) == NULL)
         return NULL;
     msg = d2i_OSSL_CMP_MSG_bio(bio, NULL);
     BIO_free(bio);
     return msg;
+}
+
+int OSSL_CMP_MSG_write(const char *file, const OSSL_CMP_MSG *msg)
+{
+    BIO *bio;
+    int res;
+
+    if (file == NULL || msg == NULL) {
+        CMPerr(0, CMP_R_NULL_ARGUMENT);
+        return -1;
+    }
+
+    bio = BIO_new_file(file, "wb");
+    if (bio == NULL)
+        return -2;
+    res = i2d_OSSL_CMP_MSG_bio(bio, msg);
+    BIO_free(bio);
+    return res;
 }
 
 OSSL_CMP_MSG *d2i_OSSL_CMP_MSG_bio(BIO *bio, OSSL_CMP_MSG **msg)
