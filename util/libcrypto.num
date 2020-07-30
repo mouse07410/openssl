@@ -4498,6 +4498,7 @@ OSSL_CRMF_ENCRYPTEDVALUE_new            ?	3_0_0	EXIST::FUNCTION:CRMF
 OSSL_CRMF_ENCRYPTEDVALUE_it             ?	3_0_0	EXIST::FUNCTION:CRMF
 d2i_OSSL_CRMF_MSG                       ?	3_0_0	EXIST::FUNCTION:CRMF
 i2d_OSSL_CRMF_MSG                       ?	3_0_0	EXIST::FUNCTION:CRMF
+OSSL_CRMF_MSG_dup                       ?	3_0_0	EXIST::FUNCTION:CRMF
 OSSL_CRMF_MSG_free                      ?	3_0_0	EXIST::FUNCTION:CRMF
 OSSL_CRMF_MSG_new                       ?	3_0_0	EXIST::FUNCTION:CRMF
 OSSL_CRMF_MSG_it                        ?	3_0_0	EXIST::FUNCTION:CRMF
@@ -4902,6 +4903,7 @@ RSA_get0_pss_params                     ?	3_0_0	EXIST::FUNCTION:DEPRECATEDIN_3_0
 X509_cmp_timeframe                      ?	3_0_0	EXIST::FUNCTION:
 OSSL_CMP_MSG_get0_header                ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_MSG_update_transactionID       ?	3_0_0	EXIST::FUNCTION:CMP
+OSSL_CMP_CTX_setup_CRM                  ?	3_0_0	EXIST::FUNCTION:CMP
 BIO_f_prefix                            ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_CTX_new_from_name              ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_CTX_new_from_pkey              ?	3_0_0	EXIST::FUNCTION:
@@ -4985,10 +4987,7 @@ OSSL_CMP_SRV_CTX_set_send_unprotected_errors ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_SRV_CTX_set_accept_unprotected ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_SRV_CTX_set_accept_raverified  ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_SRV_CTX_set_grant_implicit_confirm ?	3_0_0	EXIST::FUNCTION:CMP
-OSSL_CMP_exec_IR_ses                    ?	3_0_0	EXIST::FUNCTION:CMP
-OSSL_CMP_exec_CR_ses                    ?	3_0_0	EXIST::FUNCTION:CMP
-OSSL_CMP_exec_P10CR_ses                 ?	3_0_0	EXIST::FUNCTION:CMP
-OSSL_CMP_exec_KUR_ses                   ?	3_0_0	EXIST::FUNCTION:CMP
+OSSL_CMP_exec_certreq                   ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_try_certreq                    ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_certConf_cb                    ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_exec_RR_ses                    ?	3_0_0	EXIST::FUNCTION:CMP
