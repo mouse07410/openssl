@@ -1109,12 +1109,10 @@ static int set_name(const char *str,
                     OSSL_CMP_CTX *ctx, const char *desc)
 {
     if (str != NULL) {
-        X509_NAME *n = parse_name(str, MBSTRING_ASC, 0);
+        X509_NAME *n = parse_name(str, MBSTRING_ASC, 0, desc);
 
-        if (n == NULL) {
-            CMP_err2("cannot parse %s DN '%s'", desc, str);
+        if (n == NULL)
             return 0;
-        }
         if (!(*set_fn) (ctx, n)) {
             X509_NAME_free(n);
             CMP_err("out of memory");
@@ -1869,7 +1867,7 @@ static int setup_request_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
     if (opt_days > 0
             && !OSSL_CMP_CTX_set_option(ctx, OSSL_CMP_OPT_VALIDITY_DAYS,
                                         opt_days)) {
-        CMP_err("could to set requested cert validity period");
+        CMP_err("could not set requested cert validity period");
         goto err;
     }
 
@@ -2095,7 +2093,6 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
 
     if (opt_proxy != NULL)
         (void)BIO_snprintf(proxy_buf, sizeof(proxy_buf), " via %s", opt_proxy);
-    CMP_info2("will contact %s%s", server_buf, proxy_buf);
 
     if (!transform_opts())
         goto err;
@@ -2216,6 +2213,9 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
 
     if (opt_geninfo != NULL && !handle_opt_geninfo(ctx))
         goto err;
+
+    /* not printing earlier, to minimize confusion in case setup fails before */
+    CMP_info2("will contact %s%s", server_buf, proxy_buf);
 
     ret = 1;
 
