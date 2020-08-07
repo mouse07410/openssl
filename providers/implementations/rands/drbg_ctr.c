@@ -635,7 +635,7 @@ static int drbg_ctr_get_ctx_params(void *vdrbg, OSSL_PARAM params[])
     return drbg_get_ctx_params(drbg, params);
 }
 
-static const OSSL_PARAM *drbg_ctr_gettable_ctx_params(void)
+static const OSSL_PARAM *drbg_ctr_gettable_ctx_params(void *provctx)
 {
     static const OSSL_PARAM known_gettable_ctx_params[] = {
         OSSL_PARAM_DRBG_GETABLE_CTX_COMMON,
@@ -701,7 +701,7 @@ static int drbg_ctr_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     return drbg_set_ctx_params(ctx, params);
 }
 
-static const OSSL_PARAM *drbg_ctr_settable_ctx_params(void)
+static const OSSL_PARAM *drbg_ctr_settable_ctx_params(void *provctx)
 {
     static const OSSL_PARAM known_settable_ctx_params[] = {
         OSSL_PARAM_utf8_string(OSSL_DRBG_PARAM_PROPERTIES, NULL, 0),
@@ -738,7 +738,6 @@ const OSSL_DISPATCH drbg_ctr_functions[] = {
     { OSSL_FUNC_RAND_GETTABLE_CTX_PARAMS,
       (void(*)(void))drbg_ctr_gettable_ctx_params },
     { OSSL_FUNC_RAND_GET_CTX_PARAMS, (void(*)(void))drbg_ctr_get_ctx_params },
-    { OSSL_FUNC_RAND_SET_CALLBACKS, (void(*)(void))drbg_set_callbacks },
     { OSSL_FUNC_RAND_VERIFY_ZEROIZATION,
       (void(*)(void))drbg_ctr_verify_zeroization },
     { 0, NULL }

@@ -12,7 +12,7 @@
 #include <openssl/params.h>
 #include <openssl/obj_mac.h> /* NIDs used by ossl_prov_util_nid_to_name() */
 #include <openssl/fips_names.h>
-#include <openssl/rand_drbg.h> /* OPENSSL_CTX_get0_public_drbg() */
+#include <openssl/rand.h> /* RAND_get0_public() */
 #include "internal/cryptlib.h"
 #include "prov/implementations.h"
 #include "prov/provider_ctx.h"
@@ -271,7 +271,7 @@ const char *ossl_prov_util_nid_to_name(int nid)
  */
 static const OSSL_ALGORITHM fips_digests[] = {
     /* Our primary name:NiST name[:our older names] */
-    { "SHA1:SHA-1", FIPS_DEFAULT_PROPERTIES, sha1_functions },
+    { "SHA1:SHA-1:SSL3-SHA1", FIPS_DEFAULT_PROPERTIES, sha1_functions },
     { "SHA2-224:SHA-224:SHA224", FIPS_DEFAULT_PROPERTIES, sha224_functions },
     { "SHA2-256:SHA-256:SHA256", FIPS_DEFAULT_PROPERTIES, sha256_functions },
     { "SHA2-384:SHA-384:SHA384", FIPS_DEFAULT_PROPERTIES, sha384_functions },
@@ -306,9 +306,9 @@ static const OSSL_ALGORITHM_CAPABLE fips_ciphers[] = {
     ALG("AES-256-ECB", aes256ecb_functions),
     ALG("AES-192-ECB", aes192ecb_functions),
     ALG("AES-128-ECB", aes128ecb_functions),
-    ALG("AES-256-CBC", aes256cbc_functions),
-    ALG("AES-192-CBC", aes192cbc_functions),
-    ALG("AES-128-CBC", aes128cbc_functions),
+    ALG("AES-256-CBC:AES256", aes256cbc_functions),
+    ALG("AES-192-CBC:AES192", aes192cbc_functions),
+    ALG("AES-128-CBC:AES128", aes128cbc_functions),
     ALG("AES-256-CBC-CTS", aes256cbc_cts_functions),
     ALG("AES-192-CBC-CTS", aes192cbc_cts_functions),
     ALG("AES-128-CBC-CTS", aes128cbc_cts_functions),
@@ -642,7 +642,7 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
     }
 
     /* TODO(3.0): Tests will hang if this is removed */
-    (void)OPENSSL_CTX_get0_public_drbg(libctx);
+    (void)RAND_get0_public(libctx);
 
     *out = fips_dispatch_table;
     return 1;
