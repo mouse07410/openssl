@@ -267,6 +267,7 @@ extern const OSSL_DISPATCH crngt_functions[];
 
 /* Key management */
 extern const OSSL_DISPATCH dh_keymgmt_functions[];
+extern const OSSL_DISPATCH dhx_keymgmt_functions[];
 extern const OSSL_DISPATCH dsa_keymgmt_functions[];
 extern const OSSL_DISPATCH rsa_keymgmt_functions[];
 extern const OSSL_DISPATCH rsapss_keymgmt_functions[];
@@ -364,6 +365,7 @@ extern const OSSL_DISPATCH ec_pub_pem_serializer_functions[];
 extern const OSSL_DISPATCH ec_param_pem_serializer_functions[];
 
 extern const OSSL_DISPATCH der_to_dh_deserializer_functions[];
+extern const OSSL_DISPATCH der_to_dhx_deserializer_functions[];
 extern const OSSL_DISPATCH der_to_dsa_deserializer_functions[];
 extern const OSSL_DISPATCH msblob_to_dsa_deserializer_functions[];
 extern const OSSL_DISPATCH pvk_to_dsa_deserializer_functions[];
