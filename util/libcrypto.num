@@ -4837,6 +4837,8 @@ OSSL_CMP_CTX_snprint_PKIStatus          ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_HDR_get0_transactionID         ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_HDR_get0_recipNonce            ?	3_0_0	EXIST::FUNCTION:CMP
 X509_LOOKUP_store                       ?	3_0_0	EXIST::FUNCTION:
+X509_add_cert                           ?	3_0_0	EXIST::FUNCTION:
+X509_add_certs                          ?	3_0_0	EXIST::FUNCTION:
 X509_STORE_load_file                    ?	3_0_0	EXIST::FUNCTION:
 X509_STORE_load_path                    ?	3_0_0	EXIST::FUNCTION:
 X509_STORE_load_store                   ?	3_0_0	EXIST::FUNCTION:
@@ -5252,3 +5254,10 @@ EVP_PKEY_CTX_set0_dh_kdf_ukm            ?	3_0_0	EXIST::FUNCTION:DH
 EVP_PKEY_CTX_get0_dh_kdf_ukm            ?	3_0_0	EXIST::FUNCTION:DH
 EVP_CIPHER_CTX_get_iv_state             ?	3_0_0	EXIST::FUNCTION:
 EVP_CIPHER_CTX_get_iv                   ?	3_0_0	EXIST::FUNCTION:
+EVP_KEYMGMT_gettable_params             ?	3_0_0	EXIST::FUNCTION:
+EVP_KEYMGMT_settable_params             ?	3_0_0	EXIST::FUNCTION:
+EVP_KEYMGMT_gen_settable_params         ?	3_0_0	EXIST::FUNCTION:
+EVP_SIGNATURE_gettable_ctx_params       ?	3_0_0	EXIST::FUNCTION:
+EVP_SIGNATURE_settable_ctx_params       ?	3_0_0	EXIST::FUNCTION:
+EVP_KEYEXCH_gettable_ctx_params         ?	3_0_0	EXIST::FUNCTION:
+EVP_KEYEXCH_settable_ctx_params         ?	3_0_0	EXIST::FUNCTION:
