@@ -386,8 +386,7 @@ DEPRECATEDIN_3_0(int (*EVP_CIPHER_meth_get_ctrl(const EVP_CIPHER *cipher))
 # define         EVP_CTRL_SET_PIPELINE_INPUT_LENS        0x24
 /* Get the IV length used by the cipher */
 # define         EVP_CTRL_GET_IVLEN                      0x25
-/* Get the IV used by the cipher */
-# define         EVP_CTRL_GET_IV                         0x26
+/* 0x26 is unused */
 /* Tell the cipher it's doing a speed test (SIV disallows multiple ops) */
 # define         EVP_CTRL_SET_SPEED                      0x27
 /* Get the unprotectedAttrs from cipher ctx */
@@ -553,9 +552,11 @@ int EVP_CIPHER_CTX_block_size(const EVP_CIPHER_CTX *ctx);
 int EVP_CIPHER_CTX_key_length(const EVP_CIPHER_CTX *ctx);
 int EVP_CIPHER_CTX_iv_length(const EVP_CIPHER_CTX *ctx);
 int EVP_CIPHER_CTX_tag_length(const EVP_CIPHER_CTX *ctx);
-const unsigned char *EVP_CIPHER_CTX_iv(const EVP_CIPHER_CTX *ctx);
-const unsigned char *EVP_CIPHER_CTX_original_iv(const EVP_CIPHER_CTX *ctx);
-unsigned char *EVP_CIPHER_CTX_iv_noconst(EVP_CIPHER_CTX *ctx);
+DEPRECATEDIN_3_0(const unsigned char *EVP_CIPHER_CTX_iv(const EVP_CIPHER_CTX *ctx))
+DEPRECATEDIN_3_0(const unsigned char *EVP_CIPHER_CTX_original_iv(const EVP_CIPHER_CTX *ctx))
+DEPRECATEDIN_3_0(unsigned char *EVP_CIPHER_CTX_iv_noconst(EVP_CIPHER_CTX *ctx))
+int EVP_CIPHER_CTX_get_iv_state(EVP_CIPHER_CTX *ctx, void *buf, size_t len);
+int EVP_CIPHER_CTX_get_iv(EVP_CIPHER_CTX *ctx, void *buf, size_t len);
 unsigned char *EVP_CIPHER_CTX_buf_noconst(EVP_CIPHER_CTX *ctx);
 int EVP_CIPHER_CTX_num(const EVP_CIPHER_CTX *ctx);
 int EVP_CIPHER_CTX_set_num(EVP_CIPHER_CTX *ctx, int num);
