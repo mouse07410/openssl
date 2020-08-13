@@ -642,6 +642,7 @@ int SSL_clear(SSL *s)
     return 1;
 }
 
+#ifndef OPENSSL_NO_DEPRECATED_3_0
 /** Used to change an SSL_CTXs default SSL method type */
 int SSL_CTX_set_ssl_version(SSL_CTX *ctx, const SSL_METHOD *meth)
 {
@@ -664,6 +665,7 @@ int SSL_CTX_set_ssl_version(SSL_CTX *ctx, const SSL_METHOD *meth)
     }
     return 1;
 }
+#endif
 
 SSL *SSL_new(SSL_CTX *ctx)
 {
@@ -3052,7 +3054,8 @@ int SSL_export_keying_material(SSL *s, unsigned char *out, size_t olen,
                                const unsigned char *context, size_t contextlen,
                                int use_context)
 {
-    if (s->version < TLS1_VERSION && s->version != DTLS1_BAD_VER)
+    if (s->session == NULL
+        || (s->version < TLS1_VERSION && s->version != DTLS1_BAD_VER))
         return -1;
 
     return s->method->ssl3_enc->export_keying_material(s, out, olen, label,
