@@ -40,7 +40,6 @@ ASN1_F_ASN1_ITEM_FLAGS_I2D:118:asn1_item_flags_i2d
 ASN1_F_ASN1_ITEM_I2D_BIO:192:ASN1_item_i2d_bio
 ASN1_F_ASN1_ITEM_I2D_FP:193:ASN1_item_i2d_fp
 ASN1_F_ASN1_ITEM_PACK:198:ASN1_item_pack
-ASN1_F_ASN1_ITEM_SIGN:195:ASN1_item_sign
 ASN1_F_ASN1_ITEM_SIGN_CTX:220:ASN1_item_sign_ctx
 ASN1_F_ASN1_ITEM_UNPACK:199:ASN1_item_unpack
 ASN1_F_ASN1_ITEM_VERIFY:197:ASN1_item_verify
@@ -2094,7 +2093,6 @@ CMP_R_CERTREQMSG_NOT_FOUND:157:certreqmsg not found
 CMP_R_CERTRESPONSE_NOT_FOUND:113:certresponse not found
 CMP_R_CERT_AND_KEY_DO_NOT_MATCH:114:cert and key do not match
 CMP_R_CHECKAFTER_OUT_OF_RANGE:181:checkafter out of range
-CMP_R_CHECKING_PBM_NO_SECRET_AVAILABLE:166:checking pbm no secret available
 CMP_R_ENCOUNTERED_KEYUPDATEWARNING:176:encountered keyupdatewarning
 CMP_R_ENCOUNTERED_WAITING:162:encountered waiting
 CMP_R_ERROR_CALCULATING_PROTECTION:115:error calculating protection
@@ -2125,6 +2123,7 @@ CMP_R_MISSING_KEY_INPUT_FOR_CREATING_PROTECTION:130:\
 	missing key input for creating protection
 CMP_R_MISSING_KEY_USAGE_DIGITALSIGNATURE:142:missing key usage digitalsignature
 CMP_R_MISSING_P10CSR:121:missing p10csr
+CMP_R_MISSING_PBM_SECRET:166:missing pbm secret
 CMP_R_MISSING_PRIVATE_KEY:131:missing private key
 CMP_R_MISSING_PROTECTION:143:missing protection
 CMP_R_MISSING_REFERENCE_CERT:168:missing reference cert
@@ -2297,6 +2296,7 @@ CRMF_R_FAILURE_OBTAINING_RANDOM:107:failure obtaining random
 CRMF_R_ITERATIONCOUNT_BELOW_100:108:iterationcount below 100
 CRMF_R_MALFORMED_IV:101:malformed iv
 CRMF_R_NULL_ARGUMENT:109:null argument
+CRMF_R_POPOSKINPUT_NOT_SUPPORTED:113:poposkinput not supported
 CRMF_R_POPO_INCONSISTENT_PUBLIC_KEY:117:popo inconsistent public key
 CRMF_R_POPO_MISSING:121:popo missing
 CRMF_R_POPO_MISSING_PUBLIC_KEY:118:popo missing public key
@@ -2305,7 +2305,6 @@ CRMF_R_POPO_RAVERIFIED_NOT_ACCEPTED:120:popo raverified not accepted
 CRMF_R_SETTING_MAC_ALGOR_FAILURE:110:setting mac algor failure
 CRMF_R_SETTING_OWF_ALGOR_FAILURE:111:setting owf algor failure
 CRMF_R_UNSUPPORTED_ALGORITHM:112:unsupported algorithm
-CRMF_R_UNSUPPORTED_ALG_FOR_POPSIGNINGKEY:113:unsupported alg for popsigningkey
 CRMF_R_UNSUPPORTED_CIPHER:114:unsupported cipher
 CRMF_R_UNSUPPORTED_METHOD_FOR_CREATING_POPO:115:\
 	unsupported method for creating popo
@@ -2703,9 +2702,9 @@ OCSP_R_STATUS_TOO_OLD:127:status too old
 OCSP_R_UNKNOWN_MESSAGE_DIGEST:119:unknown message digest
 OCSP_R_UNKNOWN_NID:120:unknown nid
 OCSP_R_UNSUPPORTED_REQUESTORNAME_TYPE:129:unsupported requestorname type
-OSSL_DESERIALIZER_R_MISSING_GET_PARAMS:100:missing get params
-OSSL_SERIALIZER_R_INCORRECT_PROPERTY_QUERY:100:incorrect property query
-OSSL_SERIALIZER_R_SERIALIZER_NOT_FOUND:101:serializer not found
+OSSL_DECODER_R_MISSING_GET_PARAMS:100:missing get params
+OSSL_ENCODER_R_INCORRECT_PROPERTY_QUERY:100:incorrect property query
+OSSL_ENCODER_R_ENCODER_NOT_FOUND:101:encoder not found
 OSSL_STORE_R_AMBIGUOUS_CONTENT_TYPE:107:ambiguous content type
 OSSL_STORE_R_BAD_PASSWORD_READ:115:bad password read
 OSSL_STORE_R_ERROR_VERIFYING_PKCS12_MAC:113:error verifying pkcs12 mac

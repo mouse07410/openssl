@@ -24,23 +24,12 @@
 
 DEFINE_STACK_OF(X509)
 
-/*-
- * Verify a message protected by signature according to section 5.1.3.3
- * (sha1+RSA/DSA or any other algorithm supported by OpenSSL).
- *
- * Returns 1 on successful validation and 0 otherwise.
- */
+/* Verify a message protected by signature according to RFC section 5.1.3.3 */
 static int verify_signature(const OSSL_CMP_CTX *cmp_ctx,
                             const OSSL_CMP_MSG *msg, X509 *cert)
 {
-    EVP_MD_CTX *ctx = NULL;
     OSSL_CMP_PROTECTEDPART prot_part;
-    int digest_nid, pk_nid;
-    const EVP_MD *digest = NULL;
     EVP_PKEY *pubkey = NULL;
-    int len;
-    size_t prot_part_der_len = 0;
-    unsigned char *prot_part_der = NULL;
     BIO *bio = BIO_new(BIO_s_mem()); /* may be NULL */
     int res = 0;
 
@@ -60,35 +49,13 @@ static int verify_signature(const OSSL_CMP_CTX *cmp_ctx,
         goto sig_err;
     }
 
-    /* create the DER representation of protected part */
     prot_part.header = msg->header;
     prot_part.body = msg->body;
 
-    len = i2d_OSSL_CMP_PROTECTEDPART(&prot_part, &prot_part_der);
-    if (len < 0 || prot_part_der == NULL)
-        goto end;
-    prot_part_der_len = (size_t) len;
-
-    /* verify signature of protected part */
-    if (!OBJ_find_sigid_algs(ossl_cmp_hdr_get_protection_nid(msg->header),
-                             &digest_nid, &pk_nid)
-            || digest_nid == NID_undef || pk_nid == NID_undef
-            || (digest = EVP_get_digestbynid(digest_nid)) == NULL) {
-        CMPerr(0, CMP_R_ALGORITHM_NOT_SUPPORTED);
-        goto sig_err;
-    }
-
-    /* check msg->header->protectionAlg is consistent with public key type */
-    if (EVP_PKEY_type(pk_nid) != EVP_PKEY_base_id(pubkey)) {
-        CMPerr(0, CMP_R_WRONG_ALGORITHM_OID);
-        goto sig_err;
-    }
-    if ((ctx = EVP_MD_CTX_new()) == NULL)
-        goto end;
-    if (EVP_DigestVerifyInit(ctx, NULL, digest, NULL, pubkey)
-            && EVP_DigestVerify(ctx, msg->protection->data,
-                                msg->protection->length,
-                                prot_part_der, prot_part_der_len) == 1) {
+    if (ASN1_item_verify_with_libctx(ASN1_ITEM_rptr(OSSL_CMP_PROTECTEDPART),
+                                     msg->header->protectionAlg,
+                                     msg->protection, &prot_part, NULL, pubkey,
+                                     cmp_ctx->libctx, cmp_ctx->propq) > 0) {
         res = 1;
         goto end;
     }
@@ -101,8 +68,6 @@ static int verify_signature(const OSSL_CMP_CTX *cmp_ctx,
     res = 0;
 
  end:
-    EVP_MD_CTX_free(ctx);
-    OPENSSL_free(prot_part_der);
     EVP_PKEY_free(pubkey);
     BIO_free(bio);
 
@@ -110,14 +75,13 @@ static int verify_signature(const OSSL_CMP_CTX *cmp_ctx,
 }
 
 /* Verify a message protected with PBMAC */
-static int verify_PBMAC(const OSSL_CMP_MSG *msg,
-                        const ASN1_OCTET_STRING *secret)
+static int verify_PBMAC(OSSL_CMP_CTX *ctx, const OSSL_CMP_MSG *msg)
 {
     ASN1_BIT_STRING *protection = NULL;
     int valid = 0;
 
     /* generate expected protection for the message */
-    if ((protection = ossl_cmp_calc_protection(msg, secret, NULL)) == NULL)
+    if ((protection = ossl_cmp_calc_protection(ctx, msg)) == NULL)
         return 0; /* failed to generate protection string! */
 
     valid = msg->protection != NULL && msg->protection->length >= 0
@@ -156,7 +120,7 @@ int OSSL_CMP_validate_cert_path(const OSSL_CMP_CTX *ctx,
         return 0;
     }
 
-    if ((csc = X509_STORE_CTX_new()) == NULL
+    if ((csc = X509_STORE_CTX_new_with_libctx(ctx->libctx, ctx->propq)) == NULL
             || !X509_STORE_CTX_init(csc, trusted_store,
                                     cert, ctx->untrusted_certs))
         goto err;
@@ -304,18 +268,23 @@ static int cert_acceptable(const OSSL_CMP_CTX *ctx,
 
     if (!check_kid(ctx, X509_get0_subject_key_id(cert), msg->header->senderKID))
         return 0;
+    /* prevent misleading error later in case x509v3_cache_extensions() fails */
+    if (!x509v3_cache_extensions(cert)) {
+        ossl_cmp_warn(ctx, "cert appears to be invalid");
+        return 0;
+    }
+    if (!verify_signature(ctx, msg, cert)) {
+        ossl_cmp_warn(ctx, "msg signature verification failed");
+        return 0;
+    }
     /* acceptable also if there is no senderKID in msg header */
     ossl_cmp_info(ctx, " cert seems acceptable");
     return 1;
 }
 
-static int check_msg_valid_cert(const OSSL_CMP_CTX *ctx, X509_STORE *store,
-                                X509 *scrt, const OSSL_CMP_MSG *msg)
+static int check_cert_path(const OSSL_CMP_CTX *ctx, X509_STORE *store,
+                           X509 *scrt)
 {
-    if (!verify_signature(ctx, msg, scrt)) {
-        ossl_cmp_warn(ctx, "msg signature verification failed");
-        return 0;
-    }
     if (OSSL_CMP_validate_cert_path(ctx, store, scrt))
         return 1;
 
@@ -328,11 +297,11 @@ static int check_msg_valid_cert(const OSSL_CMP_CTX *ctx, X509_STORE *store,
  * Exceptional handling for 3GPP TS 33.310 [3G/LTE Network Domain Security
  * (NDS); Authentication Framework (AF)], only to use for IP messages
  * and if the ctx option is explicitly set: use self-issued certificates
- * from extraCerts as trust anchor to validate sender cert and msg -
+ * from extraCerts as trust anchor to validate sender cert -
  * provided it also can validate the newly enrolled certificate
  */
-static int check_msg_valid_cert_3gpp(const OSSL_CMP_CTX *ctx, X509 *scrt,
-                                     const OSSL_CMP_MSG *msg)
+static int check_cert_path_3gpp(const OSSL_CMP_CTX *ctx,
+                                const OSSL_CMP_MSG *msg, X509 *scrt)
 {
     int valid = 0;
     X509_STORE *store;
@@ -355,11 +324,11 @@ static int check_msg_valid_cert_3gpp(const OSSL_CMP_CTX *ctx, X509 *scrt,
          * verify that the newly enrolled certificate (which assumed rid ==
          * OSSL_CMP_CERTREQID) can also be validated with the same trusted store
          */
-        EVP_PKEY *privkey = OSSL_CMP_CTX_get0_newPkey(ctx, 1);
+        EVP_PKEY *pkey = OSSL_CMP_CTX_get0_newPkey(ctx, 1);
         OSSL_CMP_CERTRESPONSE *crep =
             ossl_cmp_certrepmessage_get0_certresponse(msg->body->value.ip,
                                                       OSSL_CMP_CERTREQID);
-        X509 *newcrt = ossl_cmp_certresponse_get1_certificate(privkey, crep);
+        X509 *newcrt = ossl_cmp_certresponse_get1_cert(crep, ctx, pkey);
         /*
          * maybe better use get_cert_status() from cmp_client.c, which catches
          * errors
@@ -378,8 +347,8 @@ static int check_msg_given_cert(const OSSL_CMP_CTX *ctx, X509 *cert,
 {
     return cert_acceptable(ctx, "previously validated", "sender cert",
                            cert, NULL, NULL, msg)
-        && (check_msg_valid_cert(ctx, ctx->trusted, cert, msg)
-            || check_msg_valid_cert_3gpp(ctx, cert, msg));
+        && (check_cert_path(ctx, ctx->trusted, cert)
+            || check_cert_path_3gpp(ctx, msg, cert));
 }
 
 /*-
@@ -411,8 +380,8 @@ static int check_msg_with_certs(OSSL_CMP_CTX *ctx, const STACK_OF(X509) *certs,
                              already_checked1, already_checked2, msg))
             continue;
         n_acceptable_certs++;
-        if (mode_3gpp ? check_msg_valid_cert_3gpp(ctx, cert, msg)
-                      : check_msg_valid_cert(ctx, ctx->trusted, cert, msg)) {
+        if (mode_3gpp ? check_cert_path_3gpp(ctx, msg, cert)
+                      : check_cert_path(ctx, ctx->trusted, cert)) {
             /* store successful sender cert for further msgs in transaction */
             if (!X509_up_ref(cert))
                 return 0;
@@ -598,13 +567,34 @@ int OSSL_CMP_validate_msg(OSSL_CMP_CTX *ctx, const OSSL_CMP_MSG *msg)
     switch (ossl_cmp_hdr_get_protection_nid(msg->header)) {
         /* 5.1.3.1.  Shared Secret Information */
     case NID_id_PasswordBasedMAC:
-        if (ctx->secretValue == 0) {
-            CMPerr(0, CMP_R_CHECKING_PBM_NO_SECRET_AVAILABLE);
-            break;
-        }
+        if (verify_PBMAC(ctx, msg)) {
+            /*
+             * RFC 4210, 5.3.2: 'Note that if the PKI Message Protection is
+             * "shared secret information", then any certificate transported in
+             * the caPubs field may be directly trusted as a root CA
+             * certificate by the initiator.'
+             */
+            switch (ossl_cmp_msg_get_bodytype(msg)) {
+            case -1:
+                return 0;
+            case OSSL_CMP_PKIBODY_IP:
+            case OSSL_CMP_PKIBODY_CP:
+            case OSSL_CMP_PKIBODY_KUP:
+            case OSSL_CMP_PKIBODY_CCP:
+                if (ctx->trusted != NULL) {
+                    STACK_OF(X509) *certs = msg->body->value.ip->caPubs;
+                    /* value.ip is same for cp, kup, and ccp */
 
-        if (verify_PBMAC(msg, ctx->secretValue))
+                    if (!ossl_cmp_X509_STORE_add1_certs(ctx->trusted, certs, 0))
+                        /* adds both self-issued and not self-issued certs */
+                        return 0;
+                }
+                break;
+            default:
+                break;
+            }
             return 1;
+        }
         break;
 
         /*
@@ -802,7 +792,7 @@ int ossl_cmp_msg_check_update(OSSL_CMP_CTX *ctx, const OSSL_CMP_MSG *msg,
                 if (!ossl_cmp_X509_STORE_add1_certs(ctx->trusted, certs, 0))
                     /* adds both self-issued and not self-issued certs */
                     return 0;
-                }
+            }
             break;
         default:
             break;
@@ -811,7 +801,8 @@ int ossl_cmp_msg_check_update(OSSL_CMP_CTX *ctx, const OSSL_CMP_MSG *msg,
     return 1;
 }
 
-int ossl_cmp_verify_popo(const OSSL_CMP_MSG *msg, int accept_RAVerified)
+int ossl_cmp_verify_popo(const OSSL_CMP_CTX *ctx,
+                         const OSSL_CMP_MSG *msg, int acceptRAVerified)
 {
     if (!ossl_assert(msg != NULL && msg->body != NULL))
         return 0;
@@ -820,7 +811,8 @@ int ossl_cmp_verify_popo(const OSSL_CMP_MSG *msg, int accept_RAVerified)
         {
             X509_REQ *req = msg->body->value.p10cr;
 
-            if (X509_REQ_verify(req, X509_REQ_get0_pubkey(req)) <= 0) {
+            if (X509_REQ_verify_with_libctx(req, X509_REQ_get0_pubkey(req),
+                                            ctx->libctx, ctx->propq) <= 0) {
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
                 CMPerr(0, CMP_R_REQUEST_NOT_ACCEPTED);
                 return 0;
@@ -832,7 +824,8 @@ int ossl_cmp_verify_popo(const OSSL_CMP_MSG *msg, int accept_RAVerified)
     case OSSL_CMP_PKIBODY_CR:
     case OSSL_CMP_PKIBODY_KUR:
         if (!OSSL_CRMF_MSGS_verify_popo(msg->body->value.ir, OSSL_CMP_CERTREQID,
-                                        accept_RAVerified)) {
+                                        acceptRAVerified,
+                                        ctx->libctx, ctx->propq)) {
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
             return 0;
 #endif

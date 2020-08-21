@@ -22,7 +22,7 @@ IF[{- !$disabled{tests} -}]
           testutil/driver.c testutil/tests.c testutil/cb.c testutil/stanza.c \
           testutil/format_output.c \
           testutil/test_cleanup.c testutil/main.c testutil/testutil_init.c \
-          testutil/options.c testutil/test_options.c \
+          testutil/options.c testutil/test_options.c testutil/provider.c \
           testutil/apps_mem.c testutil/random.c $LIBAPPSSRC
   INCLUDE[libtestutil.a]=../include ../apps/include ..
   DEPEND[libtestutil.a]=../libcrypto
@@ -780,10 +780,10 @@ IF[{- !$disabled{tests} -}]
   INCLUDE[hexstr_test]=.. ../include ../apps/include
   DEPEND[hexstr_test]=../libcrypto.a libtestutil.a
 
-  PROGRAMS{noinst}=serdes_test
-  SOURCE[serdes_test]=serdes_test.c
-  INCLUDE[serdes_test]=.. ../include ../apps/include
-  DEPEND[serdes_test]=../libcrypto.a libtestutil.a
+  PROGRAMS{noinst}=endecode_test
+  SOURCE[endecode_test]=endecode_test.c
+  INCLUDE[endecode_test]=.. ../include ../apps/include
+  DEPEND[endecode_test]=../libcrypto.a libtestutil.a
 
   PROGRAMS{noinst}=namemap_internal_test
   SOURCE[namemap_internal_test]=namemap_internal_test.c
