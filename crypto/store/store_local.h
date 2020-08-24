@@ -7,13 +7,16 @@
  * https://www.openssl.org/source/license.html
  */
 
+#include <openssl/core_dispatch.h>
 #include "internal/thread_once.h"
+#include "internal/refcount.h"
 #include <openssl/dsa.h>
 #include <openssl/engine.h>
 #include <openssl/evp.h>
 #include <openssl/lhash.h>
 #include <openssl/x509.h>
 #include <openssl/store.h>
+#include "internal/passphrase.h"
 
 /*-
  *  OSSL_STORE_INFO stuff
@@ -100,6 +103,7 @@ OSSL_STORE_LOADER *ossl_store_unregister_loader_int(const char *scheme);
 
 /* loader stuff */
 struct ossl_store_loader_st {
+    /* Legacy stuff */
     const char *scheme;
     ENGINE *engine;
     OSSL_STORE_open_fn open;
@@ -112,11 +116,57 @@ struct ossl_store_loader_st {
     OSSL_STORE_error_fn error;
     OSSL_STORE_close_fn close;
     OSSL_STORE_open_with_libctx_fn open_with_libctx;
+
+    /* Provider stuff */
+    OSSL_PROVIDER *prov;
+    int scheme_id;
+    const char *propdef;
+
+    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_RWLOCK *lock;
+
+    OSSL_FUNC_store_open_fn *p_open;
+    OSSL_FUNC_store_attach_fn *p_attach;
+    OSSL_FUNC_store_settable_ctx_params_fn *p_settable_ctx_params;
+    OSSL_FUNC_store_set_ctx_params_fn *p_set_ctx_params;
+    OSSL_FUNC_store_load_fn *p_load;
+    OSSL_FUNC_store_eof_fn *p_eof;
+    OSSL_FUNC_store_close_fn *p_close;
+    OSSL_FUNC_store_export_object_fn *p_export_object;
 };
 DEFINE_LHASH_OF(OSSL_STORE_LOADER);
 
 const OSSL_STORE_LOADER *ossl_store_get0_loader_int(const char *scheme);
 void ossl_store_destroy_loaders_int(void);
+
+/*-
+ *  OSSL_STORE_CTX stuff
+ *  ---------------------
+ */
+
+struct ossl_store_ctx_st {
+    const OSSL_STORE_LOADER *loader; /* legacy */
+    OSSL_STORE_LOADER *fetched_loader;
+    OSSL_STORE_LOADER_CTX *loader_ctx;
+    OSSL_STORE_post_process_info_fn post_process;
+    void *post_process_data;
+    int expected_type;
+
+    char *properties;
+
+    /* 0 before the first STORE_load(), 1 otherwise */
+    int loading;
+    /* 1 on load error, only valid for fetched loaders */
+    int error_flag;
+
+    /*
+     * Cache of stuff, to be able to return the contents of a PKCS#12
+     * blob, one object at a time.
+     */
+    STACK_OF(OSSL_STORE_INFO) *cached_info;
+
+    struct ossl_passphrase_data_st pwdata;
+};
 
 /*-
  *  OSSL_STORE init stuff
@@ -125,3 +175,29 @@ void ossl_store_destroy_loaders_int(void);
 
 int ossl_store_init_once(void);
 int ossl_store_file_loader_init(void);
+
+/*-
+ *  'file' scheme stuff
+ *  -------------------
+ */
+
+OSSL_STORE_LOADER_CTX *ossl_store_file_attach_pem_bio_int(BIO *bp);
+int ossl_store_file_detach_pem_bio_int(OSSL_STORE_LOADER_CTX *ctx);
+
+/*-
+ * Provider stuff
+ * -------------------
+ */
+OSSL_STORE_LOADER *ossl_store_loader_fetch(OPENSSL_CTX *libctx,
+                                           const char *scheme,
+                                           const char *properties);
+OSSL_STORE_LOADER *ossl_store_loader_fetch_by_number(OPENSSL_CTX *libctx,
+                                                     int scheme_id,
+                                                     const char *properties);
+
+/* Standard function to handle the result from OSSL_FUNC_store_load() */
+struct ossl_load_result_data_st {
+    OSSL_STORE_INFO *v;          /* To be filled in */
+    OSSL_STORE_CTX *ctx;
+};
+OSSL_CALLBACK ossl_store_handle_load_result;

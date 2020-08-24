@@ -367,11 +367,18 @@ int EVP_DigestFinal(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *size)
 /* The caller can assume that this removes any secret data from the context */
 int EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *isize)
 {
-    int ret;
+    int ret, sz;
     size_t size = 0;
-    size_t mdsize = EVP_MD_size(ctx->digest);
+    size_t mdsize = 0;
 
-    if (ctx->digest == NULL || ctx->digest->prov == NULL)
+    if (ctx->digest == NULL)
+        return 0;
+
+    sz = EVP_MD_size(ctx->digest);
+    if (sz < 0)
+        return 0;
+    mdsize = sz;
+    if (ctx->digest->prov == NULL)
         goto legacy;
 
     if (ctx->digest->dfinal == NULL) {
@@ -671,8 +678,10 @@ const OSSL_PARAM *EVP_MD_CTX_gettable_params(EVP_MD_CTX *ctx)
 {
     EVP_PKEY_CTX *pctx;
 
-    if (ctx != NULL
-            && ctx->digest != NULL
+    if (ctx == NULL)
+        return NULL;
+
+    if (ctx->digest != NULL
             && ctx->digest->gettable_ctx_params != NULL)
         return ctx->digest->gettable_ctx_params(
                    ossl_provider_ctx(EVP_MD_provider(ctx->digest)));

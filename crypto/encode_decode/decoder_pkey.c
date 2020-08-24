@@ -8,6 +8,7 @@
  */
 
 #include <openssl/core_names.h>
+#include <openssl/core_object.h>
 #include <openssl/evp.h>
 #include <openssl/ui.h>
 #include <openssl/decoder.h>
@@ -19,79 +20,27 @@ int OSSL_DECODER_CTX_set_passphrase(OSSL_DECODER_CTX *ctx,
                                     const unsigned char *kstr,
                                     size_t klen)
 {
-    if (!ossl_assert(ctx != NULL)) {
-        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_PASSED_NULL_PARAMETER);
-        return 0;
-    }
-
-    OPENSSL_clear_free(ctx->cached_passphrase, ctx->cached_passphrase_len);
-    ctx->cached_passphrase = NULL;
-    ctx->cached_passphrase_len = 0;
-    if (kstr != NULL) {
-        if (klen == 0) {
-            ctx->cached_passphrase = OPENSSL_zalloc(1);
-            ctx->cached_passphrase_len = 0;
-        } else {
-            ctx->cached_passphrase = OPENSSL_memdup(kstr, klen);
-            ctx->cached_passphrase_len = klen;
-        }
-        if (ctx->cached_passphrase == NULL) {
-            ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_MALLOC_FAILURE);
-            return 0;
-        }
-    }
-    ctx->flag_user_passphrase = 1;
-    return 1;
-}
-
-static void decoder_ctx_reset_passphrase_ui(OSSL_DECODER_CTX *ctx)
-{
-    UI_destroy_method(ctx->allocated_ui_method);
-    ctx->allocated_ui_method = NULL;
-    ctx->ui_method = NULL;
-    ctx->ui_data = NULL;
+    return ossl_pw_set_passphrase(&ctx->pwdata, kstr, klen);
 }
 
 int OSSL_DECODER_CTX_set_passphrase_ui(OSSL_DECODER_CTX *ctx,
                                        const UI_METHOD *ui_method,
                                        void *ui_data)
 {
-    if (!ossl_assert(ctx != NULL)) {
-        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_PASSED_NULL_PARAMETER);
-        return 0;
-    }
-
-    decoder_ctx_reset_passphrase_ui(ctx);
-    ctx->ui_method = ui_method;
-    ctx->ui_data = ui_data;
-    return 1;
+    return ossl_pw_set_ui_method(&ctx->pwdata, ui_method, ui_data);
 }
 
 int OSSL_DECODER_CTX_set_pem_password_cb(OSSL_DECODER_CTX *ctx,
                                          pem_password_cb *cb, void *cbarg)
 {
-    UI_METHOD *ui_method = NULL;
+    return ossl_pw_set_pem_password_cb(&ctx->pwdata, cb, cbarg);
+}
 
-    if (!ossl_assert(ctx != NULL)) {
-        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_PASSED_NULL_PARAMETER);
-        return 0;
-    }
-
-    /*
-     * If |cb| is NULL, it means the caller wants to reset previous
-     * password callback info.  Otherwise, we only set the new data
-     * if a new UI_METHOD could be created for this sort of callback.
-     */
-    if (cb == NULL
-        || (ui_method = UI_UTIL_wrap_read_pem_callback(cb, 0)) != NULL) {
-        decoder_ctx_reset_passphrase_ui(ctx);
-        ctx->ui_method = ctx->allocated_ui_method = ui_method;
-        ctx->ui_data = cbarg;
-        ctx->passphrase_cb = ossl_decoder_passphrase_in_cb;
-        return 1;
-    }
-
-    return 0;
+int OSSL_DECODER_CTX_set_passphrase_cb(OSSL_DECODER_CTX *ctx,
+                                       OSSL_PASSPHRASE_CALLBACK *cb,
+                                       void *cbarg)
+{
+    return ossl_pw_set_ossl_passphrase_cb(&ctx->pwdata, cb, cbarg);
 }
 
 /*
@@ -128,7 +77,7 @@ static int decoder_construct_EVP_PKEY(OSSL_DECODER_INSTANCE *decoder_inst,
     size_t object_ref_sz = 0;
     const OSSL_PARAM *p;
 
-    p = OSSL_PARAM_locate_const(params, OSSL_DECODER_PARAM_DATA_TYPE);
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_DATA_TYPE);
     if (p != NULL) {
         char *object_type = NULL;
 
@@ -143,7 +92,7 @@ static int decoder_construct_EVP_PKEY(OSSL_DECODER_INSTANCE *decoder_inst,
      * reference for the moment.  This enforces that the key data itself
      * remains with the provider.
      */
-    p = OSSL_PARAM_locate_const(params, OSSL_DECODER_PARAM_REFERENCE);
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_REFERENCE);
     if (p == NULL || p->data_type != OSSL_PARAM_OCTET_STRING)
         return 0;
     object_ref = p->data;
@@ -289,6 +238,8 @@ static void collect_decoder(OSSL_DECODER *decoder, void *arg)
         return;
 
     data->error_occured = 1;         /* Assume the worst */
+    if (data->names == NULL)
+        return;
 
     end_i = sk_OPENSSL_CSTRING_num(data->names);
     for (i = 0; i < end_i; i++) {
@@ -367,8 +318,10 @@ OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
 
     data->process_data = NULL;
  err:
-    decoder_clean_EVP_PKEY_construct_arg(data->process_data);
-    sk_OPENSSL_CSTRING_free(data->names);
-    OPENSSL_free(data);
+    if (data != NULL) {
+        decoder_clean_EVP_PKEY_construct_arg(data->process_data);
+        sk_OPENSSL_CSTRING_free(data->names);
+        OPENSSL_free(data);
+    }
     return ctx;
 }

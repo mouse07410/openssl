@@ -30,6 +30,23 @@ extern "C" {
 #define OSSL_PROV_PARAM_SELF_TEST_TYPE   "st-type"  /* utf8_string */
 #define OSSL_PROV_PARAM_SELF_TEST_DESC   "st-desc"  /* utf8_string */
 
+/*-
+ * Provider-native object abstractions
+ *
+ * These are used when a provider wants to pass object data or an object
+ * reference back to libcrypto.  This is only useful for provider functions
+ * that take a callback to which an OSSL_PARAM array with these parameters
+ * can be passed.
+ *
+ * This set of parameter names is explained in detail in provider-object(7)
+ * (doc/man7/provider-object.pod)
+ */
+#define OSSL_OBJECT_PARAM_TYPE       "type"      /* INTEGER */
+#define OSSL_OBJECT_PARAM_DATA_TYPE  "data-type" /* UTF8_STRING */
+#define OSSL_OBJECT_PARAM_REFERENCE  "reference" /* OCTET_STRING */
+#define OSSL_OBJECT_PARAM_DATA       "data" /* OCTET_STRING or UTF8_STRING */
+#define OSSL_OBJECT_PARAM_DESC       "desc"      /* UTF8_STRING */
+
 /*
  * Algorithm parameters
  * If "engine" or "properties" are specified, they should always be paired
@@ -433,9 +450,6 @@ extern "C" {
 #define OSSL_DECODER_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES
 #define OSSL_DECODER_PARAM_PASS         "passphrase"
 #define OSSL_DECODER_PARAM_INPUT_TYPE   "input-type"
-#define OSSL_DECODER_PARAM_DATA_TYPE    "data-type"
-#define OSSL_DECODER_PARAM_DATA         "data"
-#define OSSL_DECODER_PARAM_REFERENCE    "reference"
 
 /* Passphrase callback parameters */
 #define OSSL_PASSPHRASE_PARAM_INFO      "info"
@@ -469,6 +483,34 @@ extern "C" {
 #define OSSL_CAPABILITY_TLS_GROUP_MAX_TLS           "tls-max-tls"
 #define OSSL_CAPABILITY_TLS_GROUP_MIN_DTLS          "tls-min-dtls"
 #define OSSL_CAPABILITY_TLS_GROUP_MAX_DTLS          "tls-max-dtls"
+
+/*-
+ * storemgmt parameters
+ */
+
+/*
+ * Used by storemgmt_ctx_set_params():
+ *
+ * - OSSL_STORE_PARAM_EXPECT is an INTEGER, and the value is any of the
+ *   OSSL_STORE_INFO numbers.  This is used to set the expected type of
+ *   object loaded.
+ *
+ * - OSSL_STORE_PARAM_SUBJECT, OSSL_STORE_PARAM_ISSUER,
+ *   OSSL_STORE_PARAM_SERIAL, OSSL_STORE_PARAM_FINGERPRINT,
+ *   OSSL_STORE_PARAM_DIGEST, OSSL_STORE_PARAM_ALIAS
+ *   are used as search criteria.
+ *   (OSSL_STORE_PARAM_DIGEST is used with OSSL_STORE_PARAM_FINGERPRINT)
+ */
+#define OSSL_STORE_PARAM_EXPECT     "expect"       /* INTEGER */
+#define OSSL_STORE_PARAM_SUBJECT    "subject" /* DER blob => OCTET_STRING */
+#define OSSL_STORE_PARAM_ISSUER     "name" /* DER blob => OCTET_STRING */
+#define OSSL_STORE_PARAM_SERIAL     "serial"       /* INTEGER */
+#define OSSL_STORE_PARAM_DIGEST     "digest"       /* UTF8_STRING */
+#define OSSL_STORE_PARAM_FINGERPRINT "fingerprint" /* OCTET_STRING */
+#define OSSL_STORE_PARAM_ALIAS      "alias"        /* UTF8_STRING */
+
+/* You may want to pass properties for the provider implementation to use */
+#define OSSL_STORE_PARAM_PROPERTIES "properties"   /* utf8_string */
 
 # ifdef __cplusplus
 }
