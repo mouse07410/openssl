@@ -65,9 +65,9 @@ static int base_get_params(void *provctx, OSSL_PARAM params[])
 }
 
 static const OSSL_ALGORITHM base_encoder[] = {
-#define ENCODER(name, fips, format, type, func_table)                           \
+#define ENCODER(name, _fips, _format, _type, func_table)                    \
     { name,                                                                 \
-      "provider=base,fips=" fips ",format=" format ",type=" type,           \
+      "provider=base,fips=" _fips ",format=" _format ",type=" _type,        \
       (func_table) }
 
 #include "encoders.inc"
@@ -76,15 +76,24 @@ static const OSSL_ALGORITHM base_encoder[] = {
 #undef ENCODER
 
 static const OSSL_ALGORITHM base_decoder[] = {
-#define DECODER(name, fips, input, func_table)                                \
+#define DECODER(name, _fips, _input, func_table)                            \
     { name,                                                                 \
-      "provider=base,fips=" fips ",input=" input,                           \
+      "provider=base,fips=" _fips ",input=" _input,                         \
       (func_table) }
 
 #include "decoders.inc"
     { NULL, NULL, NULL }
 };
 #undef DECODER
+
+static const OSSL_ALGORITHM base_store[] = {
+#define STORE(name, fips, func_table)                           \
+    { name, "provider=base,fips=" fips, (func_table) },
+
+#include "stores.inc"
+    { NULL, NULL, NULL }
+#undef STORE
+};
 
 static const OSSL_ALGORITHM *base_query(void *provctx, int operation_id,
                                          int *no_cache)
@@ -95,6 +104,8 @@ static const OSSL_ALGORITHM *base_query(void *provctx, int operation_id,
         return base_encoder;
     case OSSL_OP_DECODER:
         return base_decoder;
+    case OSSL_OP_STORE:
+        return base_store;
     }
     return NULL;
 }

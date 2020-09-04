@@ -412,9 +412,9 @@ static const OSSL_ALGORITHM deflt_keymgmt[] = {
 };
 
 static const OSSL_ALGORITHM deflt_encoder[] = {
-#define ENCODER(name, fips, format, type, func_table)                           \
+#define ENCODER(name, _fips, _format, _type, func_table)                    \
     { name,                                                                 \
-      "provider=default,fips=" fips ",format=" format ",type=" type,        \
+      "provider=default,fips=" _fips ",format=" _format ",type=" _type,     \
       (func_table) }
 
 #include "encoders.inc"
@@ -423,15 +423,24 @@ static const OSSL_ALGORITHM deflt_encoder[] = {
 #undef ENCODER
 
 static const OSSL_ALGORITHM deflt_decoder[] = {
-#define DECODER(name, fips, input, func_table)                                \
+#define DECODER(name, _fips, _input, func_table)                            \
     { name,                                                                 \
-      "provider=default,fips=" fips ",input=" input,                        \
+      "provider=default,fips=" _fips ",input=" _input,                      \
       (func_table) }
 
 #include "decoders.inc"
     { NULL, NULL, NULL }
 };
 #undef DECODER
+
+static const OSSL_ALGORITHM deflt_store[] = {
+#define STORE(name, fips, func_table)                           \
+    { name, "provider=default,fips=" fips, (func_table) },
+
+#include "stores.inc"
+    { NULL, NULL, NULL }
+#undef STORE
+};
 
 static const OSSL_ALGORITHM *deflt_query(void *provctx, int operation_id,
                                          int *no_cache)
@@ -461,6 +470,8 @@ static const OSSL_ALGORITHM *deflt_query(void *provctx, int operation_id,
         return deflt_encoder;
     case OSSL_OP_DECODER:
         return deflt_decoder;
+    case OSSL_OP_STORE:
+        return deflt_store;
     }
     return NULL;
 }

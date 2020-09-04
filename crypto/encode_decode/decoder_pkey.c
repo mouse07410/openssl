@@ -14,6 +14,7 @@
 #include <openssl/decoder.h>
 #include <openssl/safestack.h>
 #include "crypto/evp.h"
+#include "crypto/decoder.h"
 #include "encoder_local.h"
 
 int OSSL_DECODER_CTX_set_passphrase(OSSL_DECODER_CTX *ctx,
@@ -63,7 +64,7 @@ static int decoder_construct_EVP_PKEY(OSSL_DECODER_INSTANCE *decoder_inst,
     struct decoder_EVP_PKEY_data_st *data = construct_data;
     OSSL_DECODER *decoder =
         OSSL_DECODER_INSTANCE_decoder(decoder_inst);
-    void *deserctx = OSSL_DECODER_INSTANCE_decoder_ctx(decoder_inst);
+    void *decoderctx = OSSL_DECODER_INSTANCE_decoder_ctx(decoder_inst);
     size_t i, end_i;
     /*
      * |object_ref| points to a provider reference to an object, its exact
@@ -150,7 +151,8 @@ static int decoder_construct_EVP_PKEY(OSSL_DECODER_INSTANCE *decoder_inst,
                  * No need to check for errors here, the value of
                  * |import_data.keydata| is as much an indicator.
                  */
-                (void)decoder->export_object(deserctx, object_ref, object_ref_sz,
+                (void)decoder->export_object(decoderctx,
+                                             object_ref, object_ref_sz,
                                              &evp_keymgmt_util_try_import,
                                              &import_data);
                 keydata = import_data.keydata;
@@ -253,17 +255,16 @@ static void collect_decoder(OSSL_DECODER *decoder, void *arg)
     data->error_occured = 0;         /* All is good now */
 }
 
-OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
-                                                   const char *input_type,
-                                                   OPENSSL_CTX *libctx,
-                                                   const char *propquery)
+int ossl_decoder_ctx_setup_for_EVP_PKEY(OSSL_DECODER_CTX *ctx,
+                                        EVP_PKEY **pkey,
+                                        OPENSSL_CTX *libctx,
+                                        const char *propquery)
 {
-    OSSL_DECODER_CTX *ctx = NULL;
     struct collected_data_st *data = NULL;
     size_t i, end_i;
+    int ok = 0;
 
-    if ((ctx = OSSL_DECODER_CTX_new()) == NULL
-        || (data = OPENSSL_zalloc(sizeof(*data))) == NULL
+    if ((data = OPENSSL_zalloc(sizeof(*data))) == NULL
         || (data->process_data =
             OPENSSL_zalloc(sizeof(*data->process_data))) == NULL
         || (data->process_data->keymgmts
@@ -274,7 +275,6 @@ OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
     }
     data->process_data->object = (void **)pkey;
     data->ctx = ctx;
-    OSSL_DECODER_CTX_set_input_type(ctx, input_type);
 
     /* First, find all keymgmts to form goals */
     EVP_KEYMGMT_do_all_provided(libctx, collect_keymgmt, data);
@@ -307,9 +307,6 @@ OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
     if (OSSL_DECODER_CTX_num_decoders(ctx) == 0)
         goto err;
 
-    /* Finally, collect extra decoders based on what we already have */
-    (void)OSSL_DECODER_CTX_add_extra(ctx, libctx, propquery);
-
     if (!OSSL_DECODER_CTX_set_construct(ctx, decoder_construct_EVP_PKEY)
         || !OSSL_DECODER_CTX_set_construct_data(ctx, data->process_data)
         || !OSSL_DECODER_CTX_set_cleanup(ctx,
@@ -317,11 +314,32 @@ OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
         goto err;
 
     data->process_data = NULL;
+    ok = 1;
  err:
     if (data != NULL) {
         decoder_clean_EVP_PKEY_construct_arg(data->process_data);
         sk_OPENSSL_CSTRING_free(data->names);
         OPENSSL_free(data);
     }
-    return ctx;
+    return ok;
+}
+
+OSSL_DECODER_CTX *OSSL_DECODER_CTX_new_by_EVP_PKEY(EVP_PKEY **pkey,
+                                                   const char *input_type,
+                                                   OPENSSL_CTX *libctx,
+                                                   const char *propquery)
+{
+    OSSL_DECODER_CTX *ctx = NULL;
+
+    if ((ctx = OSSL_DECODER_CTX_new()) == NULL) {
+        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_MALLOC_FAILURE);
+        return NULL;
+    }
+    if (OSSL_DECODER_CTX_set_input_type(ctx, input_type)
+        && ossl_decoder_ctx_setup_for_EVP_PKEY(ctx, pkey, libctx, propquery)
+        && OSSL_DECODER_CTX_add_extra(ctx, libctx, propquery))
+        return ctx;
+
+    OSSL_DECODER_CTX_free(ctx);
+    return NULL;
 }

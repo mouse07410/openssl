@@ -11,6 +11,9 @@
 #include <string.h>
 #include <assert.h>
 
+/* We need to use some STORE deprecated APIs */
+#define OPENSSL_SUPPRESS_DEPRECATED
+
 #include "e_os.h"
 
 #include <openssl/crypto.h>
@@ -80,6 +83,7 @@ OSSL_STORE_open_with_libctx(const char *uri,
      */
     for (i = 0; loader_ctx == NULL && i < schemes_n; i++) {
         OSSL_TRACE1(STORE, "Looking up scheme %s\n", schemes[i]);
+#ifndef OPENSSL_NO_DEPRECATED_3_0
         if ((loader = ossl_store_get0_loader_int(schemes[i])) != NULL) {
             if (loader->open_with_libctx != NULL)
                 loader_ctx = loader->open_with_libctx(loader, uri, libctx, propq,
@@ -87,6 +91,7 @@ OSSL_STORE_open_with_libctx(const char *uri,
             else
                 loader_ctx = loader->open(loader, uri, ui_method, ui_data);
         }
+#endif
         if (loader == NULL
             && (fetched_loader =
                 OSSL_STORE_LOADER_fetch(schemes[i], libctx, propq)) != NULL) {
@@ -186,6 +191,7 @@ OSSL_STORE_CTX *OSSL_STORE_open(const char *uri,
                                        post_process, post_process_data);
 }
 
+#ifndef OPENSSL_NO_DEPRECATED_3_0
 int OSSL_STORE_ctrl(OSSL_STORE_CTX *ctx, int cmd, ...)
 {
     va_list args;
@@ -229,6 +235,7 @@ int OSSL_STORE_vctrl(OSSL_STORE_CTX *ctx, int cmd, va_list args)
      */
     return 1;
 }
+#endif
 
 int OSSL_STORE_expect(OSSL_STORE_CTX *ctx, int expected_type)
 {
@@ -333,12 +340,14 @@ int OSSL_STORE_find(OSSL_STORE_CTX *ctx, const OSSL_STORE_SEARCH *search)
         OPENSSL_free(name_der);
         BN_free(number);
     } else {
+#ifndef OPENSSL_NO_DEPRECATED_3_0
         /* legacy loader section */
         if (ctx->loader->find == NULL) {
             ERR_raise(ERR_LIB_OSSL_STORE, OSSL_STORE_R_UNSUPPORTED_OPERATION);
             return 0;
         }
         ret = ctx->loader->find(ctx->loader_ctx, search);
+#endif
     }
 
     return ret;
@@ -382,10 +391,12 @@ OSSL_STORE_INFO *OSSL_STORE_load(OSSL_STORE_CTX *ctx)
             }
             v = load_data.v;
         }
+#ifndef OPENSSL_NO_DEPRECATED_3_0
         if (ctx->fetched_loader == NULL)
             v = ctx->loader->load(ctx->loader_ctx,
                                   ctx->pwdata._.ui_method.ui_method,
                                   ctx->pwdata._.ui_method.ui_method_data);
+#endif
     }
 
     if (ctx->post_process != NULL && v != NULL) {
@@ -424,8 +435,10 @@ int OSSL_STORE_error(OSSL_STORE_CTX *ctx)
 
     if (ctx->fetched_loader != NULL)
         ret = ctx->error_flag;
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if (ctx->fetched_loader == NULL)
         ret = ctx->loader->error(ctx->loader_ctx);
+#endif
     return ret;
 }
 
@@ -435,8 +448,10 @@ int OSSL_STORE_eof(OSSL_STORE_CTX *ctx)
 
     if (ctx->fetched_loader != NULL)
         ret = ctx->loader->p_eof(ctx->loader_ctx);
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if (ctx->fetched_loader == NULL)
         ret = ctx->loader->eof(ctx->loader_ctx);
+#endif
     return ret;
 }
 
@@ -450,12 +465,15 @@ static int ossl_store_close_it(OSSL_STORE_CTX *ctx)
 
     if (ctx->fetched_loader != NULL)
         ret = ctx->loader->p_close(ctx->loader_ctx);
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if (ctx->fetched_loader == NULL)
         ret = ctx->loader->close(ctx->loader_ctx);
+#endif
 
     sk_OSSL_STORE_INFO_pop_free(ctx->cached_info, OSSL_STORE_INFO_free);
     OSSL_STORE_LOADER_free(ctx->fetched_loader);
     OPENSSL_free(ctx->properties);
+    ossl_pw_clear_passphrase_data(&ctx->pwdata);
     return ret;
 }
 
@@ -474,7 +492,7 @@ int OSSL_STORE_close(OSSL_STORE_CTX *ctx)
  * In all cases, ownership of the object is transferred to the OSSL_STORE_INFO
  * and will therefore be freed when the OSSL_STORE_INFO is freed.
  */
-static OSSL_STORE_INFO *store_info_new(int type, void *data)
+OSSL_STORE_INFO *OSSL_STORE_INFO_new(int type, void *data)
 {
     OSSL_STORE_INFO *info = OPENSSL_zalloc(sizeof(*info));
 
@@ -488,7 +506,7 @@ static OSSL_STORE_INFO *store_info_new(int type, void *data)
 
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_NAME(char *name)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_NAME, NULL);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_NAME, NULL);
 
     if (info == NULL) {
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -514,7 +532,7 @@ int OSSL_STORE_INFO_set0_NAME_description(OSSL_STORE_INFO *info, char *desc)
 }
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_PARAMS(EVP_PKEY *params)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_PARAMS, params);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_PARAMS, params);
 
     if (info == NULL)
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -523,7 +541,7 @@ OSSL_STORE_INFO *OSSL_STORE_INFO_new_PARAMS(EVP_PKEY *params)
 
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_PUBKEY(EVP_PKEY *pkey)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_PUBKEY, pkey);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_PUBKEY, pkey);
 
     if (info == NULL)
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -532,7 +550,7 @@ OSSL_STORE_INFO *OSSL_STORE_INFO_new_PUBKEY(EVP_PKEY *pkey)
 
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_PKEY(EVP_PKEY *pkey)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_PKEY, pkey);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_PKEY, pkey);
 
     if (info == NULL)
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -541,7 +559,7 @@ OSSL_STORE_INFO *OSSL_STORE_INFO_new_PKEY(EVP_PKEY *pkey)
 
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_CERT(X509 *x509)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_CERT, x509);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_CERT, x509);
 
     if (info == NULL)
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -550,7 +568,7 @@ OSSL_STORE_INFO *OSSL_STORE_INFO_new_CERT(X509 *x509)
 
 OSSL_STORE_INFO *OSSL_STORE_INFO_new_CRL(X509_CRL *crl)
 {
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_CRL, crl);
+    OSSL_STORE_INFO *info = OSSL_STORE_INFO_new(OSSL_STORE_INFO_CRL, crl);
 
     if (info == NULL)
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
@@ -563,6 +581,13 @@ OSSL_STORE_INFO *OSSL_STORE_INFO_new_CRL(X509_CRL *crl)
 int OSSL_STORE_INFO_get_type(const OSSL_STORE_INFO *info)
 {
     return info->type;
+}
+
+void *OSSL_STORE_INFO_get0_data(int type, const OSSL_STORE_INFO *info)
+{
+    if (info->type == type)
+        return info->_.data;
+    return NULL;
 }
 
 const char *OSSL_STORE_INFO_get0_NAME(const OSSL_STORE_INFO *info)
@@ -698,10 +723,6 @@ void OSSL_STORE_INFO_free(OSSL_STORE_INFO *info)
 {
     if (info != NULL) {
         switch (info->type) {
-        case OSSL_STORE_INFO_EMBEDDED:
-            BUF_MEM_free(info->_.embedded.blob);
-            OPENSSL_free(info->_.embedded.pem_name);
-            break;
         case OSSL_STORE_INFO_NAME:
             OPENSSL_free(info->_.name.name);
             OPENSSL_free(info->_.name.desc);
@@ -766,6 +787,7 @@ int OSSL_STORE_supports_search(OSSL_STORE_CTX *ctx, int search_type)
             break;
         }
     }
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if (ctx->fetched_loader == NULL) {
         OSSL_STORE_SEARCH tmp_search;
 
@@ -774,6 +796,7 @@ int OSSL_STORE_supports_search(OSSL_STORE_CTX *ctx, int search_type)
         tmp_search.search_type = search_type;
         ret = ctx->loader->find(NULL, &tmp_search);
     }
+#endif
     return ret;
 }
 
@@ -889,44 +912,6 @@ const EVP_MD *OSSL_STORE_SEARCH_get0_digest(const OSSL_STORE_SEARCH *criterion)
     return criterion->digest;
 }
 
-/* Internal functions */
-OSSL_STORE_INFO *ossl_store_info_new_EMBEDDED(const char *new_pem_name,
-                                              BUF_MEM *embedded)
-{
-    OSSL_STORE_INFO *info = store_info_new(OSSL_STORE_INFO_EMBEDDED, NULL);
-
-    if (info == NULL) {
-        ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
-        return NULL;
-    }
-
-    info->_.embedded.blob = embedded;
-    info->_.embedded.pem_name =
-        new_pem_name == NULL ? NULL : OPENSSL_strdup(new_pem_name);
-
-    if (new_pem_name != NULL && info->_.embedded.pem_name == NULL) {
-        ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_MALLOC_FAILURE);
-        OSSL_STORE_INFO_free(info);
-        info = NULL;
-    }
-
-    return info;
-}
-
-BUF_MEM *ossl_store_info_get0_EMBEDDED_buffer(OSSL_STORE_INFO *info)
-{
-    if (info->type == OSSL_STORE_INFO_EMBEDDED)
-        return info->_.embedded.blob;
-    return NULL;
-}
-
-char *ossl_store_info_get0_EMBEDDED_pem_name(OSSL_STORE_INFO *info)
-{
-    if (info->type == OSSL_STORE_INFO_EMBEDDED)
-        return info->_.embedded.pem_name;
-    return NULL;
-}
-
 OSSL_STORE_CTX *OSSL_STORE_attach(BIO *bp, const char *scheme,
                                   OPENSSL_CTX *libctx, const char *propq,
                                   const UI_METHOD *ui_method, void *ui_data,
@@ -942,9 +927,11 @@ OSSL_STORE_CTX *OSSL_STORE_attach(BIO *bp, const char *scheme,
         scheme = "file";
 
     OSSL_TRACE1(STORE, "Looking up scheme %s\n", scheme);
+#ifndef OPENSSL_NO_DEPRECATED_3_0
     if ((loader = ossl_store_get0_loader_int(scheme)) != NULL)
         loader_ctx = loader->attach(loader, bp, libctx, propq,
                                     ui_method, ui_data);
+#endif
     if (loader == NULL
         && (fetched_loader =
             OSSL_STORE_LOADER_fetch(scheme, libctx, propq)) != NULL) {

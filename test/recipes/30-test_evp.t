@@ -29,7 +29,7 @@ my $defaultcnf = $no_legacy ? 'default.cnf' : 'default-and-legacy.cnf';
 
 my @configs = ( $defaultcnf );
 # Only add the FIPS config if the FIPS module has been built
-push @configs, 'fips.cnf' unless $no_fips;
+push @configs, 'fips-and-base.cnf' unless $no_fips;
 
 # A list of tests that run with both the default and fips provider.
 my @files = qw(
@@ -47,8 +47,8 @@ my @files = qw(
                 evpmd_sha.txt
                 evppbe_pbkdf2.txt
                 evppkey_dsa.txt 
-                evppkey_ecc_nist.txt
-                evppkey_ecdh_nist.txt
+                evppkey_ecc.txt
+                evppkey_ecdh.txt
                 evppkey_ecdsa.txt
                 evppkey_ecx.txt
                 evppkey_ffdhe.txt
@@ -93,8 +93,6 @@ my @defltfiles = qw(
                      evpmd_whirlpool.txt
                      evppbe_scrypt.txt
                      evppbe_pkcs12.txt
-                     evppkey_ecc.txt
-                     evppkey_ecdh.txt
                      evppkey_brainpool.txt
                      evppkey_kdf_scrypt.txt
                      evppkey_kdf_tls1_prf.txt

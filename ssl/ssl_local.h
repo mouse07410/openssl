@@ -2761,13 +2761,12 @@ int ktls_configure_crypto(const SSL *s, const EVP_CIPHER *c, EVP_CIPHER_CTX *dd,
 
 /* s3_cbc.c */
 __owur char ssl3_cbc_record_digest_supported(const EVP_MD_CTX *ctx);
-__owur int ssl3_cbc_digest_record(SSL *s,
-                                  const EVP_MD_CTX *ctx,
+__owur int ssl3_cbc_digest_record(const EVP_MD *md,
                                   unsigned char *md_out,
                                   size_t *md_out_size,
                                   const unsigned char header[13],
                                   const unsigned char *data,
-                                  size_t data_plus_mac_size,
+                                  size_t data_size,
                                   size_t data_plus_mac_plus_padding_size,
                                   const unsigned char *mac_secret,
                                   size_t mac_secret_length, char is_sslv3);
