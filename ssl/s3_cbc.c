@@ -132,25 +132,6 @@ static void tls1_sha512_final_raw(void *ctx, unsigned char *md_out)
 #undef  LARGEST_DIGEST_CTX
 #define LARGEST_DIGEST_CTX SHA512_CTX
 
-/*
- * ssl3_cbc_record_digest_supported returns 1 iff |ctx| uses a hash function
- * which ssl3_cbc_digest_record supports.
- */
-char ssl3_cbc_record_digest_supported(const EVP_MD_CTX *ctx)
-{
-    switch (EVP_MD_CTX_type(ctx)) {
-    case NID_md5:
-    case NID_sha1:
-    case NID_sha224:
-    case NID_sha256:
-    case NID_sha384:
-    case NID_sha512:
-        return 1;
-    default:
-        return 0;
-    }
-}
-
 /*-
  * ssl3_cbc_digest_record computes the MAC of a decrypted, padded SSLv3/TLS
  * record.
