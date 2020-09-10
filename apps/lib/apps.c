@@ -389,7 +389,6 @@ CONF *app_load_config_bio(BIO *in, const char *filename)
     else
         BIO_printf(bio_err, "config input");
 
-    CONF_modules_load(conf, NULL, 0);
     NCONF_free(conf);
     return NULL;
 }
@@ -659,22 +658,38 @@ void* app_malloc(int sz, const char *what)
 
 /*
  * Initialize or extend, if *certs != NULL, a certificate stack.
+ * The caller is responsible for freeing *certs if its value is left not NULL.
  */
 int load_certs(const char *uri, STACK_OF(X509) **certs,
                const char *pass, const char *desc)
 {
-    return load_key_certs_crls(uri, 0, pass, desc, NULL, NULL,
-                               NULL, certs, NULL, NULL);
+    int was_NULL = *certs == NULL;
+    int ret = load_key_certs_crls(uri, 0, pass, desc, NULL, NULL,
+                                  NULL, certs, NULL, NULL);
+
+    if (!ret && was_NULL) {
+        sk_X509_pop_free(*certs, X509_free);
+        *certs = NULL;
+    }
+    return ret;
 }
 
 /*
  * Initialize or extend, if *crls != NULL, a certificate stack.
+ * The caller is responsible for freeing *crls if its value is left not NULL.
  */
 int load_crls(const char *uri, STACK_OF(X509_CRL) **crls,
               const char *pass, const char *desc)
 {
-    return load_key_certs_crls(uri, 0, pass, desc, NULL, NULL,
-                               NULL, NULL, NULL, crls);
+    int was_NULL = *crls == NULL;
+    int ret = load_key_certs_crls(uri, 0, pass, desc, NULL, NULL,
+                                  NULL, NULL, NULL, crls);
+
+    if (!ret && was_NULL) {
+        sk_X509_CRL_pop_free(*crls, X509_CRL_free);
+        *crls = NULL;
+    }
+    return ret;
 }
 
 /*
@@ -702,7 +717,7 @@ int load_key_certs_crls(const char *uri, int maybe_stdin,
     const char *propq = app_get0_propq();
     int ncerts = 0;
     int ncrls = 0;
-    const char *failed = NULL;
+    const char *failed = "any";
     /* TODO make use of the engine reference 'eng' when loading pkeys */
 
     if (ppkey != NULL)
@@ -714,14 +729,14 @@ int load_key_certs_crls(const char *uri, int maybe_stdin,
     if (pcerts != NULL && *pcerts == NULL
             && (*pcerts = sk_X509_new_null()) == NULL) {
         BIO_printf(bio_err, "Out of memory");
-        return 0;
+        goto end;
     }
     if (pcrl != NULL)
         *pcrl = NULL;
     if (pcrls != NULL && *pcrls == NULL
             && (*pcrls = sk_X509_CRL_new_null()) == NULL) {
         BIO_printf(bio_err, "Out of memory");
-        return 0;
+        goto end;
     }
 
     if (desc == NULL)
@@ -753,6 +768,7 @@ int load_key_certs_crls(const char *uri, int maybe_stdin,
         goto end;
     }
 
+    failed = NULL;
     while (!OSSL_STORE_eof(ctx)) {
         OSSL_STORE_INFO *info = OSSL_STORE_load(ctx);
         int type = info == NULL ? 0 : OSSL_STORE_INFO_get_type(info);
@@ -806,17 +822,19 @@ int load_key_certs_crls(const char *uri, int maybe_stdin,
 
  end:
     OSSL_STORE_close(ctx);
-    if (ppkey != NULL && *ppkey == NULL)
-        failed = "key";
-    else if ((pcert != NULL || pcerts != NULL) && ncerts == 0)
-        failed = "cert";
-    else if ((pcrl != NULL || pcrls != NULL) && ncrls == 0)
-        failed = "CRL";
-    if (failed != NULL) {
-        BIO_printf(bio_err, "Could not read any %s of %s from %s\n",
-                   failed, desc, uri);
-        ERR_print_errors(bio_err);
+    if (failed == NULL) {
+        if (ppkey != NULL && *ppkey == NULL)
+            failed = "key";
+        else if ((pcert != NULL || pcerts != NULL) && ncerts == 0)
+            failed = "cert";
+        else if ((pcrl != NULL || pcrls != NULL) && ncrls == 0)
+            failed = "CRL";
+        if (failed != NULL)
+            BIO_printf(bio_err, "Could not read any %s of %s from %s\n",
+                       failed, desc, uri);
     }
+    if (failed != NULL)
+        ERR_print_errors(bio_err);
     return failed == NULL;
 }
 
@@ -1629,7 +1647,8 @@ int parse_yesno(const char *str, int def)
 
 /*
  * name is expected to be in the format /type0=value0/type1=value1/type2=...
- * where characters may be escaped by \
+ * where + can be used instead of / to form multi-valued RDNs if canmulti
+ * and characters may be escaped by \
  */
 X509_NAME *parse_name(const char *cp, int chtype, int canmulti,
                       const char *desc)
@@ -1682,6 +1701,7 @@ X509_NAME *parse_name(const char *cp, int chtype, int canmulti,
         /* Collect the value. */
         valstr = (unsigned char *)bp;
         for (; *cp != '\0' && *cp != '/'; *bp++ = *cp++) {
+            /* unescaped '+' symbol string signals further member of multiRDN */
             if (canmulti && *cp == '+') {
                 nextismulti = 1;
                 break;
@@ -1705,6 +1725,9 @@ X509_NAME *parse_name(const char *cp, int chtype, int canmulti,
             BIO_printf(bio_err,
                        "%s: Skipping unknown %s name attribute \"%s\"\n",
                        opt_getprog(), desc, typestr);
+            if (ismulti)
+                BIO_printf(bio_err,
+                           "Hint: a '+' in a value string needs be escaped using '\\' else a new member of a multi-valued RDN is expected\n");
             continue;
         }
         if (*valstr == '\0') {
