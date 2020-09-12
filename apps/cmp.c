@@ -269,7 +269,7 @@ const OPTIONS cmp_options[] = {
     {"geninfo", OPT_GENINFO, 's',
      "generalInfo integer values to place in request PKIHeader with given OID"},
     {OPT_MORE_STR, 0, 0,
-     "specified in the form <OID>:int:<n>, e.g. \"1.2.3:int:987\""},
+     "specified in the form <OID>:int:<n>, e.g. \"1.2.3.4:int:56789\""},
 
     OPT_SECTION("Certificate enrollment"),
     {"newkey", OPT_NEWKEY, 's',
@@ -378,14 +378,16 @@ const OPTIONS cmp_options[] = {
     {"ref", OPT_REF, 's',
      "Reference value to use as senderKID in case no -cert is given"},
     {"secret", OPT_SECRET, 's',
-     "Password source for client authentication with a pre-shared key (secret)"},
+     "Prefer PBM (over signatures) for protecting msgs with given password source"},
     {"cert", OPT_CERT, 's',
-     "Client's current certificate (needed unless using -secret for PBM);"},
+     "Client's CMP signer certificate; its public key must match the -key argument"},
     {OPT_MORE_STR, 0, 0,
-     "any further certs included are appended in extraCerts field"},
+     "This also used as default reference for subject DN and SANs."},
+    {OPT_MORE_STR, 0, 0,
+     "Any further certs included are appended to the untrusted certs"},
     {"own_trusted", OPT_OWN_TRUSTED, 's',
      "Optional certs to verify chain building for own CMP signer cert"},
-    {"key", OPT_KEY, 's', "Private key for the client's current certificate"},
+    {"key", OPT_KEY, 's', "CMP signer private key, not used when -secret given"},
     {"keypass", OPT_KEYPASS, 's',
      "Client private key (and cert and old cert file) pass phrase source"},
     {"digest", OPT_DIGEST, 's',
@@ -393,7 +395,9 @@ const OPTIONS cmp_options[] = {
     {"mac", OPT_MAC, 's',
      "MAC algorithm to use in PBM-based message protection. Default \"hmac-sha1\""},
     {"extracerts", OPT_EXTRACERTS, 's',
-     "Certificates to append in extraCerts field of outgoing messages"},
+     "Certificates to append in extraCerts field of outgoing messages."},
+    {OPT_MORE_STR, 0, 0,
+     "This can be used as the default CMP signer cert chain to include"},
     {"unprotected_requests", OPT_UNPROTECTED_REQUESTS, '-',
      "Send messages without CMP-level protection"},
 
@@ -1479,8 +1483,8 @@ static SSL_CTX *setup_ssl_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
  */
 static int setup_protection_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
 {
-    if (!opt_unprotected_requests && opt_secret == NULL && opt_cert == NULL) {
-        CMP_err("must give client credentials unless -unprotected_requests is set");
+    if (!opt_unprotected_requests && opt_secret == NULL && opt_key == NULL) {
+        CMP_err("must give -key or -secret unless -unprotected_requests is used");
         return 0;
     }
 
@@ -1507,7 +1511,7 @@ static int setup_protection_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
                 return 0;
         }
         if (opt_cert != NULL || opt_key != NULL)
-            CMP_warn("no signature-based protection used since -secret is given");
+            CMP_warn("-cert and -key not used for protection since -secret is given");
     }
     if (opt_ref != NULL
             && !OSSL_CMP_CTX_set1_referenceValue(ctx, (unsigned char *)opt_ref,
@@ -1597,7 +1601,8 @@ static int setup_protection_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
  */
 static int setup_request_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
 {
-    if (opt_subject == NULL && opt_oldcert == NULL && opt_cert == NULL)
+    if (opt_subject == NULL && opt_oldcert == NULL && opt_cert == NULL
+            && opt_cmd != CMP_RR && opt_cmd != CMP_GENM)
         CMP_warn("no -subject given, neither -oldcert nor -cert available as default");
     if (!set_name(opt_subject, OSSL_CMP_CTX_set1_subjectName, ctx, "subject")
             || !set_name(opt_issuer, OSSL_CMP_CTX_set1_issuer, ctx, "issuer"))
@@ -2153,7 +2158,16 @@ static int read_config(void)
      * would not make sense within the config file.
      * Moreover, these two options and OPT_VERBOSITY have already been handled.
      */
+    int n_options = OSSL_NELEM(cmp_options) - 1;
 
+    for (i = start - OPT_HELP, opt = &cmp_options[start];
+         opt->name; i++, opt++)
+        if (!strcmp(opt->name, OPT_SECTION_STR)
+                || !strcmp(opt->name, OPT_MORE_STR))
+            n_options--;
+    OPENSSL_assert(OSSL_NELEM(cmp_vars) == n_options
+                 + OPT_PROV__FIRST + 1 - OPT_PROV__LAST
+                 + OPT_V__FIRST + 1 - OPT_V__LAST);
     for (i = start - OPT_HELP, opt = &cmp_options[start];
          opt->name; i++, opt++) {
         if (!strcmp(opt->name, OPT_SECTION_STR)
@@ -2167,10 +2181,6 @@ static int read_config(void)
                                    && opt->retval < OPT_V__LAST);
         if (provider_option || verification_option)
             i--;
-        if (cmp_vars[i].txt == NULL) {
-            CMP_err1("internal: cmp_vars array too short, i=%d", i);
-            return 0;
-        }
         switch (opt->valtype) {
         case '-':
         case 'n':
@@ -2945,5 +2955,5 @@ int cmp_main(int argc, char **argv)
     NCONF_free(conf); /* must not do as long as opt_... variables are used */
     OSSL_CMP_log_close();
 
-    return ret == 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+    return ret == 0 ? EXIT_FAILURE : EXIT_SUCCESS; /* ret == -1 for -help */
 }

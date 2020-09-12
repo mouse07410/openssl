@@ -15,6 +15,8 @@
 #include <openssl/err.h>
 #include "e_os.h"
 #include "prov/providercommonerr.h"
+#include "prov/providercommon.h"
+
 /*
  * We're cheating here. Normally we don't allow RUN_ONCE usage inside the FIPS
  * module because all such initialisation should be associated with an
@@ -30,12 +32,19 @@
 #define FIPS_STATE_RUNNING  2
 #define FIPS_STATE_ERROR    3
 
+/*
+ * The number of times the module will report it is in the error state
+ * before going quiet.
+ */
+#define FIPS_ERROR_REPORTING_RATE_LIMIT     10
+
 /* The size of a temp buffer used to read in data */
 #define INTEGRITY_BUF_SIZE (4096)
 #define MAX_MD_SIZE 64
 #define MAC_NAME    "HMAC"
 #define DIGEST_NAME "SHA256"
 
+static int FIPS_conditional_error_check = 1;
 static int FIPS_state = FIPS_STATE_INIT;
 static CRYPTO_RWLOCK *self_test_lock = NULL;
 static unsigned char fixed_key[32] = { FIPS_KEY_ELEMENTS };
@@ -300,15 +309,43 @@ end:
         (*st->bio_free_cb)(bio_indicator);
         (*st->bio_free_cb)(bio_module);
     }
-    FIPS_state = ok ? FIPS_STATE_RUNNING : FIPS_STATE_ERROR;
+    if (ok)
+        FIPS_state = FIPS_STATE_RUNNING;
+    else
+        ossl_set_error_state(OSSL_SELF_TEST_TYPE_NONE);
     CRYPTO_THREAD_unlock(self_test_lock);
 
     return ok;
 }
 
-
-unsigned int FIPS_is_running(void)
+void SELF_TEST_disable_conditional_error_state(void)
 {
-    return FIPS_state == FIPS_STATE_RUNNING
-           || FIPS_state == FIPS_STATE_SELFTEST;
+    FIPS_conditional_error_check = 0;
+}
+
+void ossl_set_error_state(const char *type)
+{
+    int cond_test = (type != NULL && strcmp(type, OSSL_SELF_TEST_TYPE_PCT) == 0);
+
+    if (!cond_test || (FIPS_conditional_error_check == 1)) {
+        FIPS_state = FIPS_STATE_ERROR;
+        ERR_raise(ERR_LIB_PROV, PROV_R_FIPS_MODULE_ENTERING_ERROR_STATE);
+    } else {
+        ERR_raise(ERR_LIB_PROV, PROV_R_FIPS_MODULE_CONDITIONAL_ERROR);
+    }
+}
+
+int ossl_prov_is_running(void)
+{
+    const int res = FIPS_state == FIPS_STATE_RUNNING
+                    || FIPS_state == FIPS_STATE_SELFTEST;
+    static unsigned int rate_limit = 0;
+
+    if (res) {
+        rate_limit = 0;
+    } else if (FIPS_state == FIPS_STATE_ERROR) {
+        if (rate_limit++ < FIPS_ERROR_REPORTING_RATE_LIMIT)
+            ERR_raise(ERR_LIB_PROV, PROV_R_FIPS_MODULE_IN_ERROR_STATE);
+    }
+    return res;
 }

@@ -2399,6 +2399,11 @@ int raw_read_stdin(void *buf, int siz)
     return recv(fileno_stdin(), buf, siz, 0);
 }
 #else
+# if defined(__TANDEM)
+#  if defined(OPENSSL_TANDEM_FLOSS)
+#   include <floss.h(floss_read)>
+#  endif
+# endif
 int raw_read_stdin(void *buf, int siz)
 {
     return read(fileno_stdin(), buf, siz);
@@ -2414,7 +2419,22 @@ int raw_write_stdout(const void *buf, int siz)
     else
         return -1;
 }
+#elif defined(OPENSSL_SYSNAME_TANDEM) && defined(OPENSSL_THREADS) && defined(_SPT_MODEL_)
+# if defined(__TANDEM)
+#  if defined(OPENSSL_TANDEM_FLOSS)
+#   include <floss.h(floss_write)>
+#  endif
+# endif
+int raw_write_stdout(const void *buf,int siz)
+{
+	return write(fileno(stdout),(void*)buf,siz);
+}
 #else
+# if defined(__TANDEM)
+#  if defined(OPENSSL_TANDEM_FLOSS)
+#   include <floss.h(floss_write)>
+#  endif
+# endif
 int raw_write_stdout(const void *buf, int siz)
 {
     return write(fileno_stdout(), buf, siz);
@@ -2702,6 +2722,57 @@ int set_cert_times(X509 *x, const char *startdate, const char *enddate,
         return 0;
     }
     return 1;
+}
+
+int set_crl_lastupdate(X509_CRL *crl, const char *lastupdate)
+{
+    int ret = 0;
+    ASN1_TIME *tm = ASN1_TIME_new();
+
+    if (tm == NULL)
+        goto end;
+
+    if (lastupdate == NULL) {
+        if (X509_gmtime_adj(tm, 0) == NULL)
+            goto end;
+    } else {
+        if (!ASN1_TIME_set_string_X509(tm, lastupdate))
+            goto end;
+    }
+
+    if (!X509_CRL_set1_lastUpdate(crl, tm))
+        goto end;
+
+    ret = 1;
+end:
+    ASN1_TIME_free(tm);
+    return ret;
+}
+
+int set_crl_nextupdate(X509_CRL *crl, const char *nextupdate,
+                       long days, long hours, long secs)
+{
+    int ret = 0;
+    ASN1_TIME *tm = ASN1_TIME_new();
+
+    if (tm == NULL)
+        goto end;
+
+    if (nextupdate == NULL) {
+        if (X509_time_adj_ex(tm, days, hours * 60 * 60 + secs, NULL) == NULL)
+            goto end;
+    } else {
+        if (!ASN1_TIME_set_string_X509(tm, nextupdate))
+            goto end;
+    }
+
+    if (!X509_CRL_set1_nextUpdate(crl, tm))
+        goto end;
+
+    ret = 1;
+end:
+    ASN1_TIME_free(tm);
+    return ret;
 }
 
 void make_uppercase(char *string)

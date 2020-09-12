@@ -235,7 +235,7 @@ e.g., C<signKeyPairTypes>.
 =item B<-geninfo> I<OID:int:N>
 
 generalInfo integer values to place in request PKIHeader with given OID,
-e.g., C<1.2.3:int:987>.
+e.g., C<1.2.3.4:int:56789>.
 
 =back
 
@@ -499,11 +499,14 @@ Each source may contain multiple certificates.
 
 =item B<-untrusted> I<sources>
 
-Non-trusted intermediate CA certificate(s) that may be useful for cert path
-construction for the CMP client certificate (to include in the extraCerts field
-of outgoing messages), for the TLS client certificate (if TLS is enabled),
+Non-trusted intermediate CA certificate(s).
+Any extra certificates given with the B<-cert> option are appended to it.
+All these certificates may be useful for cert path construction
+for the CMP client certificate (to include in the extraCerts field of outgoing
+messages) and for the TLS client certificate (if TLS is enabled)
+as well as for chain building
 when verifying the CMP server certificate (checking signature-based
-CMP message protection), and when verifying newly enrolled certificates.
+CMP message protection) and when verifying newly enrolled certificates.
 
 Multiple filenames may be given, separated by commas and/or whitespace.
 Each file may contain multiple certificates.
@@ -610,10 +613,11 @@ is typically used when authenticating with pre-shared key (password-based MAC).
 
 =item B<-secret> I<arg>
 
-Source of secret value to use for creating PBM-based protection of outgoing
-messages and for verifying any PBM-based protection of incoming messages.
+Prefer PBM-based message protection with given source of a secret value.
+The secret is used for creating PBM-based protection of outgoing messages
+and (as far as needed) for verifying PBM-based protection of incoming messages.
 PBM stands for Password-Based Message Authentication Code.
-This takes precedence over the B<-cert> option.
+This takes precedence over the B<-cert> and B<-key> options.
 
 For more information about the format of B<arg> see the
 B<PASS PHRASE ARGUMENTS> section in L<openssl(1)>.
@@ -624,13 +628,17 @@ The client's current CMP signer certificate.
 Requires the corresponding key to be given with B<-key>.
 The subject of this certificate will be used as sender of outgoing CMP messages,
 while the subject of B<-oldcert> or B<-subjectName> may provide fallback values.
+The issuer of this certificate is used as one of the recipient fallback values.
 When using signature-based message protection, this "protection certificate"
-will be included first in the extraCerts field of outgoing messages.
+will be included first in the extraCerts field of outgoing messages
+and the signature is done with the corresponding key.
 In Initialization Request (IR) messages this can be used for authenticating
 using an external entity certificate as defined in appendix E.7 of RFC 4210.
 For Key Update Request (KUR) messages this is also used as
 the certificate to be updated if the B<-oldcert> option is not given.
-If the file includes further certs, they are appended to the untrusted certs.
+If the file includes further certs, they are appended to the untrusted certs
+because they typically constitute the chain of the client certificate, which
+is included in the extraCerts field in signature-protected request messages.
 
 =item B<-own_trusted> I<filenames>
 
@@ -708,8 +716,9 @@ The only value with effect is B<ENGINE>.
 =item B<-otherpass> I<arg>
 
 Pass phrase source for certificate given with the B<-trusted>, B<-untrusted>,
-B<-own_trusted>,
-B<-out_trusted>, B<-extracerts>, B<-tls_extra>, or B<-tls_trusted> options.
+B<-own_trusted>, B<-srvcert>, B<-out_trusted>, B<-extracerts>,
+B<-srv_trusted>, B<-srv_untrusted>, B<-rsp_extracerts>, B<-rsp_capubs>,
+B<-tls_extra>, and B<-tls_trusted> options.
 If not given here, the password will be prompted for if needed.
 
 For more information about the format of B<arg> see the
@@ -1018,7 +1027,7 @@ to issue the following shell commands.
   cd /path/to/openssl
   export OPENSSL_CONF=openssl.cnf
 =begin comment
-  wget 'http://pki.certificate.fi:8080/install-ca-cert.html/ca-certificate.crt\
+  wget 'http://pki.certificate.fi:8081/install-ca-cert.html/ca-certificate.crt\
         ?ca-id=632&download-certificate=1' -O insta.ca.crt
 =end comment
   openssl genrsa -out insta.priv.pem

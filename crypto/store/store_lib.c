@@ -178,6 +178,7 @@ OSSL_STORE_open_with_libctx(const char *uri,
     }
     OSSL_STORE_LOADER_free(fetched_loader);
     OPENSSL_free(propq_copy);
+    OPENSSL_free(ctx);
     return NULL;
 }
 
@@ -269,6 +270,10 @@ int OSSL_STORE_find(OSSL_STORE_CTX *ctx, const OSSL_STORE_SEARCH *search)
 
     if (ctx->loading) {
         ERR_raise(ERR_LIB_OSSL_STORE, OSSL_STORE_R_LOADING_STARTED);
+        return 0;
+    }
+    if (search == NULL) {
+        ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
 
@@ -845,6 +850,7 @@ OSSL_STORE_SEARCH *OSSL_STORE_SEARCH_by_key_fingerprint(const EVP_MD *digest,
                        OSSL_STORE_R_FINGERPRINT_SIZE_DOES_NOT_MATCH_DIGEST,
                        "%s size is %d, fingerprint size is %zu",
                        EVP_MD_name(digest), EVP_MD_size(digest), len);
+        OPENSSL_free(search);
         return NULL;
     }
 
