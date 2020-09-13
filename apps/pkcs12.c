@@ -20,12 +20,6 @@
 #include <openssl/pkcs12.h>
 #include <openssl/provider.h>
 
-DEFINE_STACK_OF(X509)
-DEFINE_STACK_OF(PKCS7)
-DEFINE_STACK_OF(PKCS12_SAFEBAG)
-DEFINE_STACK_OF(X509_ATTRIBUTE)
-DEFINE_STACK_OF_STRING()
-
 #define NOKEYS          0x1
 #define NOCERTS         0x2
 #define INFO            0x4

@@ -22,12 +22,6 @@
 #include "crypto/ess.h"
 #include "crypto/x509.h" /* for X509_add_cert_new() */
 
-DEFINE_STACK_OF(CMS_RevocationInfoChoice)
-DEFINE_STACK_OF(CMS_SignerInfo)
-DEFINE_STACK_OF(X509)
-DEFINE_STACK_OF(X509_ALGOR)
-DEFINE_STACK_OF(X509_ATTRIBUTE)
-
 /* CMS SignedData Utilities */
 
 static CMS_SignedData *cms_get0_signed(CMS_ContentInfo *cms)

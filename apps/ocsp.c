@@ -33,11 +33,6 @@
 #include <openssl/bn.h>
 #include <openssl/x509v3.h>
 
-DEFINE_STACK_OF(OCSP_CERTID)
-DEFINE_STACK_OF(CONF_VALUE)
-DEFINE_STACK_OF(X509)
-DEFINE_STACK_OF_STRING()
-
 #if defined(__TANDEM)
 # if defined(OPENSSL_TANDEM_FLOSS)
 #  include <floss.h(floss_fork)>

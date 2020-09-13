@@ -25,14 +25,6 @@
 #include "crypto/x509.h"
 #include "x509_local.h"
 
-DEFINE_STACK_OF(X509)
-DEFINE_STACK_OF(X509_EXTENSION)
-DEFINE_STACK_OF(X509_REVOKED)
-DEFINE_STACK_OF(GENERAL_NAME)
-DEFINE_STACK_OF(X509_CRL)
-DEFINE_STACK_OF(DIST_POINT)
-DEFINE_STACK_OF_STRING()
-
 /* CRL score values */
 
 /* No unhandled critical extensions */
@@ -1691,7 +1683,7 @@ static int check_policy(X509_STORE_CTX *ctx)
     ret = X509_policy_check(&ctx->tree, &ctx->explicit_policy, ctx->chain,
                             ctx->param->policies, ctx->param->flags);
     if (ctx->bare_ta_signed)
-        sk_X509_pop(ctx->chain);
+        (void)sk_X509_pop(ctx->chain);
 
     if (ret == X509_PCY_TREE_INTERNAL) {
         X509err(X509_F_CHECK_POLICY, ERR_R_MALLOC_FAILURE);
