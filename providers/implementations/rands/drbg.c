@@ -133,10 +133,10 @@ static unsigned int get_parent_reseed_count(PROV_DRBG *drbg)
 }
 
 /*
- * Implements the get_entropy() callback (see RAND_DRBG_set_callbacks())
+ * Implements the get_entropy() callback
  *
  * If the DRBG has a parent, then the required amount of entropy input
- * is fetched using the parent's RAND_DRBG_generate().
+ * is fetched using the parent's PROV_DRBG_generate().
  *
  * Otherwise, the entropy is polled from the system entropy sources
  * using prov_pool_acquire_entropy().
@@ -229,7 +229,7 @@ err:
 }
 
 /*
- * Implements the cleanup_entropy() callback (see RAND_DRBG_set_callbacks())
+ * Implements the cleanup_entropy() callback
  *
  */
 static void prov_drbg_cleanup_entropy(PROV_DRBG *drbg,
@@ -587,7 +587,7 @@ int PROV_DRBG_reseed(PROV_DRBG *drbg, int prediction_resistance,
     }
 
     if (ent != NULL) {
-#ifdef FIP_MODULE
+#ifdef FIPS_MODULE
         /*
          * NIST SP-800-90A mandates that entropy *shall not* be provided
          * by the consuming application. Instead the data is added as additional
