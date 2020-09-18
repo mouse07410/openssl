@@ -23,6 +23,7 @@
 #include "prov/providercommon.h"
 #include "prov/implementations.h"
 #include "prov/provider_ctx.h"
+#include "prov/securitycheck.h"
 #include "crypto/dh.h"
 
 static OSSL_FUNC_keyexch_newctx_fn dh_newctx;
@@ -103,7 +104,7 @@ static int dh_init(void *vpdhctx, void *vdh)
     DH_free(pdhctx->dh);
     pdhctx->dh = vdh;
     pdhctx->kdf_type = PROV_DH_KDF_NONE;
-    return 1;
+    return dh_check_key(vdh);
 }
 
 static int dh_set_peer(void *vpdhctx, void *vdh)
@@ -320,7 +321,10 @@ static int dh_set_ctx_params(void *vpdhctx, const OSSL_PARAM params[])
 
         EVP_MD_free(pdhctx->kdf_md);
         pdhctx->kdf_md = EVP_MD_fetch(pdhctx->libctx, name, mdprops);
-
+        if (!digest_is_allowed(pdhctx->kdf_md)) {
+            EVP_MD_free(pdhctx->kdf_md);
+            pdhctx->kdf_md = NULL;
+        }
         if (pdhctx->kdf_md == NULL)
             return 0;
     }

@@ -37,34 +37,59 @@
  * Verify that the passed in L, N pair for DH or DSA is valid.
  * Returns 0 if invalid, otherwise it returns the security strength.
  */
-static int ffc_validate_LN(size_t L, size_t N, int type)
-{
-#ifndef FIPS_MODULE
-    if (L == 1024 && N == 160)
-        return 80;
-#endif
 
+#ifdef FIPS_MODULE
+static int ffc_validate_LN(size_t L, size_t N, int type, int verify)
+{
     if (type == FFC_PARAM_TYPE_DH) {
         /* Valid DH L,N parameters from SP800-56Ar3 5.5.1 Table 1 */
         if (L == 2048 && (N == 224 || N == 256))
             return 112;
-#ifndef OPENSSL_NO_DH
+# ifndef OPENSSL_NO_DH
         DHerr(0, DH_R_BAD_FFC_PARAMETERS);
-#endif
+# endif
     } else if (type == FFC_PARAM_TYPE_DSA) {
         /* Valid DSA L,N parameters from FIPS 186-4 Section 4.2 */
+        /* In fips mode 1024/160 can only be used for verification */
+        if (verify && L == 1024 && N == 160)
+            return 80;
+        if (L == 2048 && (N == 224 || N == 256))
+            return 112;
+        if (L == 3072 && N == 256)
+            return 128;
+# ifndef OPENSSL_NO_DSA
+        DSAerr(0, DSA_R_BAD_FFC_PARAMETERS);
+# endif
+    }
+    return 0;
+}
+#else
+static int ffc_validate_LN(size_t L, size_t N, int type, int verify)
+{
+    if (type == FFC_PARAM_TYPE_DH) {
+        /* Allow legacy 1024/160 in non fips mode */
+        if (L == 1024 && N == 160)
+            return 80;
+        /* Valid DH L,N parameters from SP800-56Ar3 5.5.1 Table 1 */
+        if (L == 2048 && (N == 224 || N == 256))
+            return 112;
+# ifndef OPENSSL_NO_DH
+        DHerr(0, DH_R_BAD_FFC_PARAMETERS);
+# endif
+    } else if (type == FFC_PARAM_TYPE_DSA) {
         if (L == 1024 && N == 160)
             return 80;
         if (L == 2048 && (N == 224 || N == 256))
             return 112;
         if (L == 3072 && N == 256)
             return 128;
-#ifndef OPENSSL_NO_DSA
+# ifndef OPENSSL_NO_DSA
         DSAerr(0, DSA_R_BAD_FFC_PARAMETERS);
-#endif
+# endif
     }
     return 0;
 }
+#endif /* FIPS_MODULE */
 
 /* FIPS186-4 A.2.1 Unverifiable Generation of Generator g */
 static int generate_unverifiable_g(BN_CTX *ctx, BN_MONT_CTX *mont, BIGNUM *g,
@@ -513,8 +538,10 @@ int ffc_params_FIPS186_4_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
         if (N == 0)
             N = (L >= 2048 ? SHA256_DIGEST_LENGTH : SHA_DIGEST_LENGTH) * 8;
         def_name = default_mdname(N);
-        if (def_name == NULL)
+        if (def_name == NULL) {
+            *res = FFC_CHECK_INVALID_Q_VALUE;
             goto err;
+        }
         md = EVP_MD_fetch(libctx, def_name, NULL);
     }
     if (md == NULL)
@@ -532,7 +559,7 @@ int ffc_params_FIPS186_4_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
      * A.1.1.3 Step (3)
      * Check that the L,N pair is an acceptable pair.
      */
-    if (L <= N || !ffc_validate_LN(L, N, type)) {
+    if (L <= N || !ffc_validate_LN(L, N, type, verify)) {
         *res = FFC_CHECK_BAD_LN_PAIR;
         goto err;
     }
@@ -773,6 +800,7 @@ err:
     return ok;
 }
 
+/* Note this function is only used for verification in fips mode */
 int ffc_params_FIPS186_2_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
                                     int mode, int type, size_t L, size_t N,
                                     int *res, BN_GENCB *cb)
@@ -793,6 +821,7 @@ int ffc_params_FIPS186_2_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
     size_t seed_len = params->seedlen;
     int verify = (mode == FFC_PARAM_MODE_VERIFY);
     unsigned int flags = verify ? params->flags : 0;
+    const char *def_name;
 
     *res = 0;
 
@@ -801,7 +830,12 @@ int ffc_params_FIPS186_2_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
     } else {
         if (N == 0)
             N = (L >= 2048 ? SHA256_DIGEST_LENGTH : SHA_DIGEST_LENGTH) * 8;
-        md = EVP_MD_fetch(libctx, default_mdname(N), NULL);
+        def_name = default_mdname(N);
+        if (def_name == NULL) {
+            *res = FFC_CHECK_INVALID_Q_VALUE;
+            goto err;
+        }
+        md = EVP_MD_fetch(libctx, def_name, NULL);
     }
     if (md == NULL)
         goto err;
@@ -809,16 +843,15 @@ int ffc_params_FIPS186_2_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
         N = EVP_MD_size(md) * 8;
     qsize = N >> 3;
 
-#ifdef FIPS_MODULE
     /*
-     * FIPS 186-4 states that validation can only be done for this pair.
-     * (Even though the original spec allowed L = 512 + 64*j (j = 0.. 8))
+     * The original spec allowed L = 512 + 64*j (j = 0.. 8)
+     * https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-131Ar2.pdf
+     * says that 512 can be used for legacy verification.
      */
-    if (L != 1024 || N != 160) {
+    if (L < 512) {
         *res = FFC_CHECK_BAD_LN_PAIR;
         goto err;
     }
-#endif
     if (qsize != SHA_DIGEST_LENGTH
         && qsize != SHA224_DIGEST_LENGTH
         && qsize != SHA256_DIGEST_LENGTH) {
@@ -826,9 +859,6 @@ int ffc_params_FIPS186_2_gen_verify(OPENSSL_CTX *libctx, FFC_PARAMS *params,
         *res = FFC_CHECK_INVALID_Q_VALUE;
         goto err;
     }
-
-    if (L < 512)
-        L = 512;
 
     L = (L + 63) / 64 * 64;
 

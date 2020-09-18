@@ -69,7 +69,7 @@ static int dane_verify(X509_STORE_CTX *ctx);
 static int null_callback(int ok, X509_STORE_CTX *e);
 static int check_issued(X509_STORE_CTX *ctx, X509 *x, X509 *issuer);
 static X509 *find_issuer(X509_STORE_CTX *ctx, STACK_OF(X509) *sk, X509 *x);
-static int check_chain_extensions(X509_STORE_CTX *ctx);
+static int check_chain(X509_STORE_CTX *ctx);
 static int check_name_constraints(X509_STORE_CTX *ctx);
 static int check_id(X509_STORE_CTX *ctx);
 static int check_trust(X509_STORE_CTX *ctx, int num_untrusted);
@@ -80,6 +80,7 @@ static int get_issuer_sk(X509 **issuer, X509_STORE_CTX *ctx, X509 *x);
 static int check_dane_issuer(X509_STORE_CTX *ctx, int depth);
 static int check_key_level(X509_STORE_CTX *ctx, X509 *cert);
 static int check_sig_level(X509_STORE_CTX *ctx, X509 *cert);
+static int check_curve(X509 *cert);
 
 static int get_crl_score(X509_STORE_CTX *ctx, X509 **pissuer,
                          unsigned int *preasons, X509_CRL *crl, X509 *x);
@@ -221,7 +222,7 @@ static int verify_chain(X509_STORE_CTX *ctx)
      * instantiate chain public key parameters.
      */
     if ((ok = build_chain(ctx)) == 0 ||
-        (ok = check_chain_extensions(ctx)) == 0 ||
+        (ok = check_chain(ctx)) == 0 ||
         (ok = check_auth_level(ctx)) == 0 ||
         (ok = check_id(ctx)) == 0 || 1)
         X509_get_pubkey_parameters(NULL, ctx->chain);
@@ -440,7 +441,7 @@ static int check_purpose(X509_STORE_CTX *ctx, X509 *x, int purpose, int depth,
  * purpose
  */
 
-static int check_chain_extensions(X509_STORE_CTX *ctx)
+static int check_chain(X509_STORE_CTX *ctx)
 {
     int i, must_be_ca, plen = 0;
     X509 *x;
@@ -512,6 +513,14 @@ static int check_chain_extensions(X509_STORE_CTX *ctx)
             } else
                 ret = 1;
             break;
+        }
+        if (num > 1) {
+            /* Check for presence of explicit elliptic curve parameters */
+            ret = check_curve(x);
+            if (ret < 0)
+                ctx->error = X509_V_ERR_UNSPECIFIED;
+            else if (ret == 0)
+                ctx->error = X509_V_ERR_EC_KEY_EXPLICIT_PARAMS;
         }
         /*
          * Do the following set of checks only if strict checking is requrested
@@ -3431,6 +3440,32 @@ static int check_key_level(X509_STORE_CTX *ctx, X509 *cert)
         level = NUM_AUTH_LEVELS;
 
     return EVP_PKEY_security_bits(pkey) >= minbits_table[level - 1];
+}
+
+/*
+ * Check whether the public key of ``cert`` does not use explicit params
+ * for an elliptic curve.
+ *
+ * Returns 1 on success, 0 if check fails, -1 for other errors.
+ */
+static int check_curve(X509 *cert)
+{
+#ifndef OPENSSL_NO_EC
+    EVP_PKEY *pkey = X509_get0_pubkey(cert);
+
+    /* Unsupported or malformed key */
+    if (pkey == NULL)
+        return -1;
+
+    if (EVP_PKEY_id(pkey) == EVP_PKEY_EC) {
+        int ret;
+
+        ret = EC_KEY_decoded_from_explicit_params(EVP_PKEY_get0_EC_KEY(pkey));
+        return ret < 0 ? ret : !ret;
+    }
+#endif
+
+    return 1;
 }
 
 /*

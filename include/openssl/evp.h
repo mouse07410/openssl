@@ -1289,14 +1289,10 @@ EVP_PKEY *d2i_KeyParams_bio(int type, EVP_PKEY **a, BIO *in);
 int EVP_PKEY_copy_parameters(EVP_PKEY *to, const EVP_PKEY *from);
 int EVP_PKEY_missing_parameters(const EVP_PKEY *pkey);
 int EVP_PKEY_save_parameters(EVP_PKEY *pkey, int mode);
-#ifndef OPENSSL_NO_DEPRECATED_3_0
 int EVP_PKEY_cmp_parameters(const EVP_PKEY *a, const EVP_PKEY *b);
-#endif
 int EVP_PKEY_parameters_eq(const EVP_PKEY *a, const EVP_PKEY *b);
 
-#ifndef OPENSSL_NO_DEPRECATED_3_0
 int EVP_PKEY_cmp(const EVP_PKEY *a, const EVP_PKEY *b);
-#endif
 int EVP_PKEY_eq(const EVP_PKEY *a, const EVP_PKEY *b);
 
 int EVP_PKEY_print_public(BIO *out, const EVP_PKEY *pkey,
@@ -1508,6 +1504,8 @@ int EVP_PKEY_CTX_set1_id(EVP_PKEY_CTX *ctx, const void *id, int len);
 int EVP_PKEY_CTX_get1_id(EVP_PKEY_CTX *ctx, void *id);
 int EVP_PKEY_CTX_get1_id_len(EVP_PKEY_CTX *ctx, size_t *id_len);
 
+const char *EVP_PKEY_get0_first_alg_name(const EVP_PKEY *key);
+
 # define EVP_PKEY_OP_UNDEFINED           0
 # define EVP_PKEY_OP_PARAMGEN            (1<<1)
 # define EVP_PKEY_OP_KEYGEN              (1<<2)
@@ -1585,6 +1583,7 @@ EVP_KEYMGMT *EVP_KEYMGMT_fetch(OPENSSL_CTX *ctx, const char *algorithm,
 int EVP_KEYMGMT_up_ref(EVP_KEYMGMT *keymgmt);
 void EVP_KEYMGMT_free(EVP_KEYMGMT *keymgmt);
 const OSSL_PROVIDER *EVP_KEYMGMT_provider(const EVP_KEYMGMT *keymgmt);
+const char *EVP_KEYMGMT_get0_first_name(const EVP_KEYMGMT *keymgmt);
 int EVP_KEYMGMT_number(const EVP_KEYMGMT *keymgmt);
 int EVP_KEYMGMT_is_a(const EVP_KEYMGMT *keymgmt, const char *name);
 void EVP_KEYMGMT_do_all_provided(OPENSSL_CTX *libctx,

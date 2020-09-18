@@ -275,12 +275,10 @@ static int evp_pkey_cmp_any(const EVP_PKEY *a, const EVP_PKEY *b,
     return evp_keymgmt_match(keymgmt1, keydata1, keydata2, selection);
 }
 
-#ifndef OPENSSL_NO_DEPRECATED_3_0
 int EVP_PKEY_cmp_parameters(const EVP_PKEY *a, const EVP_PKEY *b)
 {
     return EVP_PKEY_parameters_eq(a, b);
 }
-#endif
 
 int EVP_PKEY_parameters_eq(const EVP_PKEY *a, const EVP_PKEY *b)
 {
@@ -300,12 +298,10 @@ int EVP_PKEY_parameters_eq(const EVP_PKEY *a, const EVP_PKEY *b)
     return -2;
 }
 
-#ifndef OPENSSL_NO_DEPRECATED_3_0
 int EVP_PKEY_cmp(const EVP_PKEY *a, const EVP_PKEY *b)
 {
     return EVP_PKEY_eq(a, b);
 }
-#endif
 
 int EVP_PKEY_eq(const EVP_PKEY *a, const EVP_PKEY *b)
 {
@@ -713,7 +709,7 @@ int EVP_PKEY_assign(EVP_PKEY *pkey, int type, void *key)
     int alias = type;
 
 #ifndef OPENSSL_NO_EC
-    if (EVP_PKEY_type(type) == EVP_PKEY_EC) {
+    if ((key != NULL) && (EVP_PKEY_type(type) == EVP_PKEY_EC)) {
         const EC_GROUP *group = EC_KEY_get0_group(key);
 
         if (group != NULL && EC_GROUP_get_curve_name(group) == NID_sm2)

@@ -9,9 +9,7 @@ IF[{- !$disabled{dsa} -}]
 ENDIF
 
 IF[{- !$disabled{ec} -}]
-  SOURCE[$EC_GOAL]=eddsa.c
-  SOURCE[../../libfips.a]=ecdsa.c
-  SOURCE[../../libnonfips.a]=ecdsa.c
+  SOURCE[$EC_GOAL]=eddsa.c ecdsa.c
 ENDIF
 
 SOURCE[../../libfips.a]=rsa.c

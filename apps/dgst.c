@@ -319,7 +319,8 @@ int dgst_main(int argc, char **argv)
 
     if (hmac_key != NULL) {
         sigkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, impl,
-                                              (unsigned char *)hmac_key, -1);
+                                              (unsigned char *)hmac_key,
+                                              strlen(hmac_key));
         if (sigkey == NULL)
             goto end;
     }
@@ -405,13 +406,8 @@ int dgst_main(int argc, char **argv)
     } else {
         const char *sig_name = NULL;
         if (!out_bin) {
-            if (sigkey != NULL) {
-                const EVP_PKEY_ASN1_METHOD *ameth;
-                ameth = EVP_PKEY_get0_asn1(sigkey);
-                if (ameth)
-                    EVP_PKEY_asn1_get0_info(NULL, NULL,
-                                            NULL, NULL, &sig_name, ameth);
-            }
+            if (sigkey != NULL)
+                sig_name = EVP_PKEY_get0_first_alg_name(sigkey);
         }
         ret = 0;
         for (i = 0; i < argc; i++) {
