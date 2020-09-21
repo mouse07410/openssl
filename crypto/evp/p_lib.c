@@ -1040,6 +1040,22 @@ int EVP_PKEY_is_a(const EVP_PKEY *pkey, const char *name)
     return EVP_KEYMGMT_is_a(pkey->keymgmt, name);
 }
 
+void EVP_PKEY_typenames_do_all(const EVP_PKEY *pkey,
+                               void (*fn)(const char *name, void *data),
+                               void *data)
+{
+    if (!evp_pkey_is_typed(pkey))
+        return;
+
+    if (!evp_pkey_is_provided(pkey)) {
+        const char *name = OBJ_nid2sn(EVP_PKEY_id(pkey));
+
+        fn(name, data);
+        return;
+    }
+    EVP_KEYMGMT_names_do_all(pkey->keymgmt, fn, data);
+}
+
 int EVP_PKEY_can_sign(const EVP_PKEY *pkey)
 {
     if (pkey->keymgmt == NULL) {
@@ -1163,6 +1179,8 @@ static int unsup_alg(BIO *out, const EVP_PKEY *pkey, int indent,
 }
 
 static int print_pkey(const EVP_PKEY *pkey, BIO *out, int indent,
+                      int selection /* For provided encoding */,
+                      OPENSSL_CTX *libctx /* For provided encoding */,
                       const char *propquery /* For provided encoding */,
                       int (*legacy_print)(BIO *out, const EVP_PKEY *pkey,
                                           int indent, ASN1_PCTX *pctx),
@@ -1176,8 +1194,9 @@ static int print_pkey(const EVP_PKEY *pkey, BIO *out, int indent,
     if (!print_set_indent(&out, &pop_f_prefix, &saved_indent, indent))
         return 0;
 
-    ctx = OSSL_ENCODER_CTX_new_by_EVP_PKEY(pkey, propquery);
-    if (OSSL_ENCODER_CTX_get_encoder(ctx) != NULL)
+    ctx = OSSL_ENCODER_CTX_new_by_EVP_PKEY(pkey, "TEXT", selection,
+                                           libctx, propquery);
+    if (OSSL_ENCODER_CTX_get_num_encoders(ctx) != 0)
         ret = OSSL_ENCODER_to_bio(ctx, out);
     OSSL_ENCODER_CTX_free(ctx);
 
@@ -1198,7 +1217,10 @@ static int print_pkey(const EVP_PKEY *pkey, BIO *out, int indent,
 int EVP_PKEY_print_public(BIO *out, const EVP_PKEY *pkey,
                           int indent, ASN1_PCTX *pctx)
 {
-    return print_pkey(pkey, out, indent, OSSL_ENCODER_PUBKEY_TO_TEXT_PQ,
+    return print_pkey(pkey, out, indent,
+                      OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS
+                      | OSSL_KEYMGMT_SELECT_PUBLIC_KEY,
+                      NULL, NULL,
                       (pkey->ameth != NULL ? pkey->ameth->pub_print : NULL),
                       pctx);
 }
@@ -1206,7 +1228,10 @@ int EVP_PKEY_print_public(BIO *out, const EVP_PKEY *pkey,
 int EVP_PKEY_print_private(BIO *out, const EVP_PKEY *pkey,
                            int indent, ASN1_PCTX *pctx)
 {
-    return print_pkey(pkey, out, indent, OSSL_ENCODER_PrivateKey_TO_TEXT_PQ,
+    return print_pkey(pkey, out, indent,
+                      OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS
+                      | OSSL_KEYMGMT_SELECT_KEYPAIR,
+                      NULL, NULL,
                       (pkey->ameth != NULL ? pkey->ameth->priv_print : NULL),
                       pctx);
 }
@@ -1214,7 +1239,8 @@ int EVP_PKEY_print_private(BIO *out, const EVP_PKEY *pkey,
 int EVP_PKEY_print_params(BIO *out, const EVP_PKEY *pkey,
                           int indent, ASN1_PCTX *pctx)
 {
-    return print_pkey(pkey, out, indent, OSSL_ENCODER_Parameters_TO_TEXT_PQ,
+    return print_pkey(pkey, out, indent, OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS,
+                      NULL, NULL,
                       (pkey->ameth != NULL ? pkey->ameth->param_print : NULL),
                       pctx);
 }

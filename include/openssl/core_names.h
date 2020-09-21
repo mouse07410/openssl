@@ -445,14 +445,12 @@ extern "C" {
 /*
  * Encoder / decoder parameters
  */
-/* The passphrase may be passed as a utf8 string or an octet string */
 #define OSSL_ENCODER_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER
 #define OSSL_ENCODER_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES
-#define OSSL_ENCODER_PARAM_PASS         "passphrase"
+#define OSSL_ENCODER_PARAM_INPUT_TYPE   "input-type"
+#define OSSL_ENCODER_PARAM_OUTPUT_TYPE  "output-type"
 
-#define OSSL_DECODER_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER
 #define OSSL_DECODER_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES
-#define OSSL_DECODER_PARAM_PASS         "passphrase"
 #define OSSL_DECODER_PARAM_INPUT_TYPE   "input-type"
 
 /* Passphrase callback parameters */
@@ -475,9 +473,15 @@ extern "C" {
 #define OSSL_PKEY_PARAM_RSA_TEST_Q2  "q2"
 #define OSSL_SIGNATURE_PARAM_KAT "kat"
 
+/* KEM parameters */
+#define OSSL_KEM_PARAM_OPERATION            "operation"
+
+/* OSSL_KEM_PARAM_OPERATION values */
+#define OSSL_KEM_PARAM_OPERATION_RSASVE     "RSASVE"
+
 /* Capabilities */
 
-/* TLS-GROUP Capbility */
+/* TLS-GROUP Capability */
 #define OSSL_CAPABILITY_TLS_GROUP_NAME              "tls-group-name"
 #define OSSL_CAPABILITY_TLS_GROUP_NAME_INTERNAL     "tls-group-name-internal"
 #define OSSL_CAPABILITY_TLS_GROUP_ID                "tls-group-id"

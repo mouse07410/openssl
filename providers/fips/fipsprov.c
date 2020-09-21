@@ -462,6 +462,11 @@ static const OSSL_ALGORITHM fips_asym_cipher[] = {
     { NULL, NULL, NULL }
 };
 
+static const OSSL_ALGORITHM fips_asym_kem[] = {
+    { "RSA", FIPS_DEFAULT_PROPERTIES, rsa_asym_kem_functions },
+    { NULL, NULL, NULL }
+};
+
 static const OSSL_ALGORITHM fips_keymgmt[] = {
 #ifndef OPENSSL_NO_DH
     { "DH:dhKeyAgreement", FIPS_DEFAULT_PROPERTIES, dh_keymgmt_functions },
@@ -517,6 +522,8 @@ static const OSSL_ALGORITHM *fips_query(void *provctx, int operation_id,
         return fips_signature;
     case OSSL_OP_ASYM_CIPHER:
         return fips_asym_cipher;
+    case OSSL_OP_KEM:
+        return fips_asym_kem;
     }
     return NULL;
 }
@@ -878,4 +885,21 @@ int BIO_snprintf(char *buf, size_t n, const char *format, ...)
 int FIPS_security_check_enabled(void)
 {
     return fips_security_checks;
+}
+
+void OSSL_SELF_TEST_get_callback(OPENSSL_CTX *libctx, OSSL_CALLBACK **cb,
+                                 void **cbarg)
+{
+    if (libctx == NULL)
+        libctx = selftest_params.libctx;
+
+    if (c_stcbfn != NULL && c_get_libctx != NULL) {
+        /* Get the parent libctx */
+        c_stcbfn(c_get_libctx(FIPS_get_core_handle(libctx)), cb, cbarg);
+    } else {
+        if (cb != NULL)
+            *cb = NULL;
+        if (cbarg != NULL)
+            *cbarg = NULL;
+    }
 }
