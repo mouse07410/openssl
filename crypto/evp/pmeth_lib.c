@@ -75,9 +75,6 @@ static pmeth_fn standard_methods[] = {
     ed25519_pkey_method,
     ed448_pkey_method,
 # endif
-# ifndef OPENSSL_NO_SM2
-    sm2_pkey_method,
-# endif
 };
 
 DECLARE_OBJ_BSEARCH_CMP_FN(const EVP_PKEY_METHOD *, pmeth_fn, pmeth_func);
@@ -405,6 +402,7 @@ void EVP_PKEY_CTX_free(EVP_PKEY_CTX *ctx)
 #if !defined(OPENSSL_NO_ENGINE) && !defined(FIPS_MODULE)
     ENGINE_finish(ctx->engine);
 #endif
+    BN_free(ctx->rsa_pubexp);
     OPENSSL_free(ctx);
 }
 
@@ -1450,11 +1448,6 @@ static int evp_pkey_ctx_ctrl_int(EVP_PKEY_CTX *ctx, int keytype, int optype,
 {
     int ret = 0;
 
-    if (ctx == NULL) {
-        EVPerr(0, EVP_R_COMMAND_NOT_SUPPORTED);
-        return -2;
-    }
-
     /*
      * If the method has a |digest_custom| function, we can relax the
      * operation type check, since this can be called before the operation
@@ -1498,6 +1491,10 @@ int EVP_PKEY_CTX_ctrl(EVP_PKEY_CTX *ctx, int keytype, int optype,
 {
     int ret = 0;
 
+    if (ctx == NULL) {
+        EVPerr(0, EVP_R_COMMAND_NOT_SUPPORTED);
+        return -2;
+    }
     /* If unsupported, we don't want that reported here */
     ERR_set_mark();
     ret = evp_pkey_ctx_store_cached_data(ctx, keytype, optype,
@@ -1514,7 +1511,6 @@ int EVP_PKEY_CTX_ctrl(EVP_PKEY_CTX *ctx, int keytype, int optype,
         if (ret < 1 || ctx->operation == EVP_PKEY_OP_UNDEFINED)
             return ret;
     }
-
     return evp_pkey_ctx_ctrl_int(ctx, keytype, optype, cmd, p1, p2);
 }
 

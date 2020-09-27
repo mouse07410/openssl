@@ -438,10 +438,8 @@ static int eckey_param_decode(EVP_PKEY *pkey,
 {
     EC_KEY *eckey;
 
-    if ((eckey = d2i_ECParameters(NULL, pder, derlen)) == NULL) {
-        ECerr(EC_F_ECKEY_PARAM_DECODE, ERR_R_EC_LIB);
+    if ((eckey = d2i_ECParameters(NULL, pder, derlen)) == NULL)
         return 0;
-    }
     EVP_PKEY_assign_EC_KEY(pkey, eckey);
     return 1;
 }
@@ -962,7 +960,7 @@ static int ecdh_cms_set_shared_info(EVP_PKEY_CTX *pctx, CMS_RecipientInfo *ri)
     if (kekctx == NULL)
         goto err;
     name = OBJ_nid2sn(OBJ_obj2nid(kekalg->algorithm));
-    kekcipher = EVP_CIPHER_fetch(pctx->libctx, name, NULL);
+    kekcipher = EVP_CIPHER_fetch(pctx->libctx, name, pctx->propquery);
     if (kekcipher == NULL || EVP_CIPHER_mode(kekcipher) != EVP_CIPH_WRAP_MODE)
         goto err;
     if (!EVP_EncryptInit_ex(kekctx, kekcipher, NULL, NULL, NULL))

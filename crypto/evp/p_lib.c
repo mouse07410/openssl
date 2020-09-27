@@ -661,8 +661,19 @@ int EVP_PKEY_set_type_str(EVP_PKEY *pkey, const char *str, int len)
     return pkey_set_type(pkey, NULL, EVP_PKEY_NONE, str, len, NULL);
 }
 
+#ifndef OPENSSL_NO_DEPRECATED_3_0
 int EVP_PKEY_set_alias_type(EVP_PKEY *pkey, int type)
 {
+    if (!evp_pkey_is_legacy(pkey)) {
+        const char *name = OBJ_nid2sn(type);
+
+        if (name != NULL && EVP_PKEY_is_a(pkey, name))
+            return 1;
+
+        ERR_raise(ERR_LIB_EVP, EVP_R_INVALID_OPERATION);
+        return 0;
+    }
+
     if (pkey->type == type) {
         return 1; /* it already is that type */
     }
@@ -679,6 +690,7 @@ int EVP_PKEY_set_alias_type(EVP_PKEY *pkey, int type)
     pkey->type = type;
     return 1;
 }
+#endif
 
 # ifndef OPENSSL_NO_ENGINE
 int EVP_PKEY_set1_engine(EVP_PKEY *pkey, ENGINE *e)
@@ -870,15 +882,7 @@ EC_KEY *EVP_PKEY_get1_EC_KEY(EVP_PKEY *pkey)
     return ret;
 }
 
-static int EVP_PKEY_set1_ECX_KEY(EVP_PKEY *pkey, int type, ECX_KEY *key)
-{
-    int ret = EVP_PKEY_assign(pkey, type, key);
-    if (ret)
-        ecx_key_up_ref(key);
-    return ret;
-}
-
-static ECX_KEY *EVP_PKEY_get0_ECX_KEY(const EVP_PKEY *pkey, int type)
+static ECX_KEY *evp_pkey_get0_ECX_KEY(const EVP_PKEY *pkey, int type)
 {
     if (!evp_pkey_downgrade((EVP_PKEY *)pkey)) {
         ERR_raise(ERR_LIB_EVP, EVP_R_INACCESSIBLE_KEY);
@@ -891,26 +895,18 @@ static ECX_KEY *EVP_PKEY_get0_ECX_KEY(const EVP_PKEY *pkey, int type)
     return pkey->pkey.ecx;
 }
 
-static ECX_KEY *EVP_PKEY_get1_ECX_KEY(EVP_PKEY *pkey, int type)
+static ECX_KEY *evp_pkey_get1_ECX_KEY(EVP_PKEY *pkey, int type)
 {
-    ECX_KEY *ret = EVP_PKEY_get0_ECX_KEY(pkey, type);
+    ECX_KEY *ret = evp_pkey_get0_ECX_KEY(pkey, type);
     if (ret != NULL)
         ecx_key_up_ref(ret);
     return ret;
 }
 
 #  define IMPLEMENT_ECX_VARIANT(NAME)                                   \
-    int EVP_PKEY_set1_##NAME(EVP_PKEY *pkey, ECX_KEY *key)              \
+    ECX_KEY *evp_pkey_get1_##NAME(EVP_PKEY *pkey)                       \
     {                                                                   \
-        return EVP_PKEY_set1_ECX_KEY(pkey, EVP_PKEY_##NAME, key);       \
-    }                                                                   \
-    ECX_KEY *EVP_PKEY_get0_##NAME(const EVP_PKEY *pkey)                 \
-    {                                                                   \
-        return EVP_PKEY_get0_ECX_KEY(pkey, EVP_PKEY_##NAME);            \
-    }                                                                   \
-    ECX_KEY *EVP_PKEY_get1_##NAME(EVP_PKEY *pkey)                       \
-    {                                                                   \
-        return EVP_PKEY_get1_ECX_KEY(pkey, EVP_PKEY_##NAME);            \
+        return evp_pkey_get1_ECX_KEY(pkey, EVP_PKEY_##NAME);            \
     }
 IMPLEMENT_ECX_VARIANT(X25519)
 IMPLEMENT_ECX_VARIANT(X448)

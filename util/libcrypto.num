@@ -4394,7 +4394,7 @@ EVP_PKEY_get_raw_public_key             4518	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_get_raw_private_key            4519	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_asn1_set_get_priv_key          4520	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_asn1_set_get_pub_key           4521	3_0_0	EXIST::FUNCTION:
-EVP_PKEY_set_alias_type                 4522	3_0_0	EXIST::FUNCTION:
+EVP_PKEY_set_alias_type                 4522	3_0_0	EXIST::FUNCTION:DEPRECATEDIN_3_0
 RAND_keep_random_devices_open           4523	3_0_0	EXIST::FUNCTION:
 EC_POINT_set_compressed_coordinates     4524	3_0_0	EXIST::FUNCTION:EC
 EC_POINT_set_affine_coordinates         4525	3_0_0	EXIST::FUNCTION:EC
@@ -4452,6 +4452,7 @@ EVP_KDF_CTX_free                        ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_reset                           ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_size                            ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_derive                          ?	3_0_0	EXIST::FUNCTION:
+EVP_KDF_name                            ?	3_0_0	EXIST::FUNCTION:
 EC_GROUP_get0_field                     ?	3_0_0	EXIST::FUNCTION:EC
 CRYPTO_alloc_ex_data                    ?	3_0_0	EXIST::FUNCTION:
 OPENSSL_CTX_new                         ?	3_0_0	EXIST::FUNCTION:
@@ -4692,6 +4693,7 @@ EVP_MAC_get_params                      ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_gettable_params                 ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_provider                        ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_do_all_provided                 ?	3_0_0	EXIST::FUNCTION:
+EVP_MAC_name                            ?	3_0_0	EXIST::FUNCTION:
 EVP_MD_free                             ?	3_0_0	EXIST::FUNCTION:
 EVP_CIPHER_free                         ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_up_ref                          ?	3_0_0	EXIST::FUNCTION:
@@ -4982,7 +4984,8 @@ OSSL_CMP_MSG_read                       ?	3_0_0	EXIST::FUNCTION:CMP
 OSSL_CMP_MSG_write                      ?	3_0_0	EXIST::FUNCTION:CMP
 EVP_PKEY_gen                            ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_CTX_set_rsa_keygen_bits        ?	3_0_0	EXIST::FUNCTION:RSA
-EVP_PKEY_CTX_set_rsa_keygen_pubexp      ?	3_0_0	EXIST::FUNCTION:RSA
+EVP_PKEY_CTX_set_rsa_keygen_pubexp      ?	3_0_0	EXIST::FUNCTION:DEPRECATEDIN_3_0,RSA
+EVP_PKEY_CTX_set1_rsa_keygen_pubexp     ?	3_0_0	EXIST::FUNCTION:RSA
 EVP_PKEY_CTX_set_rsa_keygen_primes      ?	3_0_0	EXIST::FUNCTION:RSA
 NCONF_new_with_libctx                   ?	3_0_0	EXIST::FUNCTION:
 CONF_modules_load_file_with_libctx      ?	3_0_0	EXIST::FUNCTION:
@@ -5163,18 +5166,6 @@ ERR_load_OSSL_DECODER_strings           ?	3_0_0	EXIST::FUNCTION:
 OSSL_DECODER_gettable_params            ?	3_0_0	EXIST::FUNCTION:
 OSSL_DECODER_get_params                 ?	3_0_0	EXIST::FUNCTION:
 OSSL_DECODER_CTX_new_by_EVP_PKEY        ?	3_0_0	EXIST::FUNCTION:
-EVP_PKEY_set1_X25519                    ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get0_X25519                    ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get1_X25519                    ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_set1_X448                      ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get0_X448                      ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get1_X448                      ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_set1_ED25519                   ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get0_ED25519                   ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get1_ED25519                   ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_set1_ED448                     ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get0_ED448                     ?	3_0_0	EXIST::FUNCTION:EC
-EVP_PKEY_get1_ED448                     ?	3_0_0	EXIST::FUNCTION:EC
 OSSL_DECODER_CTX_set_construct          ?	3_0_0	EXIST::FUNCTION:
 OSSL_DECODER_CTX_set_construct_data     ?	3_0_0	EXIST::FUNCTION:
 OSSL_DECODER_CTX_set_cleanup            ?	3_0_0	EXIST::FUNCTION:
@@ -5309,6 +5300,10 @@ OSSL_ENCODER_INSTANCE_get_output_type   ?	3_0_0	EXIST::FUNCTION:
 OSSL_ENCODER_CTX_set_construct          ?	3_0_0	EXIST::FUNCTION:
 OSSL_ENCODER_CTX_set_construct_data     ?	3_0_0	EXIST::FUNCTION:
 OSSL_ENCODER_CTX_set_cleanup            ?	3_0_0	EXIST::FUNCTION:
-OSSL_DECODER_INSTANCE_get_input_type    ?	3_0_0	EXIST::FUNCTION:
 OSSL_ENCODER_CTX_set_passphrase_cb      ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_typenames_do_all               ?	3_0_0	EXIST::FUNCTION:
+OSSL_DECODER_INSTANCE_get_input_type    ?	3_0_0	EXIST::FUNCTION:
+EVP_ASYM_CIPHER_gettable_ctx_params     ?	3_0_0	EXIST::FUNCTION:
+EVP_ASYM_CIPHER_settable_ctx_params     ?	3_0_0	EXIST::FUNCTION:
+EVP_KEM_gettable_ctx_params             ?	3_0_0	EXIST::FUNCTION:
+EVP_KEM_settable_ctx_params             ?	3_0_0	EXIST::FUNCTION:

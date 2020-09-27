@@ -95,6 +95,13 @@ struct evp_pkey_ctx_st {
     void *data;
     /* Indicator if digest_custom needs to be called */
     unsigned int flag_call_digest_custom:1;
+    /*
+     * Used to support taking custody of memory in the case of a provider being
+     * used with the deprecated EVP_PKEY_CTX_set_rsa_keygen_pubexp() API. This
+     * member should NOT be used for any other purpose and should be removed
+     * when said deprecated API is excised completely.
+     */
+    BIGNUM *rsa_pubexp;
 } /* EVP_PKEY_CTX */ ;
 
 #define EVP_PKEY_FLAG_DYNAMIC   1
@@ -156,7 +163,6 @@ const EVP_PKEY_METHOD *dh_pkey_method(void);
 const EVP_PKEY_METHOD *dhx_pkey_method(void);
 const EVP_PKEY_METHOD *dsa_pkey_method(void);
 const EVP_PKEY_METHOD *ec_pkey_method(void);
-const EVP_PKEY_METHOD *sm2_pkey_method(void);
 const EVP_PKEY_METHOD *ecx25519_pkey_method(void);
 const EVP_PKEY_METHOD *ecx448_pkey_method(void);
 const EVP_PKEY_METHOD *ed25519_pkey_method(void);
