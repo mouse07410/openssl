@@ -13,14 +13,14 @@
 #include "prov/seeding.h"
 
 #ifdef OPENSSL_RAND_SEED_RDCPU
+static size_t get_hardware_random_value(unsigned char *buf, size_t len);
 # if defined(OPENSSL_SYS_TANDEM) && defined(_TNS_X_TARGET)
 #  include <builtin.h> /* _rdrand64 */
 #  include <string.h> /* memcpy */
-static size_t get_hardware_random_value(unsigned char *buf, size_t len);
 # else
 size_t OPENSSL_ia32_rdseed_bytes(unsigned char *buf, size_t len);
 size_t OPENSSL_ia32_rdrand_bytes(unsigned char *buf, size_t len);
-# endif
+# endif /* OPENSSL_SYS_TANDEM */
 
 /*
  * Acquire entropy using Intel-specific cpu instructions
@@ -99,8 +99,8 @@ static size_t get_hardware_random_value(unsigned char *buf, size_t len) {
 	return 0;
     return len;
 }
-#endif
+#endif /* OPENSSL_SYS_TANDEM */
 
-#else
+#else /* OPENSSL_RAND_SEED_RDCPU */
 NON_EMPTY_TRANSLATION_UNIT
-#endif
+#endif /* OPENSSL_RAND_SEED_RDCPU */
