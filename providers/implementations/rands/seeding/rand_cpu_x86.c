@@ -22,6 +22,8 @@ size_t OPENSSL_ia32_rdseed_bytes(unsigned char *buf, size_t len);
 size_t OPENSSL_ia32_rdrand_bytes(unsigned char *buf, size_t len);
 # endif /* OPENSSL_SYS_TANDEM */
 
+static size_t get_hardware_random_value(unsigned char *buf, size_t len);
+
 /*
  * Acquire entropy using Intel-specific cpu instructions
  *
