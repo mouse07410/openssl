@@ -88,6 +88,7 @@ static int try_pkcs12(struct extracted_param_data_st *, OSSL_STORE_INFO **,
                                                                         \
         if (ERR_GET_LIB(err) == ERR_LIB_ASN1                            \
             && (ERR_GET_REASON(err) == ASN1_R_UNKNOWN_PUBLIC_KEY_TYPE   \
+                || ERR_GET_REASON(err) == ASN1_R_NO_MATCHING_CHOICE_TYPE \
                 || ERR_GET_REASON(err) == ERR_R_NESTED_ASN1_ERROR))     \
             ERR_pop_to_mark();                                          \
         else                                                            \
@@ -334,7 +335,7 @@ static EVP_PKEY *try_key_value_legacy(struct extracted_param_data_st *data,
             p8info = d2i_PKCS8_PRIV_KEY_INFO(NULL, &derp, der_len);
             RESET_ERR_MARK();
             if (p8info != NULL) {
-                pk = EVP_PKCS82PKEY_with_libctx(p8info, libctx, propq);
+                pk = EVP_PKCS82PKEY_ex(p8info, libctx, propq);
                 PKCS8_PRIV_KEY_INFO_free(p8info);
             }
         }
