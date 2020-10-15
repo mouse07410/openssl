@@ -818,6 +818,7 @@ typedef struct tls_group_info_st {
     int maxtls;              /* Maximum TLS version (or 0 for undefined) */
     int mindtls;             /* Minimum DTLS version, -1 unsupported */
     int maxdtls;             /* Maximum DTLS version (or 0 for undefined) */
+    char is_kem;             /* Mode for this Group: 0 is KEX, 1 is KEM */
 } TLS_GROUP_INFO;
 
 /* flags values */
@@ -2453,8 +2454,15 @@ __owur int ssl_fill_hello_random(SSL *s, int server, unsigned char *field,
 __owur int ssl_generate_master_secret(SSL *s, unsigned char *pms, size_t pmslen,
                                       int free_pms);
 __owur EVP_PKEY *ssl_generate_pkey(SSL *s, EVP_PKEY *pm);
+__owur int ssl_gensecret(SSL *s, unsigned char *pms, size_t pmslen);
 __owur int ssl_derive(SSL *s, EVP_PKEY *privkey, EVP_PKEY *pubkey,
                       int genmaster);
+__owur int ssl_decapsulate(SSL *s, EVP_PKEY *privkey,
+                           const unsigned char *ct, size_t ctlen,
+                           int gensecret);
+__owur int ssl_encapsulate(SSL *s, EVP_PKEY *pubkey,
+                           unsigned char **ctp, size_t *ctlenp,
+                           int gensecret);
 __owur EVP_PKEY *ssl_dh_to_pkey(DH *dh);
 __owur unsigned int ssl_get_max_send_fragment(const SSL *ssl);
 __owur unsigned int ssl_get_split_send_fragment(const SSL *ssl);
