@@ -38,7 +38,7 @@ static OSSL_FUNC_asym_cipher_settable_ctx_params_fn sm2_settable_ctx_params;
  */
 
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     EC_KEY *key;
     PROV_DIGEST md;
 } PROV_SM2_CTX;
@@ -49,7 +49,7 @@ static void *sm2_newctx(void *provctx)
 
     if (psm2ctx == NULL)
         return NULL;
-    psm2ctx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    psm2ctx->libctx = PROV_LIBCTX_OF(provctx);
 
     return psm2ctx;
 }

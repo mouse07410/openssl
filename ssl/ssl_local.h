@@ -832,7 +832,7 @@ typedef struct tls_group_info_st {
 # define TLS_GROUP_FFDHE_FOR_TLS1_3 (TLS_GROUP_FFDHE|TLS_GROUP_ONLY_FOR_TLS1_3)
 
 struct ssl_ctx_st {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
 
     const SSL_METHOD *method;
     STACK_OF(SSL_CIPHER) *cipher_list;
@@ -2812,12 +2812,12 @@ void ssl_comp_free_compression_methods_int(void);
 /* ssl_mcnf.c */
 void ssl_ctx_system_config(SSL_CTX *ctx);
 
-const EVP_CIPHER *ssl_evp_cipher_fetch(OPENSSL_CTX *libctx,
+const EVP_CIPHER *ssl_evp_cipher_fetch(OSSL_LIB_CTX *libctx,
                                        int nid,
                                        const char *properties);
 int ssl_evp_cipher_up_ref(const EVP_CIPHER *cipher);
 void ssl_evp_cipher_free(const EVP_CIPHER *cipher);
-const EVP_MD *ssl_evp_md_fetch(OPENSSL_CTX *libctx,
+const EVP_MD *ssl_evp_md_fetch(OSSL_LIB_CTX *libctx,
                                int nid,
                                const char *properties);
 int ssl_evp_md_up_ref(const EVP_MD *md);
@@ -2826,6 +2826,17 @@ void ssl_evp_md_free(const EVP_MD *md);
 int tls_provider_set_tls_params(SSL *s, EVP_CIPHER_CTX *ctx,
                                 const EVP_CIPHER *ciph,
                                 const EVP_MD *md);
+
+void tls_engine_finish(ENGINE *e);
+const EVP_CIPHER *tls_get_cipher_from_engine(int nid);
+const EVP_MD *tls_get_digest_from_engine(int nid);
+int tls_engine_load_ssl_client_cert(SSL *s, X509 **px509, EVP_PKEY **ppkey);
+int ssl_hmac_old_new(SSL_HMAC *ret);
+void ssl_hmac_old_free(SSL_HMAC *ctx);
+int ssl_hmac_old_init(SSL_HMAC *ctx, void *key, size_t len, char *md);
+int ssl_hmac_old_update(SSL_HMAC *ctx, const unsigned char *data, size_t len);
+int ssl_hmac_old_final(SSL_HMAC *ctx, unsigned char *md, size_t *len);
+size_t ssl_hmac_old_size(const SSL_HMAC *ctx);
 
 # else /* OPENSSL_UNIT_TEST */
 

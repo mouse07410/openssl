@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2008-2020 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -21,7 +21,7 @@
 
 /* CMS CompressedData Utilities */
 
-CMS_ContentInfo *cms_CompressedData_create(int comp_nid, OPENSSL_CTX *libctx,
+CMS_ContentInfo *cms_CompressedData_create(int comp_nid, OSSL_LIB_CTX *libctx,
                                            const char *propq)
 {
     CMS_ContentInfo *cms;

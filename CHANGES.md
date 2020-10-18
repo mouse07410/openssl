@@ -23,10 +23,27 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
+ * The security callback, which can be customised by application code, supports
+   the security operation SSL_SECOP_TMP_DH. This is defined to take an EVP_PKEY
+   in the "other" parameter. In most places this is what is passed. All these
+   places occur server side. However there was one client side call of this
+   security operation and it passed a DH object instead. This is incorrect
+   according to the definition of SSL_SECOP_TMP_DH, and is inconsistent with all
+   of the other locations. Therefore this client side call has been changed to
+   pass an EVP_PKEY instead.
+
+   *Matt Caswell*
+
  * Add PKCS7_get_octet_string() and PKCS7_type_is_other() to the public
    interface. Their functionality remains unchanged.
 
    *Jordan Montgomery*
+
+ * Added new option for 'openssl list', '-providers', which will display the
+   list of loaded providers, their names, version and status.  It optionally
+   displays their gettable parameters.
+
+   *Paul Dale*
 
  * Deprecated EVP_PKEY_set_alias_type().  This function was previously
    needed as a workaround to recognise SM2 keys.  With OpenSSL 3.0, this key
@@ -112,9 +129,9 @@ OpenSSL 3.0
 
    *Rich Salz and Richard Levitte*
 
- * Added a library context that applications as well as other
-   libraries can use to form a separate context within which libcrypto
-   operations are performed.
+ * Added a library context `OSSL_LIB_CTX` that applications as well as
+   other libraries can use to form a separate context within which
+   libcrypto operations are performed.
 
    There are two ways this can be used:
 
@@ -122,15 +139,18 @@ OpenSSL 3.0
      such an argument, such as `EVP_CIPHER_fetch` and similar algorithm
      fetching functions.
    - Indirectly, by creating a new library context and then assigning
-     it as the new default, with `OPENSSL_CTX_set0_default`.
+     it as the new default, with `OSSL_LIB_CTX_set0_default`.
 
-   All public OpenSSL functions that take an `OPENSSL_CTX` pointer,
-   apart from the functions directly related to `OPENSSL_CTX`, accept
+   All public OpenSSL functions that take an `OSSL_LIB_CTX` pointer,
+   apart from the functions directly related to `OSSL_LIB_CTX`, accept
    NULL to indicate that the default library context should be used.
 
    Library code that changes the default library context using
-   `OPENSSL_CTX_set0_default` should take care to restore it with a
+   `OSSL_LIB_CTX_set0_default` should take care to restore it with a
    second call before returning to the caller.
+
+   _(Note: the library context was initially called `OPENSSL_CTX` and
+   renamed to `OSSL_LIB_CTX` in version 3.0.0 alpha7.)_
 
    *Richard Levitte*
 

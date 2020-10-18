@@ -161,7 +161,7 @@ static const OSSL_ALGORITHM *legacy_query(void *provctx, int operation_id,
 
 static void legacy_teardown(void *provctx)
 {
-    OPENSSL_CTX_free(PROV_LIBRARY_CONTEXT_OF(provctx));
+    OSSL_LIB_CTX_free(PROV_LIBCTX_OF(provctx));
     ossl_prov_ctx_free(provctx);
 }
 
@@ -179,8 +179,8 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
                        const OSSL_DISPATCH **out,
                        void **provctx)
 {
-    OSSL_FUNC_core_get_library_context_fn *c_get_libctx = NULL;
-    OPENSSL_CTX *libctx = NULL;
+    OSSL_FUNC_core_get_libctx_fn *c_get_libctx = NULL;
+    OSSL_LIB_CTX *libctx = NULL;
 
     for (; in->function_id != 0; in++) {
         switch (in->function_id) {
@@ -190,8 +190,8 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
         case OSSL_FUNC_CORE_GET_PARAMS:
             c_get_params = OSSL_FUNC_core_get_params(in);
             break;
-        case OSSL_FUNC_CORE_GET_LIBRARY_CONTEXT:
-            c_get_libctx = OSSL_FUNC_core_get_library_context(in);
+        case OSSL_FUNC_CORE_GET_LIBCTX:
+            c_get_libctx = OSSL_FUNC_core_get_libctx(in);
             break;
         /* Just ignore anything we don't understand */
         default:
@@ -203,13 +203,13 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
         return 0;
 
     if ((*provctx = ossl_prov_ctx_new()) == NULL
-        || (libctx = OPENSSL_CTX_new()) == NULL) {
-        OPENSSL_CTX_free(libctx);
+        || (libctx = OSSL_LIB_CTX_new()) == NULL) {
+        OSSL_LIB_CTX_free(libctx);
         legacy_teardown(*provctx);
         *provctx = NULL;
         return 0;
     }
-    ossl_prov_ctx_set0_library_context(*provctx, libctx);
+    ossl_prov_ctx_set0_libctx(*provctx, libctx);
     ossl_prov_ctx_set0_handle(*provctx, handle);
 
     *out = legacy_dispatch_table;

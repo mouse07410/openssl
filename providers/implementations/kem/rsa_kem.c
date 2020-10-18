@@ -52,7 +52,7 @@ static OSSL_FUNC_kem_settable_ctx_params_fn rsakem_settable_ctx_params;
  * we use that here too.
  */
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     RSA *rsa;
     int op;
 } PROV_RSA_CTX;
@@ -86,7 +86,7 @@ static void *rsakem_newctx(void *provctx)
 
     if (prsactx == NULL)
         return NULL;
-    prsactx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    prsactx->libctx = PROV_LIBCTX_OF(provctx);
     prsactx->op = KEM_OP_UNDEFINED;
 
     return prsactx;

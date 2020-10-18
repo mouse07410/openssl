@@ -9,9 +9,6 @@
  * https://www.openssl.org/source/license.html
  */
 
-/* We need to use some engine deprecated APIs */
-#define OPENSSL_SUPPRESS_DEPRECATED
-
 #include <stdio.h>
 #include "ssl_local.h"
 #include "e_os.h"
@@ -3123,7 +3120,7 @@ static int ssl_session_cmp(const SSL_SESSION *a, const SSL_SESSION *b)
  * via ssl.h.
  */
 
-SSL_CTX *SSL_CTX_new_ex(OPENSSL_CTX *libctx, const char *propq,
+SSL_CTX *SSL_CTX_new_ex(OSSL_LIB_CTX *libctx, const char *propq,
                         const SSL_METHOD *meth)
 {
     SSL_CTX *ret = NULL;
@@ -3396,7 +3393,7 @@ void SSL_CTX_free(SSL_CTX *a)
     SSL_CTX_SRP_CTX_free(a);
 #endif
 #ifndef OPENSSL_NO_ENGINE
-    ENGINE_finish(a->client_cert_engine);
+    tls_engine_finish(a->client_cert_engine);
 #endif
 
 #ifndef OPENSSL_NO_EC
@@ -5893,27 +5890,20 @@ void SSL_set_allow_early_data_cb(SSL *s,
     s->allow_early_data_cb_data = arg;
 }
 
-const EVP_CIPHER *ssl_evp_cipher_fetch(OPENSSL_CTX *libctx,
+const EVP_CIPHER *ssl_evp_cipher_fetch(OSSL_LIB_CTX *libctx,
                                        int nid,
                                        const char *properties)
 {
-    EVP_CIPHER *ciph;
+    const EVP_CIPHER *ciph;
 
-#ifndef OPENSSL_NO_ENGINE
-    ENGINE *eng;
+    ciph = tls_get_cipher_from_engine(nid);
+    if (ciph != NULL)
+        return ciph;
 
     /*
-     * If there is an Engine available for this cipher we use the "implicit"
-     * form to ensure we use that engine later.
+     * If there is no engine cipher then we do an explicit fetch. This may fail
+     * and that could be ok
      */
-    eng = ENGINE_get_cipher_engine(nid);
-    if (eng != NULL) {
-        ENGINE_finish(eng);
-        return EVP_get_cipherbynid(nid);
-    }
-#endif
-
-    /* Otherwise we do an explicit fetch. This may fail and that could be ok */
     ERR_set_mark();
     ciph = EVP_CIPHER_fetch(libctx, OBJ_nid2sn(nid), properties);
     ERR_pop_to_mark();
@@ -5948,25 +5938,15 @@ void ssl_evp_cipher_free(const EVP_CIPHER *cipher)
     }
 }
 
-const EVP_MD *ssl_evp_md_fetch(OPENSSL_CTX *libctx,
+const EVP_MD *ssl_evp_md_fetch(OSSL_LIB_CTX *libctx,
                                int nid,
                                const char *properties)
 {
-    EVP_MD *md;
+    const EVP_MD *md;
 
-#ifndef OPENSSL_NO_ENGINE
-    ENGINE *eng;
-
-    /*
-     * If there is an Engine available for this digest we use the "implicit"
-     * form to ensure we use that engine later.
-     */
-    eng = ENGINE_get_digest_engine(nid);
-    if (eng != NULL) {
-        ENGINE_finish(eng);
-        return EVP_get_digestbynid(nid);
-    }
-#endif
+    md = tls_get_digest_from_engine(nid);
+    if (md != NULL)
+        return md;
 
     /* Otherwise we do an explicit fetch */
     ERR_set_mark();

@@ -35,7 +35,7 @@ static OSSL_FUNC_signature_get_ctx_params_fn eddsa_get_ctx_params;
 static OSSL_FUNC_signature_gettable_ctx_params_fn eddsa_gettable_ctx_params;
 
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     ECX_KEY *key;
 
     /* The Algorithm Identifier of the signature algorithm */
@@ -57,7 +57,7 @@ static void *eddsa_newctx(void *provctx, const char *propq_unused)
         return NULL;
     }
 
-    peddsactx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    peddsactx->libctx = PROV_LIBCTX_OF(provctx);
 
     return peddsactx;
 }

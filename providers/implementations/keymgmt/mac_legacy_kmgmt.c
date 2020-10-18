@@ -50,14 +50,14 @@ static OSSL_FUNC_keymgmt_gen_set_params_fn cmac_gen_set_params;
 static OSSL_FUNC_keymgmt_gen_settable_params_fn cmac_gen_settable_params;
 
 struct mac_gen_ctx {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     int selection;
     unsigned char *priv_key;
     size_t priv_key_len;
     PROV_CIPHER cipher;
 };
 
-MAC_KEY *mac_key_new(OPENSSL_CTX *libctx, int cmac)
+MAC_KEY *mac_key_new(OSSL_LIB_CTX *libctx, int cmac)
 {
     MAC_KEY *mackey;
 
@@ -118,12 +118,12 @@ int mac_key_up_ref(MAC_KEY *mackey)
 
 static void *mac_new(void *provctx)
 {
-    return mac_key_new(PROV_LIBRARY_CONTEXT_OF(provctx), 0);
+    return mac_key_new(PROV_LIBCTX_OF(provctx), 0);
 }
 
 static void *mac_new_cmac(void *provctx)
 {
-    return mac_key_new(PROV_LIBRARY_CONTEXT_OF(provctx), 1);
+    return mac_key_new(PROV_LIBCTX_OF(provctx), 1);
 }
 
 static void mac_free(void *mackey)
@@ -372,7 +372,7 @@ static const OSSL_PARAM *mac_settable_params(void *provctx)
 
 static void *mac_gen_init(void *provctx, int selection)
 {
-    OPENSSL_CTX *libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    OSSL_LIB_CTX *libctx = PROV_LIBCTX_OF(provctx);
     struct mac_gen_ctx *gctx = NULL;
 
     if (!ossl_prov_is_running())

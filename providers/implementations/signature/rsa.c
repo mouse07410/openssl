@@ -74,7 +74,7 @@ static OSSL_ITEM padding_item[] = {
  */
 
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     char *propq;
     RSA *rsa;
     int operation;
@@ -170,7 +170,7 @@ static void *rsa_newctx(void *provctx, const char *propq)
         return NULL;
     }
 
-    prsactx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    prsactx->libctx = PROV_LIBCTX_OF(provctx);
     prsactx->flag_allow_md = 1;
     prsactx->propq = propq_copy;
     return prsactx;

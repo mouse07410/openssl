@@ -59,7 +59,7 @@ enum kdf_type {
  */
 
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     DH *dh;
     DH *dhpeer;
     unsigned int pad : 1;
@@ -87,7 +87,7 @@ static void *dh_newctx(void *provctx)
     pdhctx = OPENSSL_zalloc(sizeof(PROV_DH_CTX));
     if (pdhctx == NULL)
         return NULL;
-    pdhctx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    pdhctx->libctx = PROV_LIBCTX_OF(provctx);
     pdhctx->kdf_type = PROV_DH_KDF_NONE;
     return pdhctx;
 }

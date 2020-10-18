@@ -9,9 +9,6 @@
  * https://www.openssl.org/source/license.html
  */
 
-/* We need to use some engine deprecated APIs */
-#define OPENSSL_SUPPRESS_DEPRECATED
-
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
@@ -2166,7 +2163,7 @@ static int tls_process_ske_dhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
     dh = NULL;
 
     if (!ssl_security(s, SSL_SECOP_TMP_DH, EVP_PKEY_security_bits(peer_tmp),
-                      0, EVP_PKEY_get0_DH(peer_tmp))) {
+                      0, peer_tmp)) {
         SSLfatal(s, SSL_AD_HANDSHAKE_FAILURE, SSL_F_TLS_PROCESS_SKE_DHE,
                  SSL_R_DH_KEY_TOO_SMALL);
         goto err;
@@ -3866,9 +3863,7 @@ int ssl_do_client_cert_cb(SSL *s, X509 **px509, EVP_PKEY **ppkey)
     int i = 0;
 #ifndef OPENSSL_NO_ENGINE
     if (s->ctx->client_cert_engine) {
-        i = ENGINE_load_ssl_client_cert(s->ctx->client_cert_engine, s,
-                                        SSL_get_client_CA_list(s),
-                                        px509, ppkey, NULL, NULL, NULL);
+        i = tls_engine_load_ssl_client_cert(s, px509, ppkey);
         if (i != 0)
             return i;
     }

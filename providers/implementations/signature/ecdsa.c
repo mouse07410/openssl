@@ -61,7 +61,7 @@ static OSSL_FUNC_signature_settable_ctx_md_params_fn ecdsa_settable_ctx_md_param
  */
 
 typedef struct {
-    OPENSSL_CTX *libctx;
+    OSSL_LIB_CTX *libctx;
     char *propq;
     EC_KEY *ec;
     char mdname[OSSL_MAX_NAME_SIZE];
@@ -107,7 +107,7 @@ static void *ecdsa_newctx(void *provctx, const char *propq)
     if (ctx == NULL)
         return NULL;
 
-    ctx->libctx = PROV_LIBRARY_CONTEXT_OF(provctx);
+    ctx->libctx = PROV_LIBCTX_OF(provctx);
     if (propq != NULL && (ctx->propq = OPENSSL_strdup(propq)) == NULL) {
         OPENSSL_free(ctx);
         ctx = NULL;

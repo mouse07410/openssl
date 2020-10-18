@@ -115,6 +115,21 @@ int cms_env_asn1_ctrl(CMS_RecipientInfo *ri, int cmd)
             return 0;
     } else
         return 0;
+
+#ifndef OPENSSL_NO_DH
+    if (EVP_PKEY_is_a(pkey, "DHX"))
+        return cms_dh_envelope(ri, cmd);
+    else
+#endif
+#ifndef OPENSSL_NO_EC
+    if (EVP_PKEY_is_a(pkey, "EC"))
+        return cms_ecdh_envelope(ri, cmd);
+    else
+#endif
+    if (EVP_PKEY_is_a(pkey, "RSA"))
+        return cms_rsa_envelope(ri, cmd);
+
+    /* Something else? We'll give engines etc a chance to handle this */
     if (pkey->ameth == NULL || pkey->ameth->pkey_ctrl == NULL)
         return 1;
     i = pkey->ameth->pkey_ctrl(pkey, ASN1_PKEY_CTRL_CMS_ENVELOPE, cmd, ri);
@@ -204,7 +219,7 @@ EVP_PKEY_CTX *CMS_RecipientInfo_get0_pkey_ctx(CMS_RecipientInfo *ri)
 }
 
 CMS_ContentInfo *CMS_EnvelopedData_create_ex(const EVP_CIPHER *cipher,
-                                             OPENSSL_CTX *libctx,
+                                             OSSL_LIB_CTX *libctx,
                                              const char *propq)
 {
     CMS_ContentInfo *cms;
@@ -233,7 +248,7 @@ CMS_ContentInfo *CMS_EnvelopedData_create(const EVP_CIPHER *cipher)
 }
 
 CMS_ContentInfo *
-CMS_AuthEnvelopedData_create_ex(const EVP_CIPHER *cipher, OPENSSL_CTX *libctx,
+CMS_AuthEnvelopedData_create_ex(const EVP_CIPHER *cipher, OSSL_LIB_CTX *libctx,
                                 const char *propq)
 {
     CMS_ContentInfo *cms;
@@ -1288,6 +1303,20 @@ err:
  */
 int cms_pkey_get_ri_type(EVP_PKEY *pk)
 {
+    /* Check types that we know about */
+    if (EVP_PKEY_is_a(pk, "DH"))
+        return CMS_RECIPINFO_AGREE;
+    else if (EVP_PKEY_is_a(pk, "DSA"))
+        return CMS_RECIPINFO_NONE;
+    else if (EVP_PKEY_is_a(pk, "EC"))
+        return CMS_RECIPINFO_AGREE;
+    else if (EVP_PKEY_is_a(pk, "RSA"))
+        return CMS_RECIPINFO_TRANS;
+
+    /*
+     * Otherwise this might ben an engine implementation, so see if we can get
+     * the type from the ameth.
+     */
     if (pk->ameth && pk->ameth->pkey_ctrl) {
         int i, r;
         i = pk->ameth->pkey_ctrl(pk, ASN1_PKEY_CTRL_CMS_RI_TYPE, 0, &r);
