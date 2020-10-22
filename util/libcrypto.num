@@ -4410,7 +4410,7 @@ EVP_MAC_CTX_new                         ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_CTX_free                        ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_CTX_dup                         ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_CTX_mac                         ?	3_0_0	EXIST::FUNCTION:
-EVP_MAC_size                            ?	3_0_0	EXIST::FUNCTION:
+EVP_MAC_CTX_get_mac_size                ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_init                            ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_update                          ?	3_0_0	EXIST::FUNCTION:
 EVP_MAC_final                           ?	3_0_0	EXIST::FUNCTION:
@@ -4427,9 +4427,6 @@ OPENSSL_version_minor                   ?	3_0_0	EXIST::FUNCTION:
 OPENSSL_version_patch                   ?	3_0_0	EXIST::FUNCTION:
 OPENSSL_version_pre_release             ?	3_0_0	EXIST::FUNCTION:
 OPENSSL_version_build_metadata          ?	3_0_0	EXIST::FUNCTION:
-EVP_aes_128_siv                         ?	3_0_0	EXIST::FUNCTION:SIV
-EVP_aes_192_siv                         ?	3_0_0	EXIST::FUNCTION:SIV
-EVP_aes_256_siv                         ?	3_0_0	EXIST::FUNCTION:SIV
 OPENSSL_INIT_set_config_filename        ?	3_0_0	EXIST::FUNCTION:STDIO
 OPENSSL_INIT_set_config_file_flags      ?	3_0_0	EXIST::FUNCTION:STDIO
 ASYNC_WAIT_CTX_get_callback             ?	3_0_0	EXIST::FUNCTION:
@@ -4438,8 +4435,8 @@ ASYNC_WAIT_CTX_set_status               ?	3_0_0	EXIST::FUNCTION:
 ASYNC_WAIT_CTX_get_status               ?	3_0_0	EXIST::FUNCTION:
 ERR_load_ESS_strings                    ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_CTX_free                        ?	3_0_0	EXIST::FUNCTION:
-EVP_KDF_reset                           ?	3_0_0	EXIST::FUNCTION:
-EVP_KDF_size                            ?	3_0_0	EXIST::FUNCTION:
+EVP_KDF_CTX_reset                       ?	3_0_0	EXIST::FUNCTION:
+EVP_KDF_CTX_get_kdf_size                ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_derive                          ?	3_0_0	EXIST::FUNCTION:
 EVP_KDF_name                            ?	3_0_0	EXIST::FUNCTION:
 EC_GROUP_get0_field                     ?	3_0_0	EXIST::FUNCTION:EC
@@ -5235,12 +5232,8 @@ EVP_PKEY_CTX_set_mac_key                ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_new_CMAC_key_ex                ?	3_0_0	EXIST::FUNCTION:
 OSSL_STORE_INFO_new                     ?	3_0_0	EXIST::FUNCTION:
 OSSL_STORE_INFO_get0_data               ?	3_0_0	EXIST::FUNCTION:
-ossl_do_blob_header                     ?	3_0_0	EXIST::FUNCTION:DSA
-ossl_do_PVK_header                      ?	3_0_0	EXIST::FUNCTION:DSA,RC4
 asn1_d2i_read_bio                       ?	3_0_0	EXIST::FUNCTION:
 EVP_PKCS82PKEY_ex                       ?	3_0_0	EXIST::FUNCTION:
-ossl_b2i                                ?	3_0_0	EXIST::FUNCTION:DSA
-ossl_b2i_bio                            ?	3_0_0	EXIST::FUNCTION:DSA
 EVP_PKEY_CTX_set1_id                    ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_CTX_get1_id                    ?	3_0_0	EXIST::FUNCTION:
 EVP_PKEY_CTX_get1_id_len                ?	3_0_0	EXIST::FUNCTION:

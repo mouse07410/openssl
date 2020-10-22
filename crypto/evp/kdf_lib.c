@@ -110,7 +110,7 @@ const EVP_KDF *EVP_KDF_CTX_kdf(EVP_KDF_CTX *ctx)
     return ctx->meth;
 }
 
-void EVP_KDF_reset(EVP_KDF_CTX *ctx)
+void EVP_KDF_CTX_reset(EVP_KDF_CTX *ctx)
 {
     if (ctx == NULL)
         return;
@@ -119,7 +119,7 @@ void EVP_KDF_reset(EVP_KDF_CTX *ctx)
         ctx->meth->reset(ctx->data);
 }
 
-size_t EVP_KDF_size(EVP_KDF_CTX *ctx)
+size_t EVP_KDF_CTX_get_kdf_size(EVP_KDF_CTX *ctx)
 {
     OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
     size_t s;
