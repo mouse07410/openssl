@@ -42,11 +42,12 @@ extern "C" {
  * This set of parameter names is explained in detail in provider-object(7)
  * (doc/man7/provider-object.pod)
  */
-#define OSSL_OBJECT_PARAM_TYPE       "type"      /* INTEGER */
-#define OSSL_OBJECT_PARAM_DATA_TYPE  "data-type" /* UTF8_STRING */
-#define OSSL_OBJECT_PARAM_REFERENCE  "reference" /* OCTET_STRING */
-#define OSSL_OBJECT_PARAM_DATA       "data" /* OCTET_STRING or UTF8_STRING */
-#define OSSL_OBJECT_PARAM_DESC       "desc"      /* UTF8_STRING */
+#define OSSL_OBJECT_PARAM_TYPE              "type"      /* INTEGER */
+#define OSSL_OBJECT_PARAM_DATA_TYPE         "data-type" /* UTF8_STRING */
+#define OSSL_OBJECT_PARAM_DATA_STRUCTURE    "data-structure" /* UTF8_STRING */
+#define OSSL_OBJECT_PARAM_REFERENCE         "reference" /* OCTET_STRING */
+#define OSSL_OBJECT_PARAM_DATA              "data" /* OCTET_STRING or UTF8_STRING */
+#define OSSL_OBJECT_PARAM_DESC              "desc"      /* UTF8_STRING */
 
 /*
  * Algorithm parameters
@@ -200,6 +201,8 @@ extern "C" {
 #define OSSL_KDF_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER     /* utf8 string */
 #define OSSL_KDF_PARAM_CONSTANT     "constant"  /* octet string */
 #define OSSL_KDF_PARAM_PKCS12_ID    "id"        /* int */
+#define OSSL_KDF_PARAM_KBKDF_USE_L  "use-l"             /* int */
+#define OSSL_KDF_PARAM_KBKDF_USE_SEPARATOR  "use-separator"     /* int */
 
 /* Known KDF names */
 #define OSSL_KDF_NAME_HKDF          "HKDF"
@@ -450,13 +453,15 @@ extern "C" {
 /*
  * Encoder / decoder parameters
  */
-#define OSSL_ENCODER_PARAM_CIPHER       OSSL_ALG_PARAM_CIPHER
-#define OSSL_ENCODER_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES
-#define OSSL_ENCODER_PARAM_INPUT_TYPE   "input-type"
-#define OSSL_ENCODER_PARAM_OUTPUT_TYPE  "output-type"
+#define OSSL_ENCODER_PARAM_CIPHER           OSSL_ALG_PARAM_CIPHER
+#define OSSL_ENCODER_PARAM_PROPERTIES       OSSL_ALG_PARAM_PROPERTIES
+#define OSSL_ENCODER_PARAM_INPUT_TYPE       "input-type"
+#define OSSL_ENCODER_PARAM_OUTPUT_TYPE      "output-type"
+#define OSSL_ENCODER_PARAM_OUTPUT_STRUCTURE "output-structure"
 
-#define OSSL_DECODER_PARAM_PROPERTIES   OSSL_ALG_PARAM_PROPERTIES
-#define OSSL_DECODER_PARAM_INPUT_TYPE   "input-type"
+#define OSSL_DECODER_PARAM_PROPERTIES       OSSL_ALG_PARAM_PROPERTIES
+#define OSSL_DECODER_PARAM_INPUT_TYPE       "input-type"
+#define OSSL_DECODER_PARAM_INPUT_STRUCTURE  "input-structure"
 
 /* Passphrase callback parameters */
 #define OSSL_PASSPHRASE_PARAM_INFO      "info"

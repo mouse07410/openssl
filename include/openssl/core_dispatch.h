@@ -756,7 +756,8 @@ OSSL_CORE_MAKE_FUNC(const OSSL_PARAM *, kem_settable_ctx_params, (void *provctx)
 # define OSSL_FUNC_ENCODER_GETTABLE_PARAMS             4
 # define OSSL_FUNC_ENCODER_SET_CTX_PARAMS              5
 # define OSSL_FUNC_ENCODER_SETTABLE_CTX_PARAMS         6
-# define OSSL_FUNC_ENCODER_ENCODE                     10
+# define OSSL_FUNC_ENCODER_DOES_SELECTION             10
+# define OSSL_FUNC_ENCODER_ENCODE                     11
 # define OSSL_FUNC_ENCODER_IMPORT_OBJECT              20
 # define OSSL_FUNC_ENCODER_FREE_OBJECT                21
 OSSL_CORE_MAKE_FUNC(void *, encoder_newctx, (void *provctx))
@@ -769,10 +770,8 @@ OSSL_CORE_MAKE_FUNC(int, encoder_set_ctx_params,
 OSSL_CORE_MAKE_FUNC(const OSSL_PARAM *, encoder_settable_ctx_params,
                     (void *provctx))
 
-/*
- * TODO(3.0) investigate if this should be two functions, one that takes a
- * raw object and one that takes an object abstraction.
- */
+OSSL_CORE_MAKE_FUNC(int, encoder_does_selection,
+                    (void *provctx, int selection))
 OSSL_CORE_MAKE_FUNC(int, encoder_encode,
                     (void *ctx, OSSL_CORE_BIO *out,
                      const void *obj_raw, const OSSL_PARAM obj_abstract[],
@@ -789,8 +788,9 @@ OSSL_CORE_MAKE_FUNC(void, encoder_free_object, (void *obj))
 # define OSSL_FUNC_DECODER_GETTABLE_PARAMS             4
 # define OSSL_FUNC_DECODER_SET_CTX_PARAMS              5
 # define OSSL_FUNC_DECODER_SETTABLE_CTX_PARAMS         6
-# define OSSL_FUNC_DECODER_DECODE                     10
-# define OSSL_FUNC_DECODER_EXPORT_OBJECT              11
+# define OSSL_FUNC_DECODER_DOES_SELECTION             10
+# define OSSL_FUNC_DECODER_DECODE                     11
+# define OSSL_FUNC_DECODER_EXPORT_OBJECT              20
 OSSL_CORE_MAKE_FUNC(void *, decoder_newctx, (void *provctx))
 OSSL_CORE_MAKE_FUNC(void, decoder_freectx, (void *ctx))
 OSSL_CORE_MAKE_FUNC(int, decoder_get_params, (OSSL_PARAM params[]))
@@ -801,8 +801,10 @@ OSSL_CORE_MAKE_FUNC(int, decoder_set_ctx_params,
 OSSL_CORE_MAKE_FUNC(const OSSL_PARAM *, decoder_settable_ctx_params,
                     (void *provctx))
 
+OSSL_CORE_MAKE_FUNC(int, decoder_does_selection,
+                    (void *provctx, int selection))
 OSSL_CORE_MAKE_FUNC(int, decoder_decode,
-                    (void *ctx, OSSL_CORE_BIO *in,
+                    (void *ctx, OSSL_CORE_BIO *in, int selection,
                      OSSL_CALLBACK *metadata_cb, void *metadata_cbarg,
                      OSSL_PASSPHRASE_CALLBACK *pw_cb, void *pw_cbarg))
 OSSL_CORE_MAKE_FUNC(int, decoder_export_object,

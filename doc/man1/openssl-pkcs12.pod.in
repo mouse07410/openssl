@@ -60,8 +60,7 @@ B<openssl> B<pkcs12>
 [B<-CSP> I<name>]
 {- $OpenSSL::safe::opt_trust_synopsis -}
 {- $OpenSSL::safe::opt_r_synopsis -}
-{- $OpenSSL::safe::opt_engine_synopsis -}
-{- $OpenSSL::safe::opt_provider_synopsis -}
+{- $OpenSSL::safe::opt_engine_synopsis -}{- $OpenSSL::safe::opt_provider_synopsis -}
 
 =for openssl ifdef engine
 
@@ -275,6 +274,8 @@ can be used (see L</NOTES> section for more information). If a cipher name
 (as output by C<openssl list -cipher-algorithms>) is specified then it
 is used with PKCS#5 v2.0. For interoperability reasons it is advisable to only
 use PKCS#12 algorithms.
+
+Special value C<NONE> disables encryption of the private key and certificate.
 
 =item B<-keyex>|B<-keysig>
 
