@@ -27,7 +27,7 @@
 #include "e_os.h"
 
 #ifndef FIPS_MODULE
-# include "prov/rand_pool.h"
+# include "crypto/rand_pool.h"
 # include "prov/seeding.h"
 
 # ifndef OPENSSL_NO_ENGINE
@@ -125,7 +125,7 @@ int RAND_poll(void)
         if (pool == NULL)
             return 0;
 
-        if (prov_pool_acquire_entropy(pool) == 0)
+        if (ossl_pool_acquire_entropy(pool) == 0)
             goto err;
 
         if (meth->add == NULL

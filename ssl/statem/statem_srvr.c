@@ -20,6 +20,7 @@
 #include <openssl/evp.h>
 #include <openssl/x509.h>
 #include <openssl/dh.h>
+#include <openssl/rsa.h>
 #include <openssl/bn.h>
 #include <openssl/md5.h>
 #include <openssl/trace.h>
@@ -2418,9 +2419,7 @@ int tls_construct_server_done(SSL *s, WPACKET *pkt)
 
 int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
 {
-#ifndef OPENSSL_NO_DH
     EVP_PKEY *pkdh = NULL;
-#endif
 #ifndef OPENSSL_NO_EC
     unsigned char *encodedPoint = NULL;
     size_t encodedlen = 0;
@@ -2429,10 +2428,11 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
     const SIGALG_LOOKUP *lu = s->s3.tmp.sigalg;
     int i;
     unsigned long type;
-    const BIGNUM *r[4];
+    BIGNUM *r[4];
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     EVP_PKEY_CTX *pctx = NULL;
     size_t paramlen, paramoffset;
+    int freer = 0, ret = 0;
 
     if (!WPACKET_get_total_written(pkt, &paramoffset)) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
@@ -2452,35 +2452,30 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
     if (type & (SSL_kPSK | SSL_kRSAPSK)) {
     } else
 #endif                          /* !OPENSSL_NO_PSK */
-#ifndef OPENSSL_NO_DH
     if (type & (SSL_kDHE | SSL_kDHEPSK)) {
         CERT *cert = s->cert;
-
         EVP_PKEY *pkdhp = NULL;
-        DH *dh;
 
         if (s->cert->dh_tmp_auto) {
-            DH *dhp = ssl_get_auto_dh(s);
-            pkdh = EVP_PKEY_new();
-            if (pkdh == NULL || dhp == NULL) {
-                DH_free(dhp);
+            pkdh = ssl_get_auto_dh(s);
+            if (pkdh == NULL) {
                 SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
                 goto err;
             }
-            EVP_PKEY_assign_DH(pkdh, dhp);
             pkdhp = pkdh;
         } else {
             pkdhp = cert->dh_tmp;
         }
+#if !defined(OPENSSL_NO_DH) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         if ((pkdhp == NULL) && (s->cert->dh_tmp_cb != NULL)) {
-            DH *dhp = s->cert->dh_tmp_cb(s, 0, 1024);
-            pkdh = ssl_dh_to_pkey(dhp);
+            pkdh = ssl_dh_to_pkey(s->cert->dh_tmp_cb(s, 0, 1024));
             if (pkdh == NULL) {
                 SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
                 goto err;
             }
             pkdhp = pkdh;
         }
+#endif
         if (pkdhp == NULL) {
             SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_R_MISSING_TMP_DH_KEY);
             goto err;
@@ -2501,19 +2496,21 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
             goto err;
         }
 
-        dh = EVP_PKEY_get0_DH(s->s3.tmp.pkey);
-        if (dh == NULL) {
-            SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-
         EVP_PKEY_free(pkdh);
         pkdh = NULL;
 
-        DH_get0_pqg(dh, &r[0], NULL, &r[1]);
-        DH_get0_key(dh, &r[2], NULL);
+        /* These BIGNUMs need to be freed when we're finished */
+        freer = 1;
+        if (!EVP_PKEY_get_bn_param(s->s3.tmp.pkey, OSSL_PKEY_PARAM_FFC_P,
+                                   &r[0])
+                || !EVP_PKEY_get_bn_param(s->s3.tmp.pkey, OSSL_PKEY_PARAM_FFC_G,
+                                          &r[1])
+                || !EVP_PKEY_get_bn_param(s->s3.tmp.pkey,
+                                          OSSL_PKEY_PARAM_PUB_KEY, &r[2])) {
+            SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+            goto err;
+        }
     } else
-#endif
 #ifndef OPENSSL_NO_EC
     if (type & (SSL_kECDHE | SSL_kECDHEPSK)) {
 
@@ -2615,7 +2612,6 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
             goto err;
         }
 
-#ifndef OPENSSL_NO_DH
         /*-
          * for interoperability with some versions of the Microsoft TLS
          * stack, we need to zero pad the DHE pub key to the same length
@@ -2632,7 +2628,7 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
                 memset(binval, 0, len);
             }
         }
-#endif
+
         if (!WPACKET_allocate_bytes(pkt, BN_num_bytes(r[i]), &binval)
                 || !WPACKET_close(pkt)) {
             SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
@@ -2718,17 +2714,20 @@ int tls_construct_server_key_exchange(SSL *s, WPACKET *pkt)
         OPENSSL_free(tbs);
     }
 
-    EVP_MD_CTX_free(md_ctx);
-    return 1;
+    ret = 1;
  err:
-#ifndef OPENSSL_NO_DH
     EVP_PKEY_free(pkdh);
-#endif
 #ifndef OPENSSL_NO_EC
     OPENSSL_free(encodedPoint);
 #endif
     EVP_MD_CTX_free(md_ctx);
-    return 0;
+    if (freer) {
+        BN_free(r[0]);
+        BN_free(r[1]);
+        BN_free(r[2]);
+        BN_free(r[3]);
+    }
+    return ret;
 }
 
 int tls_construct_certificate_request(SSL *s, WPACKET *pkt)
@@ -2960,11 +2959,8 @@ static int tls_process_cke_rsa(SSL *s, PACKET *pkt)
 
 static int tls_process_cke_dhe(SSL *s, PACKET *pkt)
 {
-#ifndef OPENSSL_NO_DH
     EVP_PKEY *skey = NULL;
-    DH *cdh;
     unsigned int i;
-    BIGNUM *pub_key;
     const unsigned char *data;
     EVP_PKEY *ckey = NULL;
     int ret = 0;
@@ -2994,11 +2990,8 @@ static int tls_process_cke_dhe(SSL *s, PACKET *pkt)
         goto err;
     }
 
-    cdh = EVP_PKEY_get0_DH(ckey);
-    pub_key = BN_bin2bn(data, i, NULL);
-    if (pub_key == NULL || cdh == NULL || !DH_set0_key(cdh, pub_key, NULL)) {
+    if (!EVP_PKEY_set1_encoded_public_key(ckey, data, i)) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-        BN_free(pub_key);
         goto err;
     }
 
@@ -3013,11 +3006,6 @@ static int tls_process_cke_dhe(SSL *s, PACKET *pkt)
  err:
     EVP_PKEY_free(ckey);
     return ret;
-#else
-    /* Should never happen */
-    SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-    return 0;
-#endif
 }
 
 static int tls_process_cke_ecdhe(SSL *s, PACKET *pkt)

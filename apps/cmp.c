@@ -1834,8 +1834,10 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
         CMP_err("missing -server option");
         goto err;
     }
-    if (!OSSL_HTTP_parse_url(opt_server, &server, &port, &portnum, &path, &ssl))
+    if (!OSSL_HTTP_parse_url(opt_server, &server, &port, &portnum, &path, &ssl)) {
+        CMP_err1("cannot parse -server URL: %s", opt_server);
         goto err;
+    }
     if (ssl && !opt_tls_used) {
         CMP_err("missing -tls_used option since -server URL indicates https");
         goto err;
@@ -2660,10 +2662,10 @@ int cmp_main(int argc, char **argv)
 
     /* read default values for options from config file */
     configfile = opt_config != NULL ? opt_config : default_config_file;
-    if (configfile && configfile[0] != '\0' /* non-empty string */
-            && (configfile != default_config_file
-                    || access(configfile, F_OK) != -1)) {
-        CMP_info1("using OpenSSL configuration file '%s'", configfile);
+    if (configfile != NULL && configfile[0] != '\0' /* non-empty string */
+            && (configfile != default_config_file || access(configfile, F_OK) != -1)) {
+        CMP_info2("using section(s) '%s' of OpenSSL configuration file '%s'",
+                  opt_section, configfile);
         conf = app_load_config(configfile);
         if (conf == NULL) {
             goto err;
@@ -2868,6 +2870,8 @@ int cmp_main(int argc, char **argv)
         default:
             break;
         }
+        if (OSSL_CMP_CTX_get_status(cmp_ctx) < 0)
+            goto err; /* we got no response, maybe even did not send request */
 
         {
             /* print PKIStatusInfo */

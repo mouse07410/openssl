@@ -322,12 +322,13 @@ static OSSL_STORE_INFO *try_decode_PKCS12(const char *pem_name,
 
             *matchcount = 1;
 
-            if (PKCS12_verify_mac(p12, "", 0)
+            if (!PKCS12_mac_present(p12)
+                || PKCS12_verify_mac(p12, "", 0)
                 || PKCS12_verify_mac(p12, NULL, 0)) {
                 pass = "";
             } else {
                 if ((pass = file_get_pass(ui_method, tpass, PEM_BUFSIZE,
-                                          "PKCS12 import pass phrase", uri,
+                                          "PKCS12 import", uri,
                                           ui_data)) == NULL) {
                     ATTICerr(0, ATTIC_R_PASSPHRASE_CALLBACK_ERROR);
                     goto p12_end;
@@ -1232,10 +1233,13 @@ static OSSL_STORE_INFO *file_load_try_decode(OSSL_STORE_LOADER_CTX *ctx,
                 }
                 if (result == NULL)
                     result = tmp_result;
+                if (result == NULL) /* e.g., PKCS#12 file decryption error */
+                    break;
             }
         }
 
-        if (*matchcount == 1 && matching_handlers[0]->repeatable) {
+        if (result != NULL
+                && *matchcount == 1 && matching_handlers[0]->repeatable) {
             ctx->_.file.last_handler = matching_handlers[0];
             ctx->_.file.last_handler_ctx = handler_ctx;
         }
