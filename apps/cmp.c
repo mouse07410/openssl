@@ -1609,12 +1609,13 @@ static int setup_request_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
         const char *file = opt_newkey;
         const int format = opt_keyform;
         const char *pass = opt_newkeypass;
-        const char *desc = "new private or public key for cert to be enrolled";
-        EVP_PKEY *pkey = load_key_pwd(file, format, pass, engine, NULL);
+        const char *desc = "new private key for cert to be enrolled";
+        EVP_PKEY *pkey = load_key_pwd(file, format, pass, engine, desc);
         int priv = 1;
 
         if (pkey == NULL) {
             ERR_clear_error();
+            desc = "fallback public key for cert to be enrolled";
             pkey = load_pubkey(file, format, 0, pass, engine, desc);
             priv = 0;
         }
@@ -2696,15 +2697,8 @@ int cmp_main(int argc, char **argv)
         goto err;
     ret = 0;
 
-    if (opt_batch) {
-        UI_METHOD *ui_fallback_method;
-#ifndef OPENSSL_NO_UI_CONSOLE
-        ui_fallback_method = UI_OpenSSL();
-#else
-        ui_fallback_method = (UI_METHOD *)UI_null();
-#endif
-        UI_method_set_reader(ui_fallback_method, NULL);
-    }
+    if (opt_batch)
+        set_base_ui_method(UI_null());
 
     if (opt_engine != NULL)
         engine = setup_engine_methods(opt_engine, 0 /* not: ENGINE_METHOD_ALL */, 0);
