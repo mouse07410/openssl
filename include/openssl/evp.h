@@ -477,7 +477,7 @@ typedef int (EVP_PBE_KEYGEN) (EVP_CIPHER_CTX *ctx, const char *pass,
                                         (dsa))
 # endif
 
-# ifndef OPENSSL_NO_DH
+# if !defined(OPENSSL_NO_DH) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 #  define EVP_PKEY_assign_DH(pkey,dh) EVP_PKEY_assign((pkey),EVP_PKEY_DH,(dh))
 # endif
 
@@ -1238,11 +1238,13 @@ int EVP_PKEY_set1_DSA(EVP_PKEY *pkey, struct dsa_st *key);
 struct dsa_st *EVP_PKEY_get0_DSA(const EVP_PKEY *pkey);
 struct dsa_st *EVP_PKEY_get1_DSA(EVP_PKEY *pkey);
 # endif
-# ifndef OPENSSL_NO_DH
+# ifndef OPENSSL_NO_DEPRECATED_3_0
+#  ifndef OPENSSL_NO_DH
 struct dh_st;
-int EVP_PKEY_set1_DH(EVP_PKEY *pkey, struct dh_st *key);
-struct dh_st *EVP_PKEY_get0_DH(const EVP_PKEY *pkey);
-struct dh_st *EVP_PKEY_get1_DH(EVP_PKEY *pkey);
+OSSL_DEPRECATEDIN_3_0 int EVP_PKEY_set1_DH(EVP_PKEY *pkey, struct dh_st *key);
+OSSL_DEPRECATEDIN_3_0 struct dh_st *EVP_PKEY_get0_DH(const EVP_PKEY *pkey);
+OSSL_DEPRECATEDIN_3_0 struct dh_st *EVP_PKEY_get1_DH(EVP_PKEY *pkey);
+#  endif
 # endif
 # ifndef OPENSSL_NO_EC
 struct ec_key_st;

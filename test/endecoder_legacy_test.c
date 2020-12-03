@@ -166,7 +166,6 @@ static struct test_stanza_st {
       NULL,                      /* No PEM_read_bio_ECParameters */
       (PEM_read_bio_of_void *)PEM_read_bio_EC_PUBKEY, },
 #endif
-#ifndef OPENSSL_NO_DEPRECATED_3_0
     { "RSA", { "RSA", "type-specific" }, EVP_PKEY_RSA,
       (i2d_of_void *)i2d_RSAPrivateKey,
       (i2d_of_void *)i2d_RSAPublicKey,
@@ -184,7 +183,6 @@ static struct test_stanza_st {
       (PEM_read_bio_of_void *)PEM_read_bio_RSAPublicKey,
       NULL,                      /* No PEM_read_bio_RSAparams */
       (PEM_read_bio_of_void *)PEM_read_bio_RSA_PUBKEY }
-#endif
 };
 
 /*
@@ -321,7 +319,7 @@ static int test_protected_PEM(const char *keytype, int evp_type,
     if (!TEST_ptr(ectx =
                   OSSL_ENCODER_CTX_new_by_EVP_PKEY(provided_pkey, selection,
                                                    "PEM", structure,
-                                                   NULL, NULL))
+                                                   NULL))
         || !TEST_true(OSSL_ENCODER_to_bio(ectx, membio_provided))
         || !TEST_true(pem_write_bio(membio_legacy, legacy_key,
                                    NULL, NULL, 0, NULL, NULL))
@@ -389,7 +387,7 @@ static int test_unprotected_PEM(const char *keytype, int evp_type,
     if (!TEST_ptr(ectx =
                   OSSL_ENCODER_CTX_new_by_EVP_PKEY(provided_pkey, selection,
                                                    "PEM", structure,
-                                                   NULL, NULL))
+                                                   NULL))
         || !TEST_true(OSSL_ENCODER_to_bio(ectx, membio_provided))
         || !TEST_true(pem_write_bio(membio_legacy, legacy_key))
         || !test_membio_str_eq(membio_provided, membio_legacy))
@@ -454,7 +452,7 @@ static int test_DER(const char *keytype, int evp_type,
     if (!TEST_ptr(ectx =
                  OSSL_ENCODER_CTX_new_by_EVP_PKEY(provided_pkey, selection,
                                                   "DER", structure,
-                                                  NULL, NULL))
+                                                  NULL))
         || !TEST_true(OSSL_ENCODER_to_data(ectx,
                                           &der_provided, &der_provided_len))
         || !TEST_size_t_gt(der_legacy_len = i2d(legacy_key, &der_legacy), 0)
