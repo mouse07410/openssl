@@ -1796,13 +1796,16 @@ int EVP_PKEY_key_fromdata_init(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_fromdata(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey, OSSL_PARAM param[]);
 const OSSL_PARAM *EVP_PKEY_param_fromdata_settable(EVP_PKEY_CTX *ctx);
 const OSSL_PARAM *EVP_PKEY_key_fromdata_settable(EVP_PKEY_CTX *ctx);
-const OSSL_PARAM *EVP_PKEY_gettable_params(EVP_PKEY *pkey);
-int EVP_PKEY_get_int_param(EVP_PKEY *pkey, const char *key_name, int *out);
-int EVP_PKEY_get_size_t_param(EVP_PKEY *pkey, const char *key_name, size_t *out);
-int EVP_PKEY_get_bn_param(EVP_PKEY *pkey, const char *key_name, BIGNUM **bn);
-int EVP_PKEY_get_utf8_string_param(EVP_PKEY *pkey, const char *key_name,
+const OSSL_PARAM *EVP_PKEY_gettable_params(const EVP_PKEY *pkey);
+int EVP_PKEY_get_int_param(const EVP_PKEY *pkey, const char *key_name,
+                           int *out);
+int EVP_PKEY_get_size_t_param(const EVP_PKEY *pkey, const char *key_name,
+                              size_t *out);
+int EVP_PKEY_get_bn_param(const EVP_PKEY *pkey, const char *key_name,
+                          BIGNUM **bn);
+int EVP_PKEY_get_utf8_string_param(const EVP_PKEY *pkey, const char *key_name,
                                     char *str, size_t max_buf_sz, size_t *out_sz);
-int EVP_PKEY_get_octet_string_param(EVP_PKEY *pkey, const char *key_name,
+int EVP_PKEY_get_octet_string_param(const EVP_PKEY *pkey, const char *key_name,
                                     unsigned char *buf, size_t max_buf_sz,
                                     size_t *out_sz);
 
@@ -1989,6 +1992,8 @@ void EVP_add_alg_module(void);
 
 int EVP_PKEY_CTX_set_group_name(EVP_PKEY_CTX *ctx, const char *name);
 int EVP_PKEY_CTX_get_group_name(EVP_PKEY_CTX *ctx, char *name, size_t namelen);
+int EVP_PKEY_get_group_name(const EVP_PKEY *pkey, char *name, size_t name_sz,
+                            size_t *gname_len);
 
 OSSL_LIB_CTX *EVP_PKEY_CTX_get0_libctx(EVP_PKEY_CTX *ctx);
 const char *EVP_PKEY_CTX_get0_propq(EVP_PKEY_CTX *ctx);
