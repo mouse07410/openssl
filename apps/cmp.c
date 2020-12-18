@@ -527,7 +527,7 @@ static varref cmp_vars[] = { /* must be in same order as enumerated above! */
 
     {&opt_oldcert}, {(char **)&opt_revreason},
 
-    {&opt_server}, {&opt_proxy}, {&opt_no_proxy}, {&opt_path},
+    {&opt_server}, {&opt_path}, {&opt_proxy}, {&opt_no_proxy},
     {(char **)&opt_msg_timeout}, {(char **)&opt_total_timeout},
 
     {&opt_trusted}, {&opt_untrusted}, {&opt_srvcert},
@@ -1068,7 +1068,7 @@ static int transform_opts(void)
         return 0;
     }
 
-#ifdef OPENSSL_NO_ENGINE
+#ifndef OPENSSL_NO_ENGINE
 # define FORMAT_OPTIONS (OPT_FMT_PEMDER | OPT_FMT_PKCS12 | OPT_FMT_ENGINE)
 #else
 # define FORMAT_OPTIONS (OPT_FMT_PEMDER | OPT_FMT_PKCS12)
