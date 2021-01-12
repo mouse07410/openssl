@@ -138,6 +138,15 @@ char *opt_progname(const char *argv0)
 }
 #endif
 
+char *opt_appname(const char *arg0)
+{
+    size_t len = strlen(prog);
+
+    if (arg0 != NULL)
+        snprintf(prog + len, sizeof(prog) - len - 1, " %s", arg0);
+    return prog;
+}
+
 char *opt_getprog(void)
 {
     return prog;
@@ -151,7 +160,6 @@ char *opt_init(int ac, char **av, const OPTIONS *o)
     argv = av;
     opt_begin();
     opts = o;
-    opt_progname(av[0]);
     unknown = NULL;
 
     /* Check all options up until the PARAM marker (if present) */
@@ -724,7 +732,8 @@ int opt_next(void)
         *arg++ = '\0';
     for (o = opts; o->name; ++o) {
         /* If not this option, move on to the next one. */
-        if (strcmp(p, o->name) != 0)
+        if (!(strcmp(p, "h") == 0 && strcmp(o->name, "help") == 0)
+                && strcmp(p, o->name) != 0)
             continue;
 
         /* If it doesn't take a value, make sure none was given. */
