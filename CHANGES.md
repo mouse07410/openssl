@@ -929,19 +929,25 @@ OpenSSL 3.0
 
    *Richard Levitte*
 
- * Added the `<-copy_extensions` option to the `req` command for use with `-x509`.
-   When given with the `copy` or `copyall` argument,
-   any extensions present in the certification request are copied to the certificate.
+ * Added the `-copy_extensions` option to the `x509` command for use with
+   `-req` and `-x509toreq`. When given with the `copy` or `copyall` argument,
+   all extensions in the request are copied to the certificate or vice versa.
+
+   *David von Oheimb*, *Kirill Stefanenkov <kirill_stefanenkov@rambler.ru>*
+
+ * Added the `-copy_extensions` option to the `req` command for use with
+   `-x509`. When given with the `copy` or `copyall` argument,
+   all extensions in the certification request are copied to the certificate.
 
    *David von Oheimb*
 
- * The `x509`, `req`, and `ca` commands now make sure that certificates they
-   generate are RFC 5280 compliant by default: For X.509 version 3 certs they ensure that
-   a subjectKeyIdentifier extension is included containing a hash value of the public key
-   and an authorityKeyIdentifier extension is included for not self-signed certs
-   containing a keyIdentifier field with the hash value identifying the signing key.
+ * The `x509`, `req`, and `ca` commands now make sure that X.509v3 certificates
+   they generate are by default RFC 5280 compliant in the following sense:
+   There is a subjectKeyIdentifier extension with a hash value of the public key
+   and for not self-signed certs there is an authorityKeyIdentifier extension
+   with a keyIdentifier field or issuer information identifying the signing key.
    This is done unless some configuration overrides the new default behavior,
-   e.g. `authorityKeyIdentifier = none`.
+   such as `subjectKeyIdentifier = none` and `authorityKeyIdentifier = none`.
 
    *David von Oheimb*
 
@@ -1389,7 +1395,20 @@ OpenSSL 3.0
 OpenSSL 1.1.1
 -------------
 
-### Changes between 1.1.1h and 1.1.1i [xx XXX xxxx]
+### Changes between 1.1.1i and 1.1.1j [xx XXX xxxx]
+
+ * Fixed SRP_Calc_client_key so that it uses constant time. The previous
+   implementation called BN_mod_exp without setting BN_FLG_CONSTTIME. This
+   could be exploited in a side channel attack to recover the password. Since
+   the attack is local host only this is outside of the current OpenSSL
+   threat model and therefore no CVE is assigned.
+
+   Thanks to Mohammed Sabt and Daniel De Almeida Braga for reporting this
+   issue.
+
+   *Matt Caswell*
+
+### Changes between 1.1.1h and 1.1.1i [8 Dec 2020]
 
  * Fixed NULL pointer deref in the GENERAL_NAME_cmp function
    This function could crash if both GENERAL_NAMEs contain an EDIPARTYNAME.
