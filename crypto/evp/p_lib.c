@@ -43,7 +43,6 @@
 
 #include "crypto/ec.h"
 
-/* TODO remove this when the EVP_PKEY_is_a() #legacy support hack is removed */
 #include "e_os.h"                /* strcasecmp on Windows */
 
 static int pkey_set_type(EVP_PKEY *pkey, ENGINE *e, int type, const char *str,
@@ -115,8 +114,7 @@ void *EVP_PKEY_get_ex_data(const EVP_PKEY *key, int idx)
 int EVP_PKEY_copy_parameters(EVP_PKEY *to, const EVP_PKEY *from)
 {
     /*
-     * TODO: clean up legacy stuff from this function when legacy support
-     * is gone.
+     * Clean up legacy stuff from this function when legacy support is gone.
      */
 
     /*
@@ -814,35 +812,6 @@ DSA *EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
 
 #ifndef FIPS_MODULE
 # ifndef OPENSSL_NO_EC
-int EVP_PKEY_set1_EC_KEY(EVP_PKEY *pkey, EC_KEY *key)
-{
-    int ret = EVP_PKEY_assign_EC_KEY(pkey, key);
-    if (ret)
-        EC_KEY_up_ref(key);
-    return ret;
-}
-
-EC_KEY *EVP_PKEY_get0_EC_KEY(const EVP_PKEY *pkey)
-{
-    if (!evp_pkey_downgrade((EVP_PKEY *)pkey)) {
-        ERR_raise(ERR_LIB_EVP, EVP_R_INACCESSIBLE_KEY);
-        return NULL;
-    }
-    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
-        ERR_raise(ERR_LIB_EVP, EVP_R_EXPECTING_A_EC_KEY);
-        return NULL;
-    }
-    return pkey->pkey.ec;
-}
-
-EC_KEY *EVP_PKEY_get1_EC_KEY(EVP_PKEY *pkey)
-{
-    EC_KEY *ret = EVP_PKEY_get0_EC_KEY(pkey);
-    if (ret != NULL)
-        EC_KEY_up_ref(ret);
-    return ret;
-}
-
 static ECX_KEY *evp_pkey_get0_ECX_KEY(const EVP_PKEY *pkey, int type)
 {
     if (!evp_pkey_downgrade((EVP_PKEY *)pkey)) {
@@ -1252,9 +1221,11 @@ int EVP_PKEY_get_group_name(const EVP_PKEY *pkey, char *gname, size_t gname_sz,
 #ifndef OPENSSL_NO_EC
         case EVP_PKEY_EC:
             {
-                EC_KEY *ec = EVP_PKEY_get0_EC_KEY(pkey);
-                int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
+                const EC_GROUP *grp = EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey));
+                int nid = NID_undef;
 
+                if (grp != NULL)
+                    nid = EC_GROUP_get_curve_name(grp);
                 if (nid != NID_undef)
                     name = ec_curve_nid2name(nid);
             }
@@ -2138,3 +2109,188 @@ int EVP_PKEY_get_size_t_param(const EVP_PKEY *pkey, const char *key_name,
         return 0;
     return 1;
 }
+
+int EVP_PKEY_set_int_param(EVP_PKEY *pkey, const char *key_name, int in)
+{
+    OSSL_PARAM params[2];
+
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL
+        || key_name == NULL)
+        return 0;
+
+    params[0] = OSSL_PARAM_construct_int(key_name, &in);
+    params[1] = OSSL_PARAM_construct_end();
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+int EVP_PKEY_set_size_t_param(EVP_PKEY *pkey, const char *key_name, size_t in)
+{
+    OSSL_PARAM params[2];
+
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL
+        || key_name == NULL)
+        return 0;
+
+    params[0] = OSSL_PARAM_construct_size_t(key_name, &in);
+    params[1] = OSSL_PARAM_construct_end();
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+int EVP_PKEY_set_bn_param(EVP_PKEY *pkey, const char *key_name, BIGNUM *bn)
+{
+    OSSL_PARAM params[2];
+    unsigned char buffer[2048];
+    int bsize = 0;
+
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL
+        || key_name == NULL
+        || bn == NULL)
+        return 0;
+
+    bsize = BN_num_bytes(bn);
+    if (!ossl_assert(bsize <= (int)sizeof(buffer)))
+        return 0;
+
+    if (BN_bn2nativepad(bn, buffer, bsize) < 0)
+        return 0;
+    params[0] = OSSL_PARAM_construct_BN(key_name, buffer, bsize);
+    params[1] = OSSL_PARAM_construct_end();
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+int EVP_PKEY_set_utf8_string_param(EVP_PKEY *pkey, const char *key_name,
+                                   char *str)
+{
+    OSSL_PARAM params[2];
+
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL
+        || key_name == NULL)
+        return 0;
+
+    params[0] = OSSL_PARAM_construct_utf8_string(key_name, str, 0);
+    params[1] = OSSL_PARAM_construct_end();
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+int EVP_PKEY_set_octet_string_param(EVP_PKEY *pkey, const char *key_name,
+                                    unsigned char *buf, size_t bsize)
+{
+    OSSL_PARAM params[2];
+
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL
+        || key_name == NULL)
+        return 0;
+
+    params[0] = OSSL_PARAM_construct_octet_string(key_name, buf, bsize);
+    params[1] = OSSL_PARAM_construct_end();
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+const OSSL_PARAM *EVP_PKEY_settable_params(EVP_PKEY *pkey)
+{
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL)
+        return 0;
+    return EVP_KEYMGMT_settable_params(pkey->keymgmt);
+}
+
+int EVP_PKEY_set_params(EVP_PKEY *pkey, OSSL_PARAM params[])
+{
+    if (pkey == NULL
+        || pkey->keymgmt == NULL
+        || pkey->keydata == NULL)
+        return 0;
+    return evp_keymgmt_set_params(pkey->keymgmt, pkey->keydata, params);
+}
+
+#ifndef FIPS_MODULE
+int EVP_PKEY_get_ec_point_conv_form(const EVP_PKEY *pkey)
+{
+    char name[80];
+    size_t name_len;
+
+    if (pkey == NULL)
+        return 0;
+
+    if (pkey->keymgmt == NULL
+            || pkey->keydata == NULL) {
+#ifndef OPENSSL_NO_EC
+        /* Might work through the legacy route */
+        EC_KEY *ec = EVP_PKEY_get0_EC_KEY(pkey);
+
+        if (ec == NULL)
+            return 0;
+
+        return EC_KEY_get_conv_form(ec);
+#else
+        return 0;
+#endif
+    }
+
+    if (!EVP_PKEY_get_utf8_string_param(pkey,
+                                        OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
+                                        name, sizeof(name), &name_len))
+        return 0;
+
+    if (strcmp(name, "uncompressed") == 0)
+        return POINT_CONVERSION_UNCOMPRESSED;
+
+    if (strcmp(name, "compressed") == 0)
+        return POINT_CONVERSION_COMPRESSED;
+
+    if (strcmp(name, "hybrid") == 0)
+        return POINT_CONVERSION_HYBRID;
+
+    return 0;
+}
+
+int EVP_PKEY_get_field_type(const EVP_PKEY *pkey)
+{
+    char fstr[80];
+    size_t fstrlen;
+
+    if (pkey == NULL)
+        return 0;
+
+    if (pkey->keymgmt == NULL
+            || pkey->keydata == NULL) {
+#ifndef OPENSSL_NO_EC
+        /* Might work through the legacy route */
+        EC_KEY *ec = EVP_PKEY_get0_EC_KEY(pkey);
+        const EC_GROUP *grp;
+
+        if (ec == NULL)
+            return 0;
+        grp = EC_KEY_get0_group(ec);
+        if (grp == NULL)
+            return 0;
+
+        return EC_GROUP_get_field_type(grp);
+#else
+        return 0;
+#endif
+    }
+
+    if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_EC_FIELD_TYPE,
+                                        fstr, sizeof(fstr), &fstrlen))
+        return 0;
+
+    if (strcmp(fstr, SN_X9_62_prime_field) == 0)
+        return NID_X9_62_prime_field;
+    else if (strcmp(fstr, SN_X9_62_characteristic_two_field))
+        return NID_X9_62_characteristic_two_field;
+
+    return 0;
+}
+#endif
