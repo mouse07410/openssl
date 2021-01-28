@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2006-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -1108,7 +1108,7 @@ const EVP_PKEY_ASN1_METHOD rsa_pss_asn1_meth = {
      0, 0,
      rsa_item_verify,
      rsa_item_sign,
-     0,
+     rsa_sig_info_set,
      rsa_pkey_check,
 
      0, 0,
