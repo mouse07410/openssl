@@ -196,7 +196,6 @@ struct evp_mac_st {
     OSSL_FUNC_mac_newctx_fn *newctx;
     OSSL_FUNC_mac_dupctx_fn *dupctx;
     OSSL_FUNC_mac_freectx_fn *freectx;
-    OSSL_FUNC_mac_size_fn *size;
     OSSL_FUNC_mac_init_fn *init;
     OSSL_FUNC_mac_update_fn *update;
     OSSL_FUNC_mac_final_fn *final;
@@ -828,6 +827,7 @@ int evp_pkey_ctx_get_params_strict(EVP_PKEY_CTX *ctx, OSSL_PARAM *params);
 EVP_MD_CTX *evp_md_ctx_new_ex(EVP_PKEY *pkey, const ASN1_OCTET_STRING *id,
                               OSSL_LIB_CTX *libctx, const char *propq);
 int evp_pkey_name2type(const char *name);
+const char *evp_pkey_type2name(int type);
 
 int evp_pkey_ctx_set1_id_prov(EVP_PKEY_CTX *ctx, const void *id, int len);
 int evp_pkey_ctx_get1_id_prov(EVP_PKEY_CTX *ctx, void *id);
