@@ -1725,11 +1725,7 @@ static MSG_PROCESS_RETURN tls_process_as_hello_retry_request(SSL *s,
     OPENSSL_free(extensions);
     extensions = NULL;
 
-    if (s->ext.tls13_cookie_len == 0
-#if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
-        && s->s3.tmp.pkey != NULL
-#endif
-        ) {
+    if (s->ext.tls13_cookie_len == 0 && s->s3.tmp.pkey != NULL) {
         /*
          * We didn't receive a cookie or a new key_share so the next
          * ClientHello will not change
@@ -2067,8 +2063,8 @@ static int tls_process_ske_dhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-    if (EVP_PKEY_key_fromdata_init(pctx) <= 0
-            || EVP_PKEY_fromdata(pctx, &peer_tmp, params) <= 0) {
+    if (EVP_PKEY_fromdata_init(pctx) <= 0
+            || EVP_PKEY_fromdata(pctx, &peer_tmp, EVP_PKEY_KEYPAIR, params) <= 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, SSL_R_BAD_DH_VALUE);
         goto err;
     }
@@ -2115,7 +2111,6 @@ static int tls_process_ske_dhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
 
 static int tls_process_ske_ecdhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
 {
-#ifndef OPENSSL_NO_EC
     PACKET encoded_pt;
     unsigned int curve_type, curve_id;
 
@@ -2168,10 +2163,6 @@ static int tls_process_ske_ecdhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
     /* else anonymous ECDH, so no certificate or pkey. */
 
     return 1;
-#else
-    SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-    return 0;
-#endif
 }
 
 MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
@@ -2186,10 +2177,8 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
 
     save_param_start = *pkt;
 
-#if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
     EVP_PKEY_free(s->s3.peer_tmp);
     s->s3.peer_tmp = NULL;
-#endif
 
     if (alg_k & SSL_PSK) {
         if (!tls_process_ske_psk_preamble(s, pkt)) {
@@ -2965,7 +2954,6 @@ static int tls_construct_cke_dhe(SSL *s, WPACKET *pkt)
 
 static int tls_construct_cke_ecdhe(SSL *s, WPACKET *pkt)
 {
-#ifndef OPENSSL_NO_EC
     unsigned char *encodedPoint = NULL;
     size_t encoded_pt_len = 0;
     EVP_PKEY *ckey = NULL, *skey = NULL;
@@ -3006,10 +2994,6 @@ static int tls_construct_cke_ecdhe(SSL *s, WPACKET *pkt)
     OPENSSL_free(encodedPoint);
     EVP_PKEY_free(ckey);
     return ret;
-#else
-    SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-    return 0;
-#endif
 }
 
 static int tls_construct_cke_gost(SSL *s, WPACKET *pkt)
@@ -3556,25 +3540,23 @@ int ssl3_check_cert_and_algorithm(SSL *s)
         return 0;
     }
 
-#ifndef OPENSSL_NO_EC
     if (clu->amask & SSL_aECDSA) {
         if (ssl_check_srvr_ecc_cert_and_alg(s->session->peer, s))
             return 1;
         SSLfatal(s, SSL_AD_HANDSHAKE_FAILURE, SSL_R_BAD_ECC_CERT);
         return 0;
     }
-#endif
+
     if (alg_k & (SSL_kRSA | SSL_kRSAPSK) && idx != SSL_PKEY_RSA) {
         SSLfatal(s, SSL_AD_HANDSHAKE_FAILURE,
                  SSL_R_MISSING_RSA_ENCRYPTING_CERT);
         return 0;
     }
-#ifndef OPENSSL_NO_DH
+
     if ((alg_k & SSL_kDHE) && (s->s3.peer_tmp == NULL)) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         return 0;
     }
-#endif
 
     return 1;
 }
