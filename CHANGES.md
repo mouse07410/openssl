@@ -23,6 +23,18 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
+* The SRP APIs have been deprecated. The old APIs do not work via providers,
+   and there is no EVP interface to them. Unfortunately there is no replacement
+   for these APIs at this time.
+
+   *Matt Caswell*
+
+ * Add a compile time option to prevent the caching of provider fetched
+   algorithms.  This is enabled by including the no-cached-fetch option
+   at configuration time.
+
+   *Paul Dale*
+ 
  * Combining the Configure options no-ec and no-dh no longer disables TLSv1.3.
    Typically if OpenSSL has no EC or DH algorithms then it cannot support
    connections with TLSv1.3. However OpenSSL now supports "pluggable" groups
@@ -1475,9 +1487,39 @@ OpenSSL 3.0
 OpenSSL 1.1.1
 -------------
 
-### Changes between 1.1.1i and 1.1.1j [xx XXX xxxx]
+### Changes between 1.1.1j and 1.1.1k [xx XXX xxxx]
 
- * Fixed SRP_Calc_client_key so that it uses constant time. The previous
+### Changes between 1.1.1i and 1.1.1j [16 Feb 2021]
+
+ * Fixed the X509_issuer_and_serial_hash() function. It attempts to
+   create a unique hash value based on the issuer and serial number data
+   contained within an X509 certificate. However it was failing to correctly
+   handle any errors that may occur while parsing the issuer field (which might
+   occur if the issuer field is maliciously constructed). This may subsequently
+   result in a NULL pointer deref and a crash leading to a potential denial of
+   service attack.
+   ([CVE-2021-23841])
+
+   *Matt Caswell*
+
+ * Fixed the RSA_padding_check_SSLv23() function and the RSA_SSLV23_PADDING
+   padding mode to correctly check for rollback attacks. This is considered a
+   bug in OpenSSL 1.1.1 because it does not support SSLv2. In 1.0.2 this is
+   CVE-2021-23839.
+
+   *Matt Caswell*
+
+   Fixed the EVP_CipherUpdate, EVP_EncryptUpdate and EVP_DecryptUpdate
+   functions. Previously they could overflow the output length argument in some
+   cases where the input length is close to the maximum permissable length for
+   an integer on the platform. In such cases the return value from the function
+   call would be 1 (indicating success), but the output length value would be
+   negative. This could cause applications to behave incorrectly or crash.
+   ([CVE-2021-23840])
+
+   *Matt Caswell*
+
+ * Fixed SRP_Calc_client_key so that it runs in constant time. The previous
    implementation called BN_mod_exp without setting BN_FLG_CONSTTIME. This
    could be exploited in a side channel attack to recover the password. Since
    the attack is local host only this is outside of the current OpenSSL
