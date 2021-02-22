@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -28,6 +28,7 @@
 #include "crypto/dh.h"
 #include "crypto/dsa.h"
 #include "crypto/ec.h"
+#include "crypto/evp.h"
 #include "crypto/ecx.h"
 #include "crypto/rsa.h"
 #include "prov/bio.h"
@@ -321,8 +322,8 @@ static int der2key_decode(void *vctx, OSSL_CORE_BIO *cin, int selection,
 
         if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
             derp = der;
-            pkey = d2i_PrivateKey_ex(ctx->desc->evp_type, NULL, &derp, der_len,
-                                     libctx, NULL);
+            pkey = evp_privatekey_from_binary(ctx->desc->evp_type, NULL,
+                                              &derp, der_len, libctx, NULL);
         }
 
         if (pkey == NULL

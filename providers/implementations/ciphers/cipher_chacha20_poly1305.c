@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -55,7 +55,7 @@ static void *chacha20_poly1305_newctx(void *provctx)
                                     NULL);
         ctx->nonce_len = CHACHA20_POLY1305_IVLEN;
         ctx->tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
-        chacha20_initctx(&ctx->chacha);
+        ossl_chacha20_initctx(&ctx->chacha);
     }
     return ctx;
 }

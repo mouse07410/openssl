@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -21,7 +21,7 @@
 
 extern int FIPS_security_check_enabled(void);
 
-int securitycheck_enabled(void)
+int ossl_securitycheck_enabled(void)
 {
 #if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
     return FIPS_security_check_enabled();
@@ -30,11 +30,11 @@ int securitycheck_enabled(void)
 #endif /* OPENSSL_NO_FIPS_SECURITYCHECKS */
 }
 
-int digest_rsa_sign_get_md_nid(const EVP_MD *md, int sha1_allowed)
+int ossl_digest_rsa_sign_get_md_nid(const EVP_MD *md, int sha1_allowed)
 {
 #if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (securitycheck_enabled())
-        return digest_get_approved_nid_with_sha1(md, sha1_allowed);
+    if (ossl_securitycheck_enabled())
+        return ossl_digest_get_approved_nid_with_sha1(md, sha1_allowed);
 #endif /* OPENSSL_NO_FIPS_SECURITYCHECKS */
-    return digest_get_approved_nid(md);
+    return ossl_digest_get_approved_nid(md);
 }

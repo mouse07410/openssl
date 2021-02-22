@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2015-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -853,5 +853,9 @@ int evp_set_default_properties_int(OSSL_LIB_CTX *libctx, const char *propq,
                                    int loadconfig);
 
 void evp_md_ctx_clear_digest(EVP_MD_CTX *ctx, int force);
+
+EVP_PKEY *evp_privatekey_from_binary(int keytype, EVP_PKEY **a,
+                                     const unsigned char **pp, long length,
+                                     OSSL_LIB_CTX *libctx, const char *propq);
 
 #endif /* OSSL_CRYPTO_EVP_H */

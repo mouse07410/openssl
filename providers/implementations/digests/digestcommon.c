@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -11,8 +11,8 @@
 #include <openssl/proverr.h>
 #include "prov/digestcommon.h"
 
-int digest_default_get_params(OSSL_PARAM params[], size_t blksz, size_t paramsz,
-                              unsigned long flags)
+int ossl_digest_default_get_params(OSSL_PARAM params[], size_t blksz,
+                                   size_t paramsz, unsigned long flags)
 {
     OSSL_PARAM *p = NULL;
 
@@ -48,7 +48,7 @@ static const OSSL_PARAM digest_default_known_gettable_params[] = {
     OSSL_PARAM_int(OSSL_DIGEST_PARAM_ALGID_ABSENT, NULL),
     OSSL_PARAM_END
 };
-const OSSL_PARAM *digest_default_gettable_params(void *provctx)
+const OSSL_PARAM *ossl_digest_default_gettable_params(void *provctx)
 {
     return digest_default_known_gettable_params;
 }

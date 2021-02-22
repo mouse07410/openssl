@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -148,7 +148,7 @@ static void *des_##lcmode##_newctx(void *provctx)                              \
 {                                                                              \
     return des_newctx(provctx, kbits, blkbits, ivbits,                         \
                       EVP_CIPH_##UCMODE##_MODE, flags,                         \
-                      PROV_CIPHER_HW_des_##lcmode());                          \
+                      ossl_prov_cipher_hw_des_##lcmode());                          \
 }                                                                              \
 static OSSL_FUNC_cipher_get_params_fn des_##lcmode##_get_params;               \
 static int des_##lcmode##_get_params(OSSL_PARAM params[])                      \

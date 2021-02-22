@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -41,10 +41,12 @@ extern "C" {
  * |type| is the return-type of the function, |name| is the name of the
  * function to fetch, and |args| is a parenthesized list of parameters
  * for the function (that is, it is |name|'s function signature).
+ * Note: This is considered a "reserved" internal macro. Applications should
+ * not use this or assume its existence.
  */
 #define OSSL_CORE_MAKE_FUNC(type,name,args)                             \
     typedef type (OSSL_FUNC_##name##_fn)args;                           \
-    static ossl_inline \
+    static ossl_unused ossl_inline \
     OSSL_FUNC_##name##_fn *OSSL_FUNC_##name(const OSSL_DISPATCH *opf)   \
     {                                                                   \
         return (OSSL_FUNC_##name##_fn *)opf->function;                  \

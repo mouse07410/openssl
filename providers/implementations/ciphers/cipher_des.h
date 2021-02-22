@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -25,9 +25,9 @@ typedef struct prov_des_ctx_st {
 
 } PROV_DES_CTX;
 
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_cbc(void);
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_ecb(void);
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_ofb64(void);
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_cfb64(void);
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_cfb1(void);
-const PROV_CIPHER_HW *PROV_CIPHER_HW_des_cfb8(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_cbc(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_ecb(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_ofb64(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_cfb64(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_cfb1(void);
+const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_cfb8(void);
