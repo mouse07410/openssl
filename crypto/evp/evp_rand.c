@@ -117,7 +117,7 @@ static void *evp_rand_from_dispatch(int name_id,
                                     OSSL_PROVIDER *prov)
 {
     EVP_RAND *rand = NULL;
-    int fnrandcnt = 0, fnctxcnt = 0, fnlockcnt = 0;
+    int fnrandcnt = 0, fnctxcnt = 0, fnlockcnt = 0, fnenablelockcnt = 0;
 #ifdef FIPS_MODULE
     int fnzeroizecnt = 0;
 #endif
@@ -174,7 +174,7 @@ static void *evp_rand_from_dispatch(int name_id,
             if (rand->enable_locking != NULL)
                 break;
             rand->enable_locking = OSSL_FUNC_rand_enable_locking(fns);
-            fnlockcnt++;
+            fnenablelockcnt++;
             break;
         case OSSL_FUNC_RAND_LOCK:
             if (rand->lock != NULL)
@@ -243,7 +243,8 @@ static void *evp_rand_from_dispatch(int name_id,
      */
     if (fnrandcnt != 3
             || fnctxcnt != 3
-            || (fnlockcnt != 0 && fnlockcnt != 3)
+            || (fnenablelockcnt != 0 && fnenablelockcnt != 1)
+            || (fnlockcnt != 0 && fnlockcnt != 2)
 #ifdef FIPS_MODULE
             || fnzeroizecnt != 1
 #endif
@@ -450,12 +451,14 @@ void EVP_RAND_do_all_provided(OSSL_LIB_CTX *libctx,
                        evp_rand_from_dispatch, evp_rand_free);
 }
 
-void EVP_RAND_names_do_all(const EVP_RAND *rand,
-                           void (*fn)(const char *name, void *data),
-                           void *data)
+int EVP_RAND_names_do_all(const EVP_RAND *rand,
+                          void (*fn)(const char *name, void *data),
+                          void *data)
 {
     if (rand->prov != NULL)
-        evp_names_do_all(rand->prov, rand->name_id, fn, data);
+        return evp_names_do_all(rand->prov, rand->name_id, fn, data);
+
+    return 1;
 }
 
 static int evp_rand_instantiate_locked
