@@ -33,7 +33,6 @@ static OSSL_FUNC_rand_enable_locking_fn fake_rand_enable_locking;
 static void *fake_rand_newctx(void *provctx, void *parent,
                               const OSSL_DISPATCH *parent_dispatch)
 {
-    fake_rand.cb = NULL;
     fake_rand.state = EVP_RAND_STATE_UNINITIALISED;
     return &fake_rand;
 }
@@ -110,7 +109,8 @@ static int fake_rand_get_ctx_params(ossl_unused void *vrng, OSSL_PARAM params[])
     return 1;
 }
 
-static const OSSL_PARAM *fake_rand_gettable_ctx_params(void *vrng)
+static const OSSL_PARAM *fake_rand_gettable_ctx_params(ossl_unused void *vrng,
+                                                       ossl_unused void *provctx)
 {
     static const OSSL_PARAM known_gettable_ctx_params[] = {
         OSSL_PARAM_int(OSSL_RAND_PARAM_STATE, NULL),
@@ -177,6 +177,14 @@ OSSL_PROVIDER *fake_rand_start(OSSL_LIB_CTX *libctx)
             || !TEST_true(RAND_set_DRBG_type(libctx, "fake", NULL, NULL, NULL))
             || !TEST_ptr(p = OSSL_PROVIDER_try_load(libctx, "fake-rand", 1)))
         return NULL;
+
+    /* Ensure that the fake rand is initialized. */
+    if (!TEST_ptr(RAND_get0_private(libctx))
+            || !TEST_ptr(RAND_get0_public(libctx))) {
+        OSSL_PROVIDER_unload(p);
+        return NULL;
+    }
+
     return p;
 }
 
