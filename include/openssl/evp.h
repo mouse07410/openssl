@@ -1152,7 +1152,8 @@ int EVP_MAC_CTX_get_params(EVP_MAC_CTX *ctx, OSSL_PARAM params[]);
 int EVP_MAC_CTX_set_params(EVP_MAC_CTX *ctx, const OSSL_PARAM params[]);
 
 size_t EVP_MAC_CTX_get_mac_size(EVP_MAC_CTX *ctx);
-int EVP_MAC_init(EVP_MAC_CTX *ctx);
+int EVP_MAC_init(EVP_MAC_CTX *ctx, const unsigned char *key, size_t keylen,
+                 const OSSL_PARAM params[]);
 int EVP_MAC_update(EVP_MAC_CTX *ctx, const unsigned char *data, size_t datalen);
 int EVP_MAC_final(EVP_MAC_CTX *ctx,
                   unsigned char *out, size_t *outl, size_t outsize);
@@ -1200,7 +1201,8 @@ int EVP_RAND_names_do_all(const EVP_RAND *rand,
 
 __owur int EVP_RAND_instantiate(EVP_RAND_CTX *ctx, unsigned int strength,
                                 int prediction_resistance,
-                                const unsigned char *pstr, size_t pstr_len);
+                                const unsigned char *pstr, size_t pstr_len,
+                                const OSSL_PARAM params[]);
 int EVP_RAND_uninstantiate(EVP_RAND_CTX *ctx);
 __owur int EVP_RAND_generate(EVP_RAND_CTX *ctx, unsigned char *out,
                              size_t outlen, unsigned int strength,

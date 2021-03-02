@@ -77,6 +77,13 @@ OpenSSL 3.0
 
    *Tomáš Mráz*
 
+ * Removed RSA padding mode for SSLv23 (which was only used for
+   SSLv2). This includes the functions RSA_padding_check_SSLv23() and
+   RSA_padding_add_SSLv23() and the `-ssl` option in the deprecated
+   `rsautl` command.
+
+   *Rich Salz*
+
  * Deprecated the obsolete X9.31 RSA key generation related functions
    BN_X931_generate_Xpq(), BN_X931_derive_prime_ex(), and
    BN_X931_generate_prime_ex().
@@ -118,6 +125,10 @@ OpenSSL 3.0
    OSSL_HTTP_REQ_CTX_set_max_response_length().
 
    *Rich Salz and Richard Levitte*
+
+ * Deprecated `OCSP_parse_url()`, which is replaced with `OSSL_HTTP_parse_url`.
+
+   *David von Oheimb*
 
  * Validation of SM2 keys has been separated from the validation of regular EC
    keys, allowing to improve the SM2 validation process to reject loaded private
