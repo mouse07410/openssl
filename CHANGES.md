@@ -22,6 +22,47 @@ OpenSSL 3.0
 -----------
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
+
+ * The deprecated functions EVP_PKEY_get0(), EVP_PKEY_get0_RSA(),
+   EVP_PKEY_get0_DSA(), EVP_PKEY_get0_EC_KEY(), EVP_PKEY_get0_DH(),
+   EVP_PKEY_get0_hmac(), EVP_PKEY_get0_poly1305() and EVP_PKEY_get0_siphash() as
+   well as the similarly named "get1" functions behave slightly differently in
+   OpenSSL 3.0. Previously they returned a pointer to the low-level key used
+   internally by libcrypto. From OpenSSL 3.0 this key may now be held in a
+   provider. Calling these functions will only return a handle on the internal
+   key where the EVP_PKEY was constructed using this key in the first place, for
+   example using a function or macro such as EVP_PKEY_assign_RSA(),
+   EVP_PKEY_set1_RSA(), etc. Where the EVP_PKEY holds a provider managed key,
+   then these functions now return a cached copy of the key. Changes to
+   the internal provider key that take place after the first time the cached key
+   is accessed will not be reflected back in the cached copy. Similarly any
+   changes made to the cached copy by application code will not be reflected
+   back in the internal provider key.
+
+   For the above reasons the keys returned from these functions should typically
+   be treated as read-only. To emphasise this the value returned from
+   EVP_PKEY_get0(), EVP_PKEY_get0_RSA(), EVP_PKEY_get0_DSA(),
+   EVP_PKEY_get0_EC_KEY() and EVP_PKEY_get0_DH() has been made const. This may
+   break some existing code. Applications broken by this change should be
+   modified. The preferred solution is to refactor the code to avoid the use of
+   these deprecated functions. Failing this the code should be modified to use a
+   const pointer instead. The EVP_PKEY_get1_RSA(), EVP_PKEY_get1_DSA(),
+   EVP_PKEY_get1_EC_KEY() and EVP_PKEY_get1_DH() functions continue to return a
+   non-const pointer to enable them to be "freed". However they should also be
+   treated as read-only.
+
+   *Matt Caswell*
+
+ * A number of functions handling low level keys or engines were deprecated
+   including EVP_PKEY_set1_engine(), EVP_PKEY_get0_engine(), EVP_PKEY_assign(),
+   EVP_PKEY_get0(), EVP_PKEY_get0_hmac(), EVP_PKEY_get0_poly1305() and
+   EVP_PKEY_get0_siphash(). Applications using engines should instead use
+   providers. Applications getting or setting low level keys in an EVP_PKEY
+   should instead use the OSSL_ENCODER or OSSL_DECODER APIs, or alternatively
+   use EVP_PKEY_fromdata() or EVP_PKEY_get_params().
+
+   *Matt Caswell*
+
  * Deprecated obsolete EVP_PKEY_CTX_get0_dh_kdf_ukm() and
    EVP_PKEY_CTX_get0_ecdh_kdf_ukm() functions. They are not needed
    and require returning octet ptr parameters from providers that
@@ -35,6 +76,7 @@ OpenSSL 3.0
    be used instead via EVP_RAND(3).
 
    *Paul Dale*
+
  * The SRP APIs have been deprecated. The old APIs do not work via providers,
    and there is no EVP interface to them. Unfortunately there is no replacement
    for these APIs at this time.
@@ -492,12 +534,6 @@ OpenSSL 3.0
 
    *Kurt Roeckx*
 
- * EVP_PKEY_get0_RSA(), EVP_PKEY_get0_DSA(), EVP_PKEY_get0_DH(), and
-   EVP_PKEY_get0_EC_KEY() can now handle EVP_PKEYs with provider side
-   internal keys, if they correspond to one of those built in types.
-
-   *Richard Levitte*
-
  * Added EVP_PKEY_set_type_by_keymgmt(), to initialise an EVP_PKEY to
    contain a provider side internal key.
 
@@ -667,7 +703,7 @@ OpenSSL 3.0
    `EVP_PKEY_set1_DH()` are also deprecated.
    Applications should instead either read or write an
    EVP_PKEY directly using the OSSL_DECODER and OSSL_ENCODER APIs.
-   Or load an    EVP_PKEY directly from DH data using `EVP_PKEY_fromdata()`.
+   Or load an EVP_PKEY directly from DH data using `EVP_PKEY_fromdata()`.
 
    *Paul Dale and Matt Caswell*
 
@@ -694,6 +730,13 @@ OpenSSL 3.0
    Use of these low level functions has been informally discouraged for a long
    time.  Instead applications should use L<EVP_DigestSignInit_ex(3)>,
    L<EVP_DigestSignUpdate(3)> and L<EVP_DigestSignFinal(3)>.
+
+   Finaly functions that assign or obtain DSA objects from an EVP_PKEY such as
+   `EVP_PKEY_assign_DSA()`, `EVP_PKEY_get0_DSA()`, `EVP_PKEY_get1_DSA()`, and
+   `EVP_PKEY_set1_DSA()` are also deprecated.
+   Applications should instead either read or write an
+   EVP_PKEY directly using the OSSL_DECODER and OSSL_ENCODER APIs,
+   or load an EVP_PKEY directly from DSA data using `EVP_PKEY_fromdata()`.
 
    *Paul Dale*
 

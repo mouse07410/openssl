@@ -19,6 +19,7 @@
 #include <openssl/pem.h>
 #include <openssl/pkcs12.h>
 #include <openssl/provider.h>
+#include <openssl/kdf.h>
 
 #define NOKEYS          0x1
 #define NOCERTS         0x2
@@ -655,7 +656,11 @@ int pkcs12_main(int argc, char **argv)
         }
 
         if (maciter != -1)
-            PKCS12_set_mac(p12, mpass, -1, NULL, 0, maciter, macmd);
+            if (!PKCS12_set_mac(p12, mpass, -1, NULL, 0, maciter, macmd)) {
+                BIO_printf(bio_err, "Error creating PKCS12 MAC; no PKCS12KDF support?\n");
+                BIO_printf(bio_err, "Use -nomac if MAC not required and PKCS12KDF support not available.\n");
+                goto export_end;
+            }
 
         assert(private);
 
@@ -729,6 +734,15 @@ int pkcs12_main(int argc, char **argv)
                    tsalt != NULL ? ASN1_STRING_length(tsalt) : 0L);
     }
     if (macver) {
+        EVP_KDF *pkcs12kdf;
+
+        pkcs12kdf = EVP_KDF_fetch(NULL, "PKCS12KDF", NULL);
+        if (pkcs12kdf == NULL) {
+            BIO_printf(bio_err, "Error verifying PKCS12 MAC; no PKCS12KDF support.\n");
+            BIO_printf(bio_err, "Use -nomacver if MAC verification is not required.\n");
+            goto end;
+        }
+        EVP_KDF_free(pkcs12kdf);
         /* If we enter empty password try no password first */
         if (!mpass[0] && PKCS12_verify_mac(p12, NULL, 0)) {
             /* If mac and crypto pass the same set it to NULL too */
@@ -742,6 +756,14 @@ int pkcs12_main(int argc, char **argv)
              */
             unsigned char *utmp;
             int utmplen;
+            unsigned long err = ERR_peek_error();
+
+            if (ERR_GET_LIB(err) == ERR_LIB_PKCS12
+                && ERR_GET_REASON(err) == PKCS12_R_MAC_ABSENT) {
+                BIO_printf(bio_err, "Warning: MAC is absent!\n");
+                goto dump;
+            }
+
             utmp = OPENSSL_asc2uni(mpass, -1, NULL, &utmplen);
             if (utmp == NULL)
                 goto end;
@@ -759,6 +781,7 @@ int pkcs12_main(int argc, char **argv)
         }
     }
 
+ dump:
     assert(private);
     if (!dump_certs_keys_p12(out, p12, cpass, -1, options, passout, enc)) {
         BIO_printf(bio_err, "Error outputting keys and certificates\n");
