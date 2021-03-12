@@ -23,7 +23,57 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
- * The deprecated functions EVP_PKEY_get0(), EVP_PKEY_get0_RSA(),
+ * Windows thread synchronization uses read/write primitives (SRWLock) when
+   supported by the OS, otherwise CriticalSection continues to be used.
+
+   *Vincent Drake*
+
+ * Add filter BIO BIO_f_readbuffer() that allows BIO_tell() and BIO_seek() to
+   work on read only BIO source/sinks that do not support these functions.
+   This allows piping or redirection of a file BIO using stdin to be buffered
+   into memory. This is used internally in OSSL_DECODER_from_bio().
+
+   *Shane Lontis*
+
+ * OSSL_STORE_INFO_get_type() may now return an additional value. In 1.1.1
+   this function would return one of the values OSSL_STORE_INFO_NAME,
+   OSSL_STORE_INFO_PKEY, OSSL_STORE_INFO_PARAMS, OSSL_STORE_INFO_CERT or
+   OSSL_STORE_INFO_CRL. Decoded public keys would previously have been reported
+   as type OSSL_STORE_INFO_PKEY in 1.1.1. In 3.0 decoded public keys are now
+   reported as having the new type OSSL_STORE_INFO_PUBKEY. Applications
+   using this function should be amended to handle the changed return value.
+
+   *Richard Levitte*
+
+ * The implementation of the EVP ciphers CAST5-ECB, CAST5-CBC, CAST5-OFB,
+   CAST5-CFB, BF-ECB, BF-CBC, BF-OFB, BF-CFB, IDEA-ECB, IDEC-CBC, IDEA-OFB,
+   IDEA-CFB, SEED-ECB, SEED-CBC, SEED-OFB, SEED-CFB, RC2-ECB, RC2-CBC,
+   RC2-40-CBC, RC2-64-CBC, RC2-OFB, RC2-CFB, RC4, RC4-40, RC4-HMAC-MD5, RC5-ECB,
+   RC5-CBC, RC5-OFB, RC5-CFB, DESX-CBC, DES-ECB, DES-CBC, DES-OFB, DES-CFB,
+   DES-CFB1 and DES-CFB8 have been moved to the legacy provider. Applications
+   using the EVP APIs to access these ciphers should instead use more modern
+   ciphers. If that is not possible then these applications should ensure that
+   the legacy provider has been loaded. This can be achieved either
+   programmatically or via configuration. See the provider(7) man page for
+   further details.
+
+   *Matt Caswell*
+
+ * The implementation of the EVP digests MD2, MD4, MDC2, WHIRLPOOL and
+   RIPEMD-160 have been moved to the legacy provider. Applications using the
+   EVP APIs to access these digests should instead use more modern digests. If
+   that is not possible then these applications should ensure that the legacy
+   provider has been loaded. This can be achieved either programmatically or via
+   configuration. See the provider(7) man page for further details.
+
+   *Matt Caswell*
+
+ * The deprecated function EVP_PKEY_get0() now returns NULL being called for a
+   provided key.
+
+   *Dmitry Belyavskiy*
+
+ * The deprecated functions EVP_PKEY_get0_RSA(),
    EVP_PKEY_get0_DSA(), EVP_PKEY_get0_EC_KEY(), EVP_PKEY_get0_DH(),
    EVP_PKEY_get0_hmac(), EVP_PKEY_get0_poly1305() and EVP_PKEY_get0_siphash() as
    well as the similarly named "get1" functions behave slightly differently in
@@ -41,7 +91,7 @@ OpenSSL 3.0
 
    For the above reasons the keys returned from these functions should typically
    be treated as read-only. To emphasise this the value returned from
-   EVP_PKEY_get0(), EVP_PKEY_get0_RSA(), EVP_PKEY_get0_DSA(),
+   EVP_PKEY_get0_RSA(), EVP_PKEY_get0_DSA(),
    EVP_PKEY_get0_EC_KEY() and EVP_PKEY_get0_DH() has been made const. This may
    break some existing code. Applications broken by this change should be
    modified. The preferred solution is to refactor the code to avoid the use of
@@ -88,6 +138,16 @@ OpenSSL 3.0
    at configuration time.
 
    *Paul Dale*
+
+ * The default algorithms for pkcs12 creation with the PKCS12_create() function
+   were changed to more modern PBKDF2 and AES based algorithms. The default
+   MAC iteration count was changed to PKCS12_DEFAULT_ITER to make it equal
+   with the password-based encryption iteration count. The default digest
+   algorithm for the MAC computation was changed to SHA-256. The pkcs12
+   application now supports -legacy option that restores the previous
+   default algorithms to support interoperability with legacy systems.
+
+   *Tomáš Mráz and Sahana Prasad*
 
  * The openssl speed command does not use low-level API calls anymore. This
    implies some of the performance numbers might not be fully comparable
@@ -479,6 +539,13 @@ OpenSSL 3.0
 
    *Antonio Iacono*
 
+ * Added the AuthEnvelopedData content type structure (RFC 5083) with AES-GCM
+   parameter (RFC 5084) for the Cryptographic Message Syntax (CMS). Its purpose
+   is to support encryption and decryption of a digital envelope that is both
+   authenticated and encrypted using AES GCM mode.
+
+   *Jakub Zelenka*
+
  * Deprecated EC_POINT_make_affine() and EC_POINTs_make_affine(). These
    functions are not widely used and now OpenSSL automatically perform this
    conversion when needed.
@@ -530,7 +597,12 @@ OpenSSL 3.0
    reduced. This results in SSL 3, TLS 1.0, TLS 1.1 and DTLS 1.0 no longer
    working at the default security level of 1 and instead requires security
    level 0. The security level can be changed either using the cipher string
-   with `@SECLEVEL`, or calling `SSL_CTX_set_security_level()`.
+   with `@SECLEVEL`, or calling `SSL_CTX_set_security_level()`. This also means
+   that where the signature algorithms extension is missing from a ClientHello
+   then the handshake will fail in TLS 1.2 at security level 1. This is because,
+   although this extension is optional, failing to provide one means that
+   OpenSSL will fallback to a default set of signature algorithms. This default
+   set requires the availability of SHA1.
 
    *Kurt Roeckx*
 
@@ -1440,7 +1512,7 @@ OpenSSL 3.0
 
    *Richard Levitte*
 
- * Change the license to the Apache License v2.0.
+ * Changed the license to the Apache License v2.0.
 
    *Richard Levitte*
 
