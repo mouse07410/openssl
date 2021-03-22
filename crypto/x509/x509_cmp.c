@@ -40,13 +40,18 @@ unsigned long X509_issuer_and_serial_hash(X509 *a)
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     unsigned char md[16];
     char *f;
+    EVP_MD *digest = NULL;
 
     if (ctx == NULL)
         goto err;
     f = X509_NAME_oneline(a->cert_info.issuer, NULL, 0);
     if (f == NULL)
         goto err;
-    if (!EVP_DigestInit_ex(ctx, EVP_md5(), NULL))
+    digest = EVP_MD_fetch(a->libctx, SN_md5, a->propq);
+    if (digest == NULL)
+        goto err;
+
+    if (!EVP_DigestInit_ex(ctx, digest, NULL))
         goto err;
     if (!EVP_DigestUpdate(ctx, (unsigned char *)f, strlen(f)))
         goto err;
@@ -61,6 +66,7 @@ unsigned long X509_issuer_and_serial_hash(X509 *a)
            ((unsigned long)md[2] << 16L) | ((unsigned long)md[3] << 24L)
         ) & 0xffffffffL;
  err:
+    EVP_MD_free(digest);
     EVP_MD_CTX_free(ctx);
     return ret;
 }
@@ -251,17 +257,20 @@ int X509_NAME_cmp(const X509_NAME *a, const X509_NAME *b)
         return -1;
 
     /* Ensure canonical encoding is present and up to date */
-    if (!a->canon_enc || a->modified) {
+    if (a->canon_enc == NULL || a->modified) {
         ret = i2d_X509_NAME((X509_NAME *)a, NULL);
         if (ret < 0)
             return -2;
     }
 
-    if (!b->canon_enc || b->modified) {
+    if (b->canon_enc == NULL || b->modified) {
         ret = i2d_X509_NAME((X509_NAME *)b, NULL);
         if (ret < 0)
             return -2;
     }
+
+    if (a->canon_enc == NULL || b->canon_enc == NULL)
+        return -2;
 
     ret = a->canon_enclen - b->canon_enclen;
     if (ret == 0 && a->canon_enclen != 0)

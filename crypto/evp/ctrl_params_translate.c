@@ -1344,7 +1344,7 @@ static int fix_rsa_pss_saltlen(enum state state,
                 break;
         }
         if (i == OSSL_NELEM(str_value_map)) {
-            BIO_snprintf(ctx->name_buf, 5, "%d", ctx->p1);
+            BIO_snprintf(ctx->name_buf, sizeof(ctx->name_buf), "%d", ctx->p1);
         } else {
             strcpy(ctx->name_buf, str_value_map[i].ptr);
         }
@@ -1512,8 +1512,14 @@ static int get_payload_group_name(enum state state,
         return 0;
     }
 
-    if (ctx->p2 != NULL)
-        ctx->p1 = strlen(ctx->p2);
+    /*
+     * Quietly ignoring unknown groups matches the behaviour on the provider
+     * side.
+     */
+    if (ctx->p2 == NULL)
+        return 1;
+
+    ctx->p1 = strlen(ctx->p2);
     return default_fixup_args(state, translation, ctx);
 }
 
