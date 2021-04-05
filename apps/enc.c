@@ -92,7 +92,7 @@ const OPTIONS enc_options[] = {
     {"pbkdf2", OPT_PBKDF2, '-', "Use password-based key derivation function 2"},
     {"none", OPT_NONE, '-', "Don't encrypt"},
 #ifdef ZLIB
-    {"z", OPT_Z, '-', "Use zlib as the 'encryption'"},
+    {"z", OPT_Z, '-', "Compress or decompress encrypted data using zlib"},
 #endif
     {"", OPT_CIPHER, '-', "Any supported cipher"},
 
@@ -360,7 +360,7 @@ int enc_main(int argc, char **argv)
                 char prompt[200];
 
                 BIO_snprintf(prompt, sizeof(prompt), "enter %s %s password:",
-                        OBJ_nid2ln(EVP_CIPHER_nid(cipher)),
+                        EVP_CIPHER_name(cipher),
                         (enc) ? "encryption" : "decryption");
                 strbuf[0] = '\0';
                 i = EVP_read_pw_string((char *)strbuf, SIZE, prompt, enc);
