@@ -1761,7 +1761,7 @@ static MSG_PROCESS_RETURN tls_process_as_hello_retry_request(SSL *s,
     return MSG_PROCESS_ERROR;
 }
 
-/* prepare server cert verificaton by setting s->session->peer_chain from pkt */
+/* prepare server cert verification by setting s->session->peer_chain from pkt */
 MSG_PROCESS_RETURN tls_process_server_certificate(SSL *s, PACKET *pkt)
 {
     unsigned long cert_list_len, cert_len;
@@ -2104,7 +2104,7 @@ static int tls_process_ske_dhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
 
  err:
     OSSL_PARAM_BLD_free(tmpl);
-    OSSL_PARAM_BLD_free_params(params);
+    OSSL_PARAM_free(params);
     EVP_PKEY_free(peer_tmp);
     EVP_PKEY_CTX_free(pctx);
     BN_free(p);
