@@ -112,7 +112,7 @@ struct evp_keymgmt_st {
     OSSL_FUNC_keymgmt_import_types_fn *import_types;
     OSSL_FUNC_keymgmt_export_fn *export;
     OSSL_FUNC_keymgmt_export_types_fn *export_types;
-    OSSL_FUNC_keymgmt_copy_fn *copy;
+    OSSL_FUNC_keymgmt_dup_fn *dup;
 } /* EVP_KEYMGMT */ ;
 
 struct evp_keyexch_st {
@@ -317,6 +317,8 @@ OSSL_PARAM *evp_pkey_to_param(EVP_PKEY *pkey, size_t *sz);
     }
 
 void evp_pkey_ctx_free_old_ops(EVP_PKEY_CTX *ctx);
+void evp_cipher_free_int(EVP_CIPHER *md);
+void evp_md_free_int(EVP_MD *md);
 
 /* OSSL_PROVIDER * is only used to get the library context */
 const char *evp_first_name(const OSSL_PROVIDER *prov, int name_id);

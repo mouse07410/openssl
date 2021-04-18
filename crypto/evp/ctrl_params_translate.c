@@ -954,7 +954,8 @@ static int fix_oid(enum state state,
          * default_fixup_args() will then be able to convert that to the
          * corresponding OSSL_PARAM.
          */
-        ctx->p2 = (char *)OBJ_nid2sn(OBJ_obj2nid(ctx->p2));
+        OBJ_obj2txt(ctx->name_buf, sizeof(ctx->name_buf), ctx->p2, 0);
+        ctx->p2 = (char *)ctx->name_buf;
         ctx->p1 = 0; /* let default_fixup_args() figure out the length */
     }
 
@@ -2092,6 +2093,14 @@ static const struct translation_st evp_pkey_ctx_translations[] = {
     { SET, EVP_PKEY_RSA, 0, EVP_PKEY_OP_KEYGEN,
       EVP_PKEY_CTRL_RSA_KEYGEN_PRIMES, "rsa_keygen_primes", NULL,
       OSSL_PKEY_PARAM_RSA_PRIMES, OSSL_PARAM_UNSIGNED_INTEGER, NULL },
+
+    /*-
+     * SipHash
+     * ======
+     */
+    { SET, -1, -1, EVP_PKEY_OP_TYPE_SIG,
+      EVP_PKEY_CTRL_SET_DIGEST_SIZE, "digestsize", NULL,
+      OSSL_MAC_PARAM_SIZE, OSSL_PARAM_UNSIGNED_INTEGER, NULL },
 
     /*-
      * TLS1-PRF

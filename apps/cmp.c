@@ -222,6 +222,7 @@ typedef enum OPTION_choice {
     OPT_ENGINE,
 #endif
     OPT_PROV_ENUM,
+    OPT_R_ENUM,
 
     OPT_TLS_USED, OPT_TLS_CERT, OPT_TLS_KEY,
     OPT_TLS_KEYPASS,
@@ -412,6 +413,7 @@ const OPTIONS cmp_options[] = {
      "Engines may also be defined in OpenSSL config file engine section."},
 #endif
     OPT_PROV_OPTIONS,
+    OPT_R_OPTIONS,
 
     OPT_SECTION("TLS connection"),
     {"tls_used", OPT_TLS_USED, '-',
@@ -671,7 +673,7 @@ static X509_REQ *load_csr_autofmt(const char *infile, const char *desc)
 }
 
 /* set expected host name/IP addr and clears the email addr in the given ts */
-static int truststore_set_host_etc(X509_STORE *ts, char *host)
+static int truststore_set_host_etc(X509_STORE *ts, const char *host)
 {
     X509_VERIFY_PARAM *ts_vpm = X509_STORE_get0_param(ts);
 
@@ -1179,7 +1181,8 @@ static int setup_verification_ctx(OSSL_CMP_CTX *ctx)
  * set up ssl_ctx for the OSSL_CMP_CTX based on options from config file/CLI.
  * Returns pointer on success, NULL on error
  */
-static SSL_CTX *setup_ssl_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
+static SSL_CTX *setup_ssl_ctx(OSSL_CMP_CTX *ctx, const char *host,
+                              ENGINE *engine)
 {
     STACK_OF(X509) *untrusted = OSSL_CMP_CTX_get0_untrusted(ctx);
     EVP_PKEY *pkey = NULL;
@@ -1311,8 +1314,7 @@ static SSL_CTX *setup_ssl_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
     if (opt_tls_trusted != NULL) {
         /* enable and parameterize server hostname/IP address check */
         if (!truststore_set_host_etc(trust_store,
-                                     opt_tls_host != NULL ?
-                                     opt_tls_host : opt_server))
+                                     opt_tls_host != NULL ? opt_tls_host : host))
             /* TODO: is the server host name correct for TLS via proxy? */
             goto err;
         SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
@@ -1765,7 +1767,7 @@ static int handle_opt_geninfo(OSSL_CMP_CTX *ctx)
 static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
 {
     int ret = 0;
-    char *server = NULL, *port = NULL, *path = NULL, *used_path;
+    char *host = NULL, *port = NULL, *path = NULL, *used_path;
     int portnum, ssl;
     char server_buf[200] = { '\0' };
     char proxy_buf[200] = { '\0' };
@@ -1776,7 +1778,7 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
         CMP_err("missing -server option");
         goto err;
     }
-    if (!OSSL_HTTP_parse_url(opt_server, &ssl, NULL /* user */, &server, &port,
+    if (!OSSL_HTTP_parse_url(opt_server, &ssl, NULL /* user */, &host, &port,
                              &portnum, &path, NULL /* q */, NULL /* frag */)) {
         CMP_err1("cannot parse -server URL: %s", opt_server);
         goto err;
@@ -1787,7 +1789,7 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
     }
     BIO_snprintf(server_port, sizeof(server_port), "%s", port);
     used_path = opt_path != NULL ? opt_path : path;
-    if (!OSSL_CMP_CTX_set1_server(ctx, server)
+    if (!OSSL_CMP_CTX_set1_server(ctx, host)
             || !OSSL_CMP_CTX_set_serverPort(ctx, portnum)
             || !OSSL_CMP_CTX_set1_serverPath(ctx, used_path))
         goto oom;
@@ -1796,7 +1798,7 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
     if (opt_no_proxy != NULL && !OSSL_CMP_CTX_set1_no_proxy(ctx, opt_no_proxy))
         goto oom;
     (void)BIO_snprintf(server_buf, sizeof(server_buf), "http%s://%s:%s/%s",
-                       opt_tls_used ? "s" : "", server, port,
+                       opt_tls_used ? "s" : "", host, port,
                        *used_path == '/' ? used_path + 1 : used_path);
 
     if (opt_proxy != NULL)
@@ -1867,7 +1869,7 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
         info->port = server_port;
         info->use_proxy = opt_proxy != NULL;
         info->timeout = OSSL_CMP_CTX_get_option(ctx, OSSL_CMP_OPT_MSG_TIMEOUT);
-        info->ssl_ctx = setup_ssl_ctx(ctx, engine);
+        info->ssl_ctx = setup_ssl_ctx(ctx, host, engine);
         if (info->ssl_ctx == NULL)
             goto err;
         (void)OSSL_CMP_CTX_set_http_cb(ctx, app_http_tls_cb);
@@ -1894,7 +1896,7 @@ static int setup_client_ctx(OSSL_CMP_CTX *ctx, ENGINE *engine)
     ret = 1;
 
  err:
-    OPENSSL_free(server);
+    OPENSSL_free(host);
     OPENSSL_free(port);
     OPENSSL_free(path);
     OPENSSL_free(proxy_host);
@@ -2058,8 +2060,6 @@ static int read_config(void)
     long num = 0;
     char *txt = NULL;
     const OPTIONS *opt;
-    int provider_option;
-    int verification_option;
     int start = OPT_VERBOSITY;
     /*
      * starting with offset OPT_VERBOSITY because OPT_CONFIG and OPT_SECTION
@@ -2075,19 +2075,23 @@ static int read_config(void)
             n_options--;
     OPENSSL_assert(OSSL_NELEM(cmp_vars) == n_options
                  + OPT_PROV__FIRST + 1 - OPT_PROV__LAST
+                 + OPT_R__FIRST + 1 - OPT_R__LAST
                  + OPT_V__FIRST + 1 - OPT_V__LAST);
     for (i = start - OPT_HELP, opt = &cmp_options[start];
          opt->name; i++, opt++) {
-        if (!strcmp(opt->name, OPT_SECTION_STR)
-                || !strcmp(opt->name, OPT_MORE_STR)) {
+        int provider_option = (OPT_PROV__FIRST <= opt->retval
+                               && opt->retval < OPT_PROV__LAST);
+        int rand_state_option = (OPT_R__FIRST <= opt->retval
+                                 && opt->retval < OPT_R__LAST);
+        int verification_option = (OPT_V__FIRST <= opt->retval
+                                   && opt->retval < OPT_V__LAST);
+
+        if (strcmp(opt->name, OPT_SECTION_STR) == 0
+                || strcmp(opt->name, OPT_MORE_STR) == 0) {
             i--;
             continue;
         }
-        provider_option = (OPT_PROV__FIRST <= opt->retval
-                               && opt->retval < OPT_PROV__LAST);
-        verification_option = (OPT_V__FIRST <= opt->retval
-                                   && opt->retval < OPT_V__LAST);
-        if (provider_option || verification_option)
+        if (provider_option || rand_state_option || verification_option)
             i--;
         switch (opt->valtype) {
         case '-':
@@ -2099,6 +2103,7 @@ static int read_config(void)
             }
             break;
         case 's':
+        case '>':
         case 'M':
             txt = conf_get_string(conf, opt_section, opt->name);
             if (txt == NULL) {
@@ -2415,6 +2420,10 @@ static int get_opts(int argc, char **argv)
             if (!opt_provider(o))
                 goto opthelp;
             break;
+        case OPT_R_CASES:
+            if (!opt_rand(o))
+                goto opthelp;
+            break;
 
         case OPT_BATCH:
             opt_batch = 1;
@@ -2536,8 +2545,8 @@ int cmp_main(int argc, char **argv)
     char mock_server[] = "mock server:1";
     int ret = 0; /* default: failure */
 
+    prog = opt_appname(argv[0]);
     if (argc <= 1) {
-        prog = opt_appname(argv[0]);
         opt_help(cmp_options);
         goto err;
     }
@@ -2603,6 +2612,8 @@ int cmp_main(int argc, char **argv)
     if (ret <= 0)
         goto err;
     ret = 0;
+    if (!app_RAND_load())
+        goto err;
 
     if (opt_batch)
         set_base_ui_method(UI_null());
