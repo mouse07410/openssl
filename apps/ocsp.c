@@ -441,12 +441,12 @@ int ocsp_main(int argc, char **argv)
             rca_filename = opt_arg();
             break;
         case OPT_NMIN:
-            opt_int(opt_arg(), &nmin);
+            nmin = opt_int_arg();
             if (ndays == -1)
                 ndays = 0;
             break;
         case OPT_REQUEST:
-            opt_int(opt_arg(), &accept_count);
+            accept_count = opt_int_arg();
             break;
         case OPT_NDAYS:
             ndays = atoi(opt_arg());
@@ -1165,7 +1165,7 @@ static int do_responder(OCSP_REQUEST **preq, BIO **pcbio, BIO *acbio,
                         int timeout)
 {
 #ifndef OPENSSL_NO_SOCK
-    return http_server_get_asn1_req(ASN1_ITEM_rptr(OCSP_RESPONSE),
+    return http_server_get_asn1_req(ASN1_ITEM_rptr(OCSP_REQUEST),
                                     (ASN1_VALUE **)preq, NULL, pcbio, acbio,
                                     prog, 1 /* accept_get */, timeout);
 #else
