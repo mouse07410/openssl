@@ -23,6 +23,11 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
+ * Add "abspath" and "includedir" pragma's to config files, to prevent,
+   or modify relative pathname inclusion.
+
+   * Rich Salz *
+
  * OpenSSL includes a cryptographic module that is intended to be FIPS 140-2
    validated. The module is implemented as an OpenSSL provider, the so-called
    FIPS provider. A list of all changes related to the FIPS provider would go
@@ -45,6 +50,13 @@ OpenSSL 3.0
    behaviour of openssl-genpkey(1) for DH parameter generation.
 
    *Shane Lontis*
+
+ * The openssl commands that read keys, certificates, and CRLs now
+   automatically detect the PEM or DER format of the input files so it is not
+   necessary to explicitly specify the input format anymore. However if the
+   input format option is used the specified format will be required.
+
+   *David von Oheimb, Richard Levitte, and Tomáš Mráz*
 
  * Added enhanced PKCS#12 APIs which accept a library context `OSSL_LIB_CTX`
    and (where relevant) a property query. Other APIs which handle PKCS#7 and
@@ -76,6 +88,14 @@ OpenSSL 3.0
    also be enabled at run time using the SSL_OP_ENABLE_KTLS option.
 
    *Boris Pismenny, John Baldwin and Andrew Gallatin*
+
+ * Support for RFC 5746 secure renegotiation is now required by default for
+   SSL or TLS connections to succeed.  Applications that require the ability
+   to connect to legacy peers will need to explicitly set
+   SSL_OP_LEGACY_SERVER_CONNECT.  Accordingly, SSL_OP_LEGACY_SERVER_CONNECT
+   is no longer set as part of SSL_OP_ALL.
+
+   *Benjamin Kaduk*
 
  * The signature of the `copy` functional parameter of the
    EVP_PKEY_meth_set_copy() function has changed so its `src` argument is
@@ -328,18 +348,24 @@ OpenSSL 3.0
 
  * Deprecated the type OCSP_REQ_CTX and the functions OCSP_REQ_CTX_new(),
    OCSP_REQ_CTX_free(), OCSP_REQ_CTX_http(), OCSP_REQ_CTX_add1_header(),
-   OCSP_REQ_CTX_i2d(), OCSP_REQ_CTX_nbio(), OCSP_REQ_CTX_nbio_d2i(),
+   OCSP_REQ_CTX_i2d() and its special form OCSP_REQ_CTX_set1_req(),
+   OCSP_REQ_CTX_nbio(), OCSP_REQ_CTX_nbio_d2i(),
    OCSP_REQ_CTX_get0_mem_bio() and OCSP_set_max_response_length().  These
    were used to collect all necessary data to form a HTTP request, and to
    perform the HTTP transfer with that request.  With OpenSSL 3.0, the
    type is OSSL_HTTP_REQ_CTX, and the deprecated functions are replaced
    with OSSL_HTTP_REQ_CTX_new(), OSSL_HTTP_REQ_CTX_free(),
    OSSL_HTTP_REQ_CTX_set_request_line(), OSSL_HTTP_REQ_CTX_add1_header(),
-   OSSL_HTTP_REQ_CTX_set1_req(), OSSL_HTTP_REQ_CTX_nbio(),
+   OSSL_HTTP_REQ_CTX_i2d(), OSSL_HTTP_REQ_CTX_nbio(),
    OSSL_HTTP_REQ_CTX_sendreq_d2i(), OSSL_HTTP_REQ_CTX_get0_mem_bio() and
    OSSL_HTTP_REQ_CTX_set_max_response_length().
 
    *Rich Salz and Richard Levitte*
+
+ * Deprecated `X509_http_nbio()` and `X509_CRL_http_nbio()`,
+   which are superseded by `X509_load_http()` and `X509_CRL_load_http()`.
+
+   *David von Oheimb*
 
  * Deprecated `OCSP_parse_url()`, which is replaced with `OSSL_HTTP_parse_url`.
 

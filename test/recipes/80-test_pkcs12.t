@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2016-2020 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2016-2021 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -96,8 +96,8 @@ SKIP: {
 }
 
 SKIP: {
-    skip "Skipping legacy PKCS#12 test because RC2 is disabled in this build", 1
-        if disabled("rc2") || disabled("legacy");
+    skip "Skipping legacy PKCS#12 test because the required algorithms are disabled", 1
+        if disabled("des") || disabled("rc2") || disabled("legacy");
     # Test reading legacy PKCS#12 file
     ok(run(app(["openssl", "pkcs12", "-export",
                 "-in", srctop_file(@path, "v3-certs-RC2.p12"),
