@@ -689,6 +689,9 @@ __owur int EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md,
 __owur int EVP_Digest(const void *data, size_t count,
                           unsigned char *md, unsigned int *size,
                           const EVP_MD *type, ENGINE *impl);
+__owur int EVP_Q_digest(OSSL_LIB_CTX *libctx, const char *name,
+                        const char *propq, const void *data, size_t count,
+                        unsigned char *md, unsigned int *size);
 
 __owur int EVP_MD_CTX_copy(EVP_MD_CTX *out, const EVP_MD_CTX *in);
 __owur int EVP_DigestInit(EVP_MD_CTX *ctx, const EVP_MD *type);
@@ -1184,6 +1187,11 @@ int EVP_MAC_CTX_get_params(EVP_MAC_CTX *ctx, OSSL_PARAM params[]);
 int EVP_MAC_CTX_set_params(EVP_MAC_CTX *ctx, const OSSL_PARAM params[]);
 
 size_t EVP_MAC_CTX_get_mac_size(EVP_MAC_CTX *ctx);
+unsigned char *EVP_Q_mac(OSSL_LIB_CTX *libctx, const char *name, const char *propq,
+                         const char *subalg, const OSSL_PARAM *params,
+                         const void *key, size_t keylen,
+                         const unsigned char *data, size_t datalen,
+                         unsigned char *out, size_t outsize, unsigned int *outlen);
 int EVP_MAC_init(EVP_MAC_CTX *ctx, const unsigned char *key, size_t keylen,
                  const OSSL_PARAM params[]);
 int EVP_MAC_update(EVP_MAC_CTX *ctx, const unsigned char *data, size_t datalen);
@@ -1398,7 +1406,8 @@ int EVP_PKEY_print_params_fp(FILE *fp, const EVP_PKEY *pkey,
 int EVP_PKEY_get_default_digest_nid(EVP_PKEY *pkey, int *pnid);
 int EVP_PKEY_get_default_digest_name(EVP_PKEY *pkey,
                                      char *mdname, size_t mdname_sz);
-int EVP_PKEY_supports_digest_nid(EVP_PKEY *pkey, int nid);
+int EVP_PKEY_digestsign_supports_digest(EVP_PKEY *pkey, OSSL_LIB_CTX *libctx,
+                                        const char *name, const char *propq);
 
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 /*
@@ -1513,8 +1522,7 @@ int EVP_PBE_get(int *ptype, int *ppbe_nid, size_t num);
 
 # define ASN1_PKEY_CTRL_SET1_TLS_ENCPT   0x9
 # define ASN1_PKEY_CTRL_GET1_TLS_ENCPT   0xa
-# define ASN1_PKEY_CTRL_SUPPORTS_MD_NID  0xb
-# define ASN1_PKEY_CTRL_CMS_IS_RI_TYPE_SUPPORTED 0xc
+# define ASN1_PKEY_CTRL_CMS_IS_RI_TYPE_SUPPORTED 0xb
 
 int EVP_PKEY_asn1_get_count(void);
 const EVP_PKEY_ASN1_METHOD *EVP_PKEY_asn1_get0(int idx);
@@ -1744,9 +1752,9 @@ void EVP_PKEY_CTX_free(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_CTX_is_a(EVP_PKEY_CTX *ctx, const char *keytype);
 
 int EVP_PKEY_CTX_get_params(EVP_PKEY_CTX *ctx, OSSL_PARAM *params);
-const OSSL_PARAM *EVP_PKEY_CTX_gettable_params(EVP_PKEY_CTX *ctx);
-int EVP_PKEY_CTX_set_params(EVP_PKEY_CTX *ctx, OSSL_PARAM *params);
-const OSSL_PARAM *EVP_PKEY_CTX_settable_params(EVP_PKEY_CTX *ctx);
+const OSSL_PARAM *EVP_PKEY_CTX_gettable_params(const EVP_PKEY_CTX *ctx);
+int EVP_PKEY_CTX_set_params(EVP_PKEY_CTX *ctx, const OSSL_PARAM *params);
+const OSSL_PARAM *EVP_PKEY_CTX_settable_params(const EVP_PKEY_CTX *ctx);
 int EVP_PKEY_CTX_ctrl(EVP_PKEY_CTX *ctx, int keytype, int optype,
                       int cmd, int p1, void *p2);
 int EVP_PKEY_CTX_ctrl_str(EVP_PKEY_CTX *ctx, const char *type,
@@ -1933,11 +1941,13 @@ int EVP_PKEY_set_octet_string_param(EVP_PKEY *pkey, const char *key_name,
 int EVP_PKEY_get_ec_point_conv_form(const EVP_PKEY *pkey);
 int EVP_PKEY_get_field_type(const EVP_PKEY *pkey);
 
+EVP_PKEY *EVP_PKEY_Q_keygen(OSSL_LIB_CTX *libctx, const char *propq,
+                            const char *type, ...);
 int EVP_PKEY_paramgen_init(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey);
 int EVP_PKEY_keygen_init(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey);
-int EVP_PKEY_gen(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey);
+int EVP_PKEY_generate(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey);
 int EVP_PKEY_check(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_public_check(EVP_PKEY_CTX *ctx);
 int EVP_PKEY_public_check_quick(EVP_PKEY_CTX *ctx);

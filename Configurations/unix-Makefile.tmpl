@@ -506,7 +506,8 @@ build_all_generated: $(GENERATED_MANDATORY) $(GENERATED) build_docs
 all: build_sw build_docs
 
 test: tests
-{- dependmagic('tests'); -}: build_programs_nodep build_modules_nodep link-utils
+{- dependmagic('tests'); -}: build_programs_nodep build_modules_nodep link-utils run_tests
+run_tests:
 	@ : {- output_off() if $disabled{tests}; "" -}
 	( SRCTOP=$(SRCDIR) \
 	  BLDTOP=$(BLDDIR) \
@@ -520,8 +521,7 @@ test: tests
 
 list-tests:
 	@ : {- output_off() if $disabled{tests}; "" -}
-	@SRCTOP="$(SRCDIR)" \
-	 $(PERL) $(SRCDIR)/test/run_tests.pl list
+	$(MAKE) run_tests TESTS=list
 	@ : {- if ($disabled{tests}) { output_on(); } else { output_off(); } "" -}
 	@echo "Tests are not supported with your chosen Configure options"
 	@ : {- output_on() if !$disabled{tests}; "" -}
@@ -569,6 +569,7 @@ clean: libclean
 	$(RM) core
 	$(RM) tags TAGS doc-nits cmd-nits md-nits
 	$(RM) -r test/test-runs
+	$(RM) providers/fips*.new
 	$(RM) openssl.pc libcrypto.pc libssl.pc
 	-find . -type l \! -name '.*' -exec $(RM) {} \;
 
@@ -1055,9 +1056,6 @@ uninstall_html_docs:
 # It's important that generate_buildinfo comes after ordinals, as ordinals
 # is sensitive to build.info changes.
 update: generate errors ordinals generate_buildinfo
-{- output_off() if $disabled{fips}; "" -}
-update: fips-checksums
-{- output_on() if $disabled{fips}; "" -}
 
 generate: generate_apps generate_crypto_bn generate_crypto_objects \
           generate_crypto_conf generate_crypto_asn1 generate_fuzz_oids
@@ -1140,9 +1138,8 @@ generate_doc_buildinfo:
                 mv $(SRCDIR)/doc/build.info.new $(SRCDIR)/doc/build.info; \
           fi )
 
-{- output_off() if $disabled{fips}; "" -}
-generate_fips_sources: $(SRCDIR)/providers/fips.module.sources
-$(SRCDIR)/providers/fips.module.sources: \
+generate_fips_sources: providers/fips.module.sources.new
+providers/fips.module.sources.new: \
                 $(SRCDIR)/Configure \
                 {- join(" \\\n" . ' ' x 16,
                         fill_lines(" ", $COLUMNS - 16,
@@ -1167,14 +1164,12 @@ $(SRCDIR)/providers/fips.module.sources: \
 	  for x in crypto/bn/asm/*.pl crypto/bn/asm/*.S \
 		   crypto/aes/asm/*.pl crypto/aes/asm/*.S \
 		   crypto/ec/asm/*.pl \
-		   crypto/md5/asm/*.pl \
 		   crypto/modes/asm/*.pl \
 		   crypto/sha/asm/*.pl; do \
 	    echo "$$x"; \
 	  done \
-	) | sort | uniq > $(SRCDIR)/providers/fips.module.sources
+	) | sort | uniq > providers/fips.module.sources.new
 	rm -rf sources-tmp
-{- output_on() if $disabled{fips}; "" -}
 
 # Set to -force to force a rebuild
 ERROR_REBUILD=
@@ -1260,29 +1255,38 @@ ordinals: build_generated
                 $(SSLHEADERS)
 
 test_ordinals:
-	( cd test; \
-	  SRCTOP=../$(SRCDIR) \
-	  BLDTOP=../$(BLDDIR) \
-	    $(PERL) ../$(SRCDIR)/test/run_tests.pl test_ordinals )
+	$(MAKE) run_tests TESTS=test_ordinals
 
 tags TAGS: FORCE
 	rm -f TAGS tags
 	-ctags -R .
 	-etags `find . -name '*.[ch]' -o -name '*.pm'`
 
-{- output_off() if $disabled{fips}; "" -}
-fips-checksums: generate_fips_sources
-	if which unifdef > /dev/null; then \
-	    ( cd $(SRCDIR) \
-	      && cat providers/fips.module.sources \
-	             | xargs ./util/fips-checksums.sh \
-	             > providers/fips-sources.checksums \
-	      && sha256sum providers/fips-sources.checksums \
-	             > providers/fips.checksum ); \
-	else \
-	    echo >&2 "WARNING: unifdef not in your \$$PATH, FIPS checksums not calculated"; \
-	fi
-{- output_on() if $disabled{fips}; "" -}
+providers/fips.checksum.new: providers/fips.module.sources.new
+	@which unifdef > /dev/null || \
+	( echo >&2 "ERROR: unifdef not in your \$$PATH, FIPS checksums not calculated"; \
+	  false )
+	( sources=`pwd`/providers/fips.module.sources.new; \
+	  cd $(SRCDIR) \
+	  && cat $$sources \
+	         | xargs ./util/fips-checksums.sh ) \
+	         > providers/fips-sources.checksums.new \
+	&& sha256sum providers/fips-sources.checksums.new \
+	     | sed -e 's|\.new||' > providers/fips.checksum.new
+
+fips-checksums: providers/fips.checksum.new
+
+$(SRCDIR)/providers/fips.checksum: providers/fips.checksum.new
+	cp -p providers/fips.module.sources.new $(SRCDIR)/providers/fips.module.sources
+	cp -p providers/fips-sources.checksums.new $(SRCDIR)/providers/fips-sources.checksums
+	cp -p providers/fips.checksum.new $(SRCDIR)/providers/fips.checksum
+
+update-fips-checksums: $(SRCDIR)/providers/fips.checksum
+
+diff-fips-checksums: fips-checksums
+	diff -u $(SRCDIR)/providers/fips.module.sources providers/fips.module.sources.new
+	diff -u $(SRCDIR)/providers/fips-sources.checksums providers/fips-sources.checksums.new
+	diff -u $(SRCDIR)/providers/fips.checksum providers/fips.checksum.new
 
 # Release targets (note: only available on Unix) #####################
 
