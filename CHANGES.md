@@ -23,6 +23,18 @@ OpenSSL 3.0
 
 ### Changes between 1.1.1 and 3.0 [xx XXX xxxx]
 
+ * The signatures of the functions to get and set options on SSL and
+   SSL_CTX objects changed from "unsigned long" to "uint64_t" type.
+   Some source code changes may be required.
+
+   * Rich Salz *
+
+ * Client-initiated renegotiation is disabled by default. To allow it, use
+   the -client_renegotiation option, the SSL_OP_ALLOW_CLIENT_RENEGOTIATION
+   flag, or the "ClientRenegotiation" config parameter as appropriate.
+
+   * Rich Salz *
+
  * Add "abspath" and "includedir" pragma's to config files, to prevent,
    or modify relative pathname inclusion.
 
@@ -308,6 +320,13 @@ OpenSSL 3.0
    can be disabled at compile time using the "no-tls1_3" Configure option.
 
    *Matt Caswell*
+
+ * Implemented support for fully "pluggable" TLSv1.3 groups. This means that
+   providers may supply their own group implementations (using either the "key
+   exchange" or the "key encapsulation" methods) which will automatically be
+   detected and used by libssl.
+
+   *Matt Caswell, Nicola Tuveri*
 
  * The undocumented function X509_certificate_type() has been deprecated;
    applications can use X509_get0_pubkey() and X509_get0_signature() to

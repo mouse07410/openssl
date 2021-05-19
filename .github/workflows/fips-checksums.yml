@@ -1,7 +1,8 @@
 name: FIPS Checksums
-on: [pull_request_target]
+on: [pull_request]
+
 jobs:
-  apply-label:
+  compute-checksums:
     runs-on: ubuntu-latest
     steps:
       - name: install unifdef
@@ -15,6 +16,8 @@ jobs:
         run: |
           mkdir ./build-pristine
           mkdir ./build
+          mkdir ./empty
+          touch ./empty/placeholder
       - name: config pristine
         run: ../config enable-fips && perl configdata.pm --dump
         working-directory: ./build-pristine
@@ -43,29 +46,15 @@ jobs:
       - name: make diff-fips-checksums
         run: make diff-fips-checksums && echo "fips_unchanged=1" >> $GITHUB_ENV || echo "fips_changed=1" >> $GITHUB_ENV
         working-directory: ./build
-      - name: set label
+      - name: save artifact fips_changed
         if: ${{ env.fips_changed }}
-        continue-on-error: true
-        uses: actions/github-script@v4
+        uses: actions/upload-artifact@v2
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['severity: fips change']
-            })
-      - name: remove label
+          name: fips_changed
+          path: empty/
+      - name: save artifact fips_unchanged
         if: ${{ env.fips_unchanged }}
-        continue-on-error: true
-        uses: actions/github-script@v4
+        uses: actions/upload-artifact@v2
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.issues.removeLabel({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'severity: fips change'
-            })
+          name: fips_unchanged
+          path: empty/

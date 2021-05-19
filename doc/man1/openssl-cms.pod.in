@@ -48,6 +48,10 @@ B<openssl> B<cms>
 [B<-md> I<digest>]
 [B<-I<cipher>>]
 [B<-wrap> I<cipher>]
+[B<-aes128-wrap>]
+[B<-aes192-wrap>]
+[B<-aes256-wrap>]
+[B<-des3-wrap>]
 [B<-nointern>]
 [B<-noverify>]
 [B<-nocerts>]
@@ -84,8 +88,6 @@ B<openssl> B<cms>
 {- $OpenSSL::safe::opt_engine_synopsis -}{- $OpenSSL::safe::opt_provider_synopsis -}
 {- $OpenSSL::safe::opt_config_synopsis -}
 [I<recipient-cert> ...]
-
-=for openssl ifdef des-wrap engine
 
 =head1 DESCRIPTION
 
@@ -321,6 +323,10 @@ B<-EncryptedData_create> commands.
 Cipher algorithm to use for key wrap when encrypting the message using Key
 Agreement for key transport. The algorithm specified should be suitable for key
 wrap.
+
+=item B<-aes128-wrap>, B<-aes192-wrap>, B<-aes256-wrap>, B<-des3-wrap>
+
+Use AES128, AES192, AES256, or 3DES-EDE, respectively, to wrap key.
 
 =item B<-nointern>
 

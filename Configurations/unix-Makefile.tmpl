@@ -3,6 +3,8 @@
 ##
 ## {- join("\n## ", @autowarntext) -}
 {-
+     use OpenSSL::Util;
+
      our $makedep_scheme = $config{makedep_scheme};
      our $makedepcmd = platform->makedepcmd();
 
@@ -567,7 +569,7 @@ clean: libclean
 	-find . -name '*{- platform->depext() -}' \! -name '.*' \! -type d -exec $(RM) {} \;
 	-find . -name '*{- platform->objext() -}' \! -name '.*' \! -type d -exec $(RM) {} \;
 	$(RM) core
-	$(RM) tags TAGS doc-nits cmd-nits md-nits
+	$(RM) tags TAGS doc-nits md-nits
 	$(RM) -r test/test-runs
 	$(RM) providers/fips*.new
 	$(RM) openssl.pc libcrypto.pc libssl.pc
@@ -1062,12 +1064,9 @@ generate: generate_apps generate_crypto_bn generate_crypto_objects \
 
 generate_buildinfo: generate_doc_buildinfo
 
-.PHONY: doc-nits cmd-nits md-nits
+.PHONY: doc-nits md-nits
 doc-nits: build_generated_pods
-	$(PERL) $(SRCDIR)/util/find-doc-nits -n -l -e
-
-cmd-nits: build_generated apps/openssl build_generated_pods
-	$(PERL) $(SRCDIR)/util/find-doc-nits -c
+	$(PERL) $(SRCDIR)/util/find-doc-nits -c -n -l -e
 
 # This uses "mdl", the markdownlint application, which is written in ruby.
 # The source is at https://github.com/markdownlint/markdownlint
@@ -1151,9 +1150,9 @@ providers/fips.module.sources.new: \
 	( \
 	  srcdir=`cd $(SRCDIR); pwd`; \
 	  cd sources-tmp \
-	  && $$srcdir/Configure enable-fips \
+	  && $$srcdir/Configure --banner=Configured enable-fips \
 	  && ./configdata.pm --query 'get_sources("providers/fips")' > sources1 \
-	  && $$srcdir/Configure enable-fips no-asm \
+	  && $$srcdir/Configure --banner=Configured enable-fips no-asm \
 	  && ./configdata.pm --query 'get_sources("providers/fips")' > sources2 \
 	)
 	( \

@@ -276,9 +276,6 @@ OSSL_PROVIDER *ossl_provider_find(OSSL_LIB_CTX *libctx, const char *name,
         if (!noconfig) {
             if (ossl_lib_ctx_is_default(libctx))
                 OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
-            if (ossl_lib_ctx_is_child(libctx)
-                    && !ossl_provider_init_child_providers(libctx))
-                return NULL;
         }
 #endif
 
@@ -309,7 +306,6 @@ static OSSL_PROVIDER *provider_new(const char *name,
 #ifndef HAVE_ATOMICS
         || (prov->refcnt_lock = CRYPTO_THREAD_lock_new()) == NULL
 #endif
-        || !ossl_provider_up_ref(prov) /* +1 One reference to be returned */
         || (prov->opbits_lock = CRYPTO_THREAD_lock_new()) == NULL
         || (prov->flag_lock = CRYPTO_THREAD_lock_new()) == NULL
         || (prov->name = OPENSSL_strdup(name)) == NULL) {
@@ -318,6 +314,7 @@ static OSSL_PROVIDER *provider_new(const char *name,
         return NULL;
     }
 
+    prov->refcnt = 1; /* 1 One reference to be returned */
     prov->init_function = init_function;
 #ifndef FIPS_MODULE
     prov->flag_couldbechild = 1;
@@ -1007,9 +1004,6 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
      */
     if (ossl_lib_ctx_is_default(ctx))
         OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
-    if (ossl_lib_ctx_is_child(ctx)
-            && !ossl_provider_init_child_providers(ctx))
-        return 0;
 #endif
 
     if (store == NULL)
