@@ -21,7 +21,8 @@ provider-base
 
  typedef void (*OSSL_thread_stop_handler_fn)(void *arg);
  int core_thread_start(const OSSL_CORE_HANDLE *handle,
-                       OSSL_thread_stop_handler_fn handfn);
+                       OSSL_thread_stop_handler_fn handfn,
+                       void *arg);
 
  OPENSSL_CORE_CTX *core_get_libctx(const OSSL_CORE_HANDLE *handle);
  void core_new_error(const OSSL_CORE_HANDLE *handle);
@@ -89,6 +90,7 @@ provider-base
                                       void *cbdata),
                      int (*remove_cb)(const OSSL_CORE_HANDLE *provider,
                                       void *cbdata),
+                     int (*global_props_cb)(const char *props, void *cbdata),
                      void *cbdata);
  void provider_deregister_child_cb(const OSSL_CORE_HANDLE *handle);
  const char *provider_name(const OSSL_CORE_HANDLE *prov);
@@ -191,13 +193,14 @@ core_get_params() retrieves parameters from the core for the given I<handle>.
 See L</Core parameters> below for a description of currently known
 parameters.
 
-The core_thread_start() function informs the core that the provider has started
+The core_thread_start() function informs the core that the provider has stated
 an interest in the current thread. The core will inform the provider when the
 thread eventually stops. It must be passed the I<handle> for this provider, as
 well as a callback I<handfn> which will be called when the thread stops. The
-callback will subsequently be called from the thread that is stopping and gets
-passed the provider context as an argument. This may be useful to perform thread
-specific clean up such as freeing thread local variables.
+callback will subsequently be called, with the supplied argument I<arg>, from
+the thread that is stopping and gets passed the provider context as an
+argument. This may be useful to perform thread specific clean up such as
+freeing thread local variables.
 
 core_get_libctx() retrieves the library context in which the library
 object for the current provider is stored, accessible through the I<handle>.
@@ -289,12 +292,16 @@ I<create_cb> is a callback that will be called when a new provider is loaded
 into the application's library context. It is also called for any providers that
 are already loaded at the point that this callback is registered. The callback
 is passed the handle being used for the new provider being loadded and this
-provider's data in I<cbdata>. It should return 1 on success  or 0 on failure.
+provider's data in I<cbdata>. It should return 1 on success or 0 on failure.
 
 I<remove_cb> is a callback that will be called when a new provider is unloaded
 from the application's library context. It is passed the handle being used for
 the provider being unloaded and this provider's data in I<cbdata>. It should
-return 1 on success  or 0 on failure.
+return 1 on success or 0 on failure.
+
+I<global_props_cb> is a callback that will be called when the global properties
+from the parent library context are changed. It should return 1 on success
+or 0 on failure.
 
 provider_deregister_child_cb() unregisters callbacks previously registered via
 provider_register_child_cb(). If provider_register_child_cb() has been called

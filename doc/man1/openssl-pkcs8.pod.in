@@ -101,6 +101,10 @@ When creating new PKCS#8 containers, use a given number of iterations on
 the password in deriving the encryption key for the PKCS#8 output.
 High values increase the time required to brute-force a PKCS#8 container.
 
+=item B<-noiter>
+
+When creating new PKCS#8 containers, use 1 as iteration count.
+
 =item B<-nocrypt>
 
 PKCS#8 keys generated or input are normally PKCS#8 EncryptedPrivateKeyInfo
@@ -274,7 +278,7 @@ The B<-engine> option was deprecated in OpenSSL 3.0.
 
 =head1 COPYRIGHT
 
-Copyright 2000-2020 The OpenSSL Project Authors. All Rights Reserved.
+Copyright 2000-2021 The OpenSSL Project Authors. All Rights Reserved.
 
 Licensed under the Apache License 2.0 (the "License").  You may not use
 this file except in compliance with the License.  You can obtain a copy

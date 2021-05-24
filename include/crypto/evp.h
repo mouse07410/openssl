@@ -58,21 +58,37 @@ struct evp_pkey_ctx_st {
 
         struct {
             EVP_KEYEXCH *exchange;
-            void *exchprovctx;
+            /*
+             * Opaque ctx returned from a providers exchange algorithm
+             * implementation OSSL_FUNC_keyexch_newctx()
+             */
+            void *algctx;
         } kex;
 
         struct {
             EVP_SIGNATURE *signature;
-            void *sigprovctx;
+            /*
+             * Opaque ctx returned from a providers signature algorithm
+             * implementation OSSL_FUNC_signature_newctx()
+             */
+            void *algctx;
         } sig;
 
         struct {
             EVP_ASYM_CIPHER *cipher;
-            void *ciphprovctx;
+            /*
+             * Opaque ctx returned from a providers asymmetric cipher algorithm
+             * implementation OSSL_FUNC_asym_cipher_newctx()
+             */
+            void *algctx;
         } ciph;
         struct {
             EVP_KEM *kem;
-            void *kemprovctx;
+            /*
+             * Opaque ctx returned from a providers KEM algorithm
+             * implementation OSSL_FUNC_kem_newctx()
+             */
+            void *algctx;
         } encap;
     } op;
 
@@ -886,7 +902,8 @@ int evp_pkey_ctx_use_cached_data(EVP_PKEY_CTX *ctx);
 
 int evp_method_store_flush(OSSL_LIB_CTX *libctx);
 int evp_set_default_properties_int(OSSL_LIB_CTX *libctx, const char *propq,
-                                   int loadconfig);
+                                   int loadconfig, int mirrored);
+char *evp_get_global_properties_str(OSSL_LIB_CTX *libctx, int loadconfig);
 
 void evp_md_ctx_clear_digest(EVP_MD_CTX *ctx, int force);
 

@@ -316,6 +316,9 @@ typedef struct options_st {
     int valtype;
     const char *helpstr;
 } OPTIONS;
+/* Special retval values: */
+#define OPT_PARAM 0 /* same as OPT_EOF usually defined in apps */
+#define OPT_DUP -2 /* marks duplicate occurrence of option in help output */
 
 /*
  * A string/int pairing; widely use for option value lookup, hence the
