@@ -1191,7 +1191,7 @@ int tls_construct_client_hello(SSL *s, WPACKET *pkt)
             session_id = s->tmp_session_id;
             if (s->hello_retry_request == SSL_HRR_NONE
                     && RAND_bytes_ex(s->ctx->libctx, s->tmp_session_id,
-                                     sess_id_len) <= 0) {
+                                     sess_id_len, 0) <= 0) {
                 SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
                 return 0;
             }
@@ -2083,7 +2083,8 @@ static int tls_process_ske_dhe(SSL *s, PACKET *pkt, EVP_PKEY **pkey)
         goto err;
     }
 
-    if (!ssl_security(s, SSL_SECOP_TMP_DH, EVP_PKEY_security_bits(peer_tmp),
+    if (!ssl_security(s, SSL_SECOP_TMP_DH,
+                      EVP_PKEY_get_security_bits(peer_tmp),
                       0, peer_tmp)) {
         SSLfatal(s, SSL_AD_HANDSHAKE_FAILURE, SSL_R_DH_KEY_TOO_SMALL);
         goto err;
@@ -2258,7 +2259,7 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
         }
         if (SSL_USE_SIGALGS(s))
             OSSL_TRACE1(TLS, "USING TLSv1.2 HASH %s\n",
-                        md == NULL ? "n/a" : EVP_MD_name(md));
+                        md == NULL ? "n/a" : EVP_MD_get0_name(md));
 
         if (!PACKET_get_length_prefixed_2(pkt, &signature)
             || PACKET_remaining(pkt) != 0) {
@@ -2273,7 +2274,7 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
         }
 
         if (EVP_DigestVerifyInit_ex(md_ctx, &pctx,
-                                    md == NULL ? NULL : EVP_MD_name(md),
+                                    md == NULL ? NULL : EVP_MD_get0_name(md),
                                     s->ctx->libctx, s->ctx->propq, pkey,
                                     NULL) <= 0) {
             SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_EVP_LIB);
@@ -2589,7 +2590,7 @@ MSG_PROCESS_RETURN tls_process_new_session_ticket(SSL *s, PACKET *pkt)
     /* This is a standalone message in TLSv1.3, so there is no more to read */
     if (SSL_IS_TLS13(s)) {
         const EVP_MD *md = ssl_handshake_md(s);
-        int hashleni = EVP_MD_size(md);
+        int hashleni = EVP_MD_get_size(md);
         size_t hashlen;
         static const unsigned char nonce_label[] = "resumption";
 
@@ -2853,7 +2854,7 @@ static int tls_construct_cke_rsa(SSL *s, WPACKET *pkt)
     pms[0] = s->client_version >> 8;
     pms[1] = s->client_version & 0xff;
     /* TODO(size_t): Convert this function */
-    if (RAND_bytes_ex(s->ctx->libctx, pms + 2, (int)(pmslen - 2)) <= 0) {
+    if (RAND_bytes_ex(s->ctx->libctx, pms + 2, pmslen - 2, 0) <= 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_MALLOC_FAILURE);
         goto err;
     }
@@ -2942,7 +2943,7 @@ static int tls_construct_cke_dhe(SSL *s, WPACKET *pkt)
      * stack, we need to zero pad the DHE pub key to the same length
      * as the prime.
      */
-    prime_len = EVP_PKEY_size(ckey);
+    prime_len = EVP_PKEY_get_size(ckey);
     pad_len = prime_len - encoded_pub_len;
     if (pad_len > 0) {
         if (!WPACKET_sub_allocate_bytes_u16(pkt, pad_len, &keybytes)) {
@@ -3060,7 +3061,7 @@ static int tls_construct_cke_gost(SSL *s, WPACKET *pkt)
         /* Generate session key
          * TODO(size_t): Convert this function
          */
-        || RAND_bytes_ex(s->ctx->libctx, pms, (int)pmslen) <= 0) {
+        || RAND_bytes_ex(s->ctx->libctx, pms, pmslen, 0) <= 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         goto err;
     };
@@ -3185,7 +3186,7 @@ static int tls_construct_cke_gost18(SSL *s, WPACKET *pkt)
         goto err;
     }
 
-    if (RAND_bytes_ex(s->ctx->libctx, pms, (int)pmslen) <= 0) {
+    if (RAND_bytes_ex(s->ctx->libctx, pms, pmslen, 0) <= 0) {
         SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
         goto err;
     }

@@ -133,6 +133,7 @@ crypto/dsa/dsa_local.h
 crypto/dsa/dsa_ossl.c
 crypto/dsa/dsa_sign.c
 crypto/dsa/dsa_vrf.c
+crypto/ec/asm/ecp_nistp521-ppc64.pl
 crypto/ec/asm/ecp_nistz256-armv4.pl
 crypto/ec/asm/ecp_nistz256-armv8.pl
 crypto/ec/asm/ecp_nistz256-ppc64.pl
@@ -501,8 +502,6 @@ providers/common/der/der_rsa.h.in
 providers/common/der/der_rsa_gen.c.in
 providers/common/der/der_rsa_key.c
 providers/common/der/der_rsa_sig.c
-providers/common/der/der_sm2.h.in
-providers/common/der/der_sm2_gen.c.in
 providers/common/der/der_wrap.h.in
 providers/common/der/der_wrap_gen.c.in
 providers/common/digest_to_nid.c

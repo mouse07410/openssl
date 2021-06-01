@@ -108,8 +108,8 @@ static int decoder_construct_pkey(OSSL_DECODER_INSTANCE *decoder_inst,
     if (keymgmt != NULL) {
         EVP_PKEY *pkey = NULL;
         void *keydata = NULL;
-        const OSSL_PROVIDER *keymgmt_prov = EVP_KEYMGMT_provider(keymgmt);
-        const OSSL_PROVIDER *decoder_prov = OSSL_DECODER_provider(decoder);
+        const OSSL_PROVIDER *keymgmt_prov = EVP_KEYMGMT_get0_provider(keymgmt);
+        const OSSL_PROVIDER *decoder_prov = OSSL_DECODER_get0_provider(decoder);
 
         /*
          * If the EVP_KEYMGMT and the OSSL_DECODER are from the
@@ -226,7 +226,7 @@ static void collect_decoder(OSSL_DECODER *decoder, void *arg)
 {
     struct collect_decoder_data_st *data = arg;
     size_t i, end_i;
-    const OSSL_PROVIDER *prov = OSSL_DECODER_provider(decoder);
+    const OSSL_PROVIDER *prov = OSSL_DECODER_get0_provider(decoder);
     void *provctx = OSSL_PROVIDER_get0_provider_ctx(prov);
 
     if (data->error_occurred)
@@ -294,6 +294,12 @@ int ossl_decoder_ctx_setup_for_pkey(OSSL_DECODER_CTX *ctx,
     STACK_OF(EVP_KEYMGMT) *keymgmts = NULL;
     STACK_OF(OPENSSL_CSTRING) *names = NULL;
     int ok = 0;
+    int isecoid = 0;
+
+    if (keytype != NULL
+            && (strcmp(keytype, "id-ecPublicKey") == 0
+                || strcmp(keytype, "1.2.840.10045.2.1") == 0))
+        isecoid = 1;
 
     if ((process_data = OPENSSL_zalloc(sizeof(*process_data))) == NULL
         || (propquery != NULL
@@ -317,8 +323,13 @@ int ossl_decoder_ctx_setup_for_pkey(OSSL_DECODER_CTX *ctx,
         /*
          * If the key type is given by the caller, we only use the matching
          * KEYMGMTs, otherwise we use them all.
+         * We have to special case SM2 here because of its abuse of the EC OID.
+         * The EC OID can be used to identify an EC key or an SM2 key - so if
+         * we have seen that OID we try both key types
          */
-        if (keytype == NULL || EVP_KEYMGMT_is_a(keymgmt, keytype)) {
+        if (keytype == NULL
+                || EVP_KEYMGMT_is_a(keymgmt, keytype)
+                || (isecoid && EVP_KEYMGMT_is_a(keymgmt, "SM2"))) {
             if (!EVP_KEYMGMT_names_do_all(keymgmt, collect_name, names)) {
                 ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_INTERNAL_ERROR);
                 goto err;

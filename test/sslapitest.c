@@ -1294,7 +1294,7 @@ static int test_ktls_sendfile(int tls_version, const char *cipher)
         || !TEST_true(BIO_get_ktls_send(serverssl->wbio)))
         goto end;
 
-    if (!TEST_true(RAND_bytes_ex(libctx, buf, SENDFILE_SZ)))
+    if (!TEST_true(RAND_bytes_ex(libctx, buf, SENDFILE_SZ, 0)))
         goto end;
 
     out = BIO_new_file(tmpfilename, "wb");
@@ -8850,7 +8850,7 @@ static int test_dh_auto(int idx)
 
     if (!TEST_int_gt(SSL_get_tmp_key(serverssl, &tmpkey), 0))
         goto end;
-    if (!TEST_size_t_eq(EVP_PKEY_bits(tmpkey), expdhsize))
+    if (!TEST_size_t_eq(EVP_PKEY_get_bits(tmpkey), expdhsize))
         goto end;
 
     if (!TEST_true(create_ssl_connection(serverssl, clientssl, SSL_ERROR_NONE)))

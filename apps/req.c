@@ -1522,6 +1522,12 @@ static EVP_PKEY_CTX *set_keygen_ctx(const char *gstr,
 
         if (strncmp(gstr, "param", len) == 0) {
             expect_paramfile = 1;
+            if (p == NULL) {
+                BIO_printf(bio_err,
+                           "Parameter file requested but no path given: %s\n",
+                           gstr);
+                return NULL;
+            }
         } else {
             keytype = gstr;
             keytypelen = len;
@@ -1569,6 +1575,11 @@ static EVP_PKEY_CTX *set_keygen_ctx(const char *gstr,
         }
         if (keytype == NULL) {
             keytype = EVP_PKEY_get0_type_name(param);
+            if (keytype == NULL) {
+                EVP_PKEY_free(param);
+                BIO_puts(bio_err, "Unable to determine key type\n");
+                return NULL;
+            }
         }
     }
 
@@ -1590,7 +1601,7 @@ static EVP_PKEY_CTX *set_keygen_ctx(const char *gstr,
         else
             gctx = EVP_PKEY_CTX_new_from_pkey(app_get0_libctx(),
                                               param, app_get0_propq());
-        *pkeylen = EVP_PKEY_bits(param);
+        *pkeylen = EVP_PKEY_get_bits(param);
         EVP_PKEY_free(param);
     } else {
         if (keygen_engine != NULL) {
