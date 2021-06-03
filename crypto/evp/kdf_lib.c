@@ -83,7 +83,7 @@ EVP_KDF_CTX *EVP_KDF_CTX_dup(const EVP_KDF_CTX *src)
     return dst;
 }
 
-int EVP_KDF_get_number(const EVP_KDF *kdf)
+int evp_kdf_get_number(const EVP_KDF *kdf)
 {
     return kdf->name_id;
 }
@@ -125,7 +125,7 @@ void EVP_KDF_CTX_reset(EVP_KDF_CTX *ctx)
 size_t EVP_KDF_CTX_get_kdf_size(EVP_KDF_CTX *ctx)
 {
     OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-    size_t s;
+    size_t s = 0;
 
     if (ctx == NULL)
         return 0;

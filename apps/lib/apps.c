@@ -404,14 +404,18 @@ CONF *app_load_config_verbose(const char *filename, int verbose)
 
 CONF *app_load_config_internal(const char *filename, int quiet)
 {
-    BIO *in = NULL; /* leads to empty config in case filename == "" */
+    BIO *in;
     CONF *conf;
 
-    if (*filename != '\0'
-        && (in = bio_open_default_(filename, 'r', FORMAT_TEXT, quiet)) == NULL)
-        return NULL;
-    conf = app_load_config_bio(in, filename);
-    BIO_free(in);
+    if (filename == NULL || *filename != '\0') {
+        if ((in = bio_open_default_(filename, 'r', FORMAT_TEXT, quiet)) == NULL)
+            return NULL;
+        conf = app_load_config_bio(in, filename);
+        BIO_free(in);
+    } else {
+        /* Return empty config if filename is empty string. */
+        conf = NCONF_new_ex(app_libctx, NULL);
+    }
     return conf;
 }
 
@@ -885,7 +889,6 @@ int load_key_certs_crls(const char *uri, int format, int maybe_stdin,
     const char *input_type;
     OSSL_PARAM itp[2];
     const OSSL_PARAM *params = NULL;
-    /* TODO make use of the engine reference 'eng' when loading pkeys */
 
     if (ppkey != NULL) {
         *ppkey = NULL;
@@ -2258,8 +2261,6 @@ int do_X509_sign(X509 *cert, EVP_PKEY *pkey, const char *md,
         if (!adapt_keyid_ext(cert, ext_ctx, "authorityKeyIdentifier",
                              "keyid, issuer", !self_sign))
             goto end;
-
-        /* TODO any further measures for ensuring default RFC 5280 compliance */
     }
 
     if (mctx != NULL && do_sign_init(mctx, pkey, md, sigopts) > 0)

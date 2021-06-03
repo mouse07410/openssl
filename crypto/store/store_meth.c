@@ -7,8 +7,8 @@
  * https://www.openssl.org/source/license.html
  */
 
-#include <openssl/store.h>
 #include <openssl/crypto.h>
+#include "crypto/store.h"
 #include "internal/core.h"
 #include "internal/namemap.h"
 #include "internal/property.h"
@@ -393,7 +393,7 @@ const char *OSSL_STORE_LOADER_get0_properties(const OSSL_STORE_LOADER *loader)
     return loader->propdef;
 }
 
-int OSSL_STORE_LOADER_get_number(const OSSL_STORE_LOADER *loader)
+int ossl_store_loader_get_number(const OSSL_STORE_LOADER *loader)
 {
     if (!ossl_assert(loader != NULL)) {
         ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_PASSED_NULL_PARAMETER);
