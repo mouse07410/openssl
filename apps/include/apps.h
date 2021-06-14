@@ -100,6 +100,7 @@ void print_bignum_var(BIO *, const BIGNUM *, const char*,
 void print_array(BIO *, const char *, int, const unsigned char *);
 int set_nameopt(const char *arg);
 unsigned long get_nameopt(void);
+int set_dateopt(unsigned long *dateopt, const char *arg);
 int set_cert_ex(unsigned long *flags, const char *arg);
 int set_name_ex(unsigned long *flags, const char *arg);
 int set_ext_copy(int *copy_type, const char *arg);
@@ -121,6 +122,9 @@ EVP_PKEY *load_pubkey(const char *uri, int format, int maybe_stdin,
                       const char *pass, ENGINE *e, const char *desc);
 EVP_PKEY *load_keyparams(const char *uri, int format, int maybe_stdin,
                          const char *keytype, const char *desc);
+EVP_PKEY *load_keyparams_suppress(const char *uri, int format, int maybe_stdin,
+                                  const char *keytype, const char *desc,
+                                  int suppress_decode_errors);
 char *next_item(char *opt); /* in list separated by comma and/or space */
 int load_cert_certs(const char *uri,
                     X509 **pcert, STACK_OF(X509) **pcerts,
