@@ -67,8 +67,8 @@ DECODER_w_structure("X25519", der, SubjectPublicKeyInfo, x25519, yes),
 DECODER_w_structure("X448", der, PrivateKeyInfo, x448, yes),
 DECODER_w_structure("X448", der, SubjectPublicKeyInfo, x448, yes),
 # ifndef OPENSSL_NO_SM2
-DECODER_w_structure("SM2", der, PrivateKeyInfo, sm2, yes),
-DECODER_w_structure("SM2", der, SubjectPublicKeyInfo, sm2, yes),
+DECODER_w_structure("SM2", der, PrivateKeyInfo, sm2, no),
+DECODER_w_structure("SM2", der, SubjectPublicKeyInfo, sm2, no),
 # endif
 #endif
 DECODER_w_structure("RSA", der, PrivateKeyInfo, rsa, yes),
@@ -80,6 +80,11 @@ DECODER_w_structure("RSA-PSS", der, SubjectPublicKeyInfo, rsapss, yes),
 DECODER("RSA", msblob, rsa, yes),
 DECODER("RSA", pvk, rsa, yes),
 
+/*
+ * A decoder that takes a SubjectPublicKeyInfo and figures out the types of key
+ * that it contains. The output is the same SubjectPublicKeyInfo
+ */
+DECODER_w_structure("DER", der, SubjectPublicKeyInfo, der, yes),
 DECODER("DER", pem, der, yes),
 /*
  * A decoder that recognises PKCS#8 EncryptedPrivateKeyInfo structure
